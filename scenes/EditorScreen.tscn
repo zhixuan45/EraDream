@@ -1,0 +1,65 @@
+[gd_scene load_steps=2 format=3 uid="uid://editor_screen_01"]
+
+[ext_resource type="Script" path="res://scripts/Editor/EditorScreen.cs" id="1_editor"]
+
+[node name="EditorScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_editor")
+
+[node name="HSplitContainer" type="HSplitContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+split_offset = 300
+
+[node name="SidePanel" type="PanelContainer" parent="HSplitContainer"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HSplitContainer/SidePanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="HSplitContainer/SidePanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "KEY_EDITOR_TITLE"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="HSplitContainer/SidePanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="BtnAddNode" type="Button" parent="HSplitContainer/SidePanel/VBoxContainer"]
+layout_mode = 2
+text = "KEY_ADD_DIALOGUE_NODE"
+
+[node name="BtnSave" type="Button" parent="HSplitContainer/SidePanel/VBoxContainer"]
+layout_mode = 2
+text = "KEY_SAVE_PROJECT"
+
+[node name="BtnLoad" type="Button" parent="HSplitContainer/SidePanel/VBoxContainer"]
+layout_mode = 2
+text = "KEY_LOAD_PROJECT"
+
+[node name="BtnReturn" type="Button" parent="HSplitContainer/SidePanel/VBoxContainer"]
+layout_mode = 2
+text = "KEY_RETURN_TO_MENU"
+
+[node name="GraphEdit" type="GraphEdit" parent="HSplitContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+show_zoom_label = true
+minimap_enabled = true
+snapping_enabled = true
+snapping_distance = 20
+right_disconnects = true
+connection_lines_curvature = 0.5
+connection_lines_thickness = 2.0

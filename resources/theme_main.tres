@@ -1,0 +1,19 @@
+[gd_resource type="Theme" load_steps=2 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rounded"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.2, 0.2, 0.2, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[resource]
+Button/styles/disabled = SubResource("StyleBoxFlat_rounded")
+Button/styles/focus = SubResource("StyleBoxFlat_rounded")
+Button/styles/hover = SubResource("StyleBoxFlat_rounded")
+Button/styles/normal = SubResource("StyleBoxFlat_rounded")
+Button/styles/pressed = SubResource("StyleBoxFlat_rounded")

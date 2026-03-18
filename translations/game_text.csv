@@ -1,0 +1,36 @@
+id,zh,en
+KEY_START_GAME,开始游戏,Start Game
+KEY_LOAD_GAME,读取存档,Load Game
+KEY_SETTINGS,设置,Settings
+KEY_STORY_MODE,剧情模式,Story Mode
+KEY_EDITOR,剧情编辑器 (UGC),Story Editor (UGC)
+KEY_EXIT,退出,Exit
+KEY_LOADING,加载中...,Loading...
+KEY_GAME_TITLE,赛马娘 剧情存档 (Uma Archive),Uma Archive
+KEY_TAP_TO_START,点击屏幕继续,Tap to Start
+KEY_EDITOR_TITLE,剧情编辑器,Story Editor
+KEY_ADD_DIALOGUE_NODE,添加对话节点,Add Dialogue Node
+KEY_ADD_NARRATIVE_NODE,添加叙述节点,Add Narrative Node
+KEY_ADD_CHOICE_NODE,添加分支选项,Add Choice Node
+KEY_ADD_BRANCH_NODE,添加条件分支,Add Condition Branch
+KEY_ADD_AUDIO_NODE,添加音频/背景音乐,Add Audio/BGM Node
+KEY_SAVE_PROJECT,保存项目,Save Project
+KEY_LOAD_PROJECT,读取项目,Load Project
+KEY_RETURN_TO_MENU,返回菜单,Return to Menu
+KEY_NODE_SETTINGS,设置,Settings
+KEY_NODE_DELETE,删除,Delete
+KEY_NODE_ACTOR,角色,Actor
+KEY_NODE_NARRATIVE,叙述,Narrative
+KEY_NODE_AUDIO,音频/背景音乐,Audio/BGM
+KEY_NODE_CHOICE,选项,Choice
+KEY_NODE_BRANCH,分支,Branch
+KEY_PLACEHOLDER_DIALOGUE,对话内容...,Dialogue...
+KEY_PLACEHOLDER_NARRATIVE,叙述文本...,Narrative text...
+KEY_LABEL_EMOTION,表情：,Emotion:
+KEY_LABEL_VOICE_SYNC,语音同步：,Voice Sync:
+KEY_LABEL_BG_ID,背景 ID：,Background ID:
+KEY_LABEL_VOLUME,音量：,Vol:
+KEY_BTN_PLAY_PREVIEW,▶ 播放预览,▶ Play Preview
+KEY_CHAR_PROTAGONIST,主角,Protagonist
+KEY_CHAR_SIDEKICK,伙伴,Sidekick
+KEY_CHAR_NARRATOR,旁白,Narrator
