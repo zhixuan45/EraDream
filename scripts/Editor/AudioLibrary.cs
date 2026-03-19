@@ -1,43 +1,39 @@
 using Godot;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 
 public static class AudioLibrary
 {
-    private static string _audioPath = "res://audio/";
-
     /// <summary>
-    /// 获取所有可用的音频文件列表
+    /// 获取所有可用的音频文件列表 (项目目录下)
     /// </summary>
     public static List<string> GetAudioFileList()
     {
         var files = new List<string>();
-        if (!DirAccess.DirExistsAbsolute(_audioPath))
-        {
-            DirAccess.MakeDirAbsolute(_audioPath); // 自动创建目录
+        string path = ProjectManager.IsProjectOpened ? ProjectManager.AudioDir : "res://audio/";
+        
+        // 关键修复：将 Godot 虚拟路径转换为系统绝对路径
+        string absolutePath = ProjectSettings.GlobalizePath(path);
+
+        if (!Directory.Exists(absolutePath)) {
+            // 如果是 res:// 路径，在运行时通常是只读的，不建议创建目录
+            if (!path.StartsWith("res://")) {
+                Directory.CreateDirectory(absolutePath);
+            }
             return files;
         }
 
-        using var dir = DirAccess.Open(_audioPath);
-        if (dir != null)
+        foreach (string file in Directory.GetFiles(absolutePath))
         {
-            dir.ListDirBegin();
-            string fileName = dir.GetNext();
-            while (fileName != "")
+            string ext = Path.GetExtension(file).ToLower();
+            if (ext == ".ogg" || ext == ".mp3" || ext == ".wav")
             {
-                if (!dir.CurrentIsDir() && (fileName.EndsWith(".ogg") || fileName.EndsWith(".mp3") || fileName.EndsWith(".wav")))
-                {
-                    files.Add(fileName);
-                }
-                fileName = dir.GetNext();
+                files.Add(Path.GetFileName(file));
             }
         }
         return files;
     }
 
-    /// <summary>
-    /// 统一的下拉框填充逻辑
-    /// </summary>
     public static void PopulateOptionButton(OptionButton btn, string currentSelection)
     {
         btn.Clear();
@@ -45,7 +41,7 @@ public static class AudioLibrary
         
         if (files.Count == 0)
         {
-            btn.AddItem("⚠️ No Audio Files Found! (Please put files in res://audio/)");
+            btn.AddItem("⚠️ No Audio Files Found!");
             btn.Disabled = true;
             return;
         }

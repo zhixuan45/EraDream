@@ -21,7 +21,10 @@ public partial class StorySelectorScreen : Control
         
         // 绑定事件
         _searchEdit.TextChanged += OnSearchTextChanged;
-        GetNode<Button>("MarginContainer/VBoxContainer/Footer/BtnBack").Pressed += () => GetTree().ChangeSceneToFile("res://scenes/MainMenuScreen.tscn");
+        GetNode<Button>("MarginContainer/VBoxContainer/Footer/BtnBack").Pressed += () => {
+            LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        };
         _btnPlay.Pressed += LaunchStory;
 
         // 确保目录存在
@@ -102,6 +105,7 @@ public partial class StorySelectorScreen : Control
         
         // 传递路径给引擎并跳转
         StoryPlayerEngine.CurrentStoryPath = _selectedStoryPath;
-        GetTree().ChangeSceneToFile("res://scenes/StoryPlayerScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/StoryPlayerScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }
 }

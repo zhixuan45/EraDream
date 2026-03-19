@@ -53,12 +53,14 @@ public partial class MainMenuScreen : Control
 
     private void OnStoryPressed()
     {
-        GetTree().ChangeSceneToFile("res://scenes/StorySelectorScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/StorySelectorScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }
 
     private void OnEditorPressed()
     {
-        GetTree().ChangeSceneToFile("res://scenes/EditorScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/EditorScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }
 
     private void OnStartPressed()

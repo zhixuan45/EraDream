@@ -14,19 +14,28 @@ public class DialogueNodeData : BaseNodeData
 
 	public override GraphNode CreateGraphNode(GraphEdit host)
 	{
-		GraphNode node = new GraphNode { Title = "KEY_NODE_ACTOR", Name = Id };
+		GraphNode node = new GraphNode { Title = Tr("KEY_NODE_ACTOR"), Name = Id };
 		SetupBaseNodeUI(node);
 		node.SetSlot(0, true, 0, new Color(1,1,1), true, 0, new Color(1,1,1));
 		
 		OptionButton charSelector = new OptionButton();
-		charSelector.AddItem("KEY_CHAR_PROTAGONIST");
-		charSelector.AddItem("KEY_CHAR_SIDEKICK");
-		charSelector.AddItem("KEY_CHAR_NARRATOR");
-		charSelector.Selected = CharacterId;
+		if (CharacterManager.Characters.Count == 0)
+		{
+			charSelector.AddItem(Tr("KEY_CHAR_NARRATOR"));
+		}
+		else
+		{
+			foreach (var c in CharacterManager.Characters)
+			{
+				charSelector.AddItem(Tr(c.Name), c.Id);
+				if (c.Id == CharacterId)
+					charSelector.Selected = charSelector.GetItemCount() - 1;
+			}
+		}
 		node.AddChild(charSelector);
 		
 		TextEdit contentInput = new TextEdit { 
-			PlaceholderText = "KEY_PLACEHOLDER_DIALOGUE", 
+			PlaceholderText = Tr("KEY_PLACEHOLDER_DIALOGUE"), 
 			CustomMinimumSize = new Vector2(220, 60), 
 			Text = Content 
 		};
@@ -34,13 +43,13 @@ public class DialogueNodeData : BaseNodeData
 
 		_detailPanel = new VBoxContainer { Visible = IsExpanded };
 		
-		Label emotionLabel = new Label { Text = "KEY_LABEL_EMOTION" };
+		Label emotionLabel = new Label { Text = Tr("KEY_LABEL_EMOTION") };
 		emotionLabel.AddThemeFontSizeOverride("font_size", 12);
 		_detailPanel.AddChild(emotionLabel);
 		_detailPanel.AddChild(new LineEdit { Text = Emotion });
 
 		_detailPanel.AddChild(new HSeparator());
-		Label voiceLabel = new Label { Text = "KEY_LABEL_VOICE_SYNC" };
+		Label voiceLabel = new Label { Text = Tr("KEY_LABEL_VOICE_SYNC") };
 		voiceLabel.AddThemeFontSizeOverride("font_size", 12);
 		_detailPanel.AddChild(voiceLabel);
 		
@@ -71,7 +80,7 @@ public class DialogueNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
-		CharacterId = view.GetChild<OptionButton>(1).Selected;
+		CharacterId = view.GetChild<OptionButton>(1).GetSelectedId();
 		Content = view.GetChild<TextEdit>(2).Text;
 		Emotion = _detailPanel.GetChild<LineEdit>(1).Text;
 		

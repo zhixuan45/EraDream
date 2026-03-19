@@ -14,7 +14,7 @@ public class ChoiceNodeData : BaseNodeData
 
 	public override GraphNode CreateGraphNode(GraphEdit host)
 	{
-		GraphNode node = new GraphNode { Title = "选项分支", Name = Id };
+		GraphNode node = new GraphNode { Title = Tr("KEY_NODE_CHOICE"), Name = Id };
 		SetupBaseNodeUI(node);
 		
 		// Slot 0 (Header): 关闭所有端口，恢复整洁
@@ -27,7 +27,7 @@ public class ChoiceNodeData : BaseNodeData
 			AddOptionSlot(node, i, Options[i]);
 		}
 
-		Button addOptionBtn = new Button { Text = "+ 添加新选项", Flat = true };
+		Button addOptionBtn = new Button { Text = Tr("KEY_LABEL_ADD_OPTION"), Flat = true };
 		addOptionBtn.Pressed += () => {
 			var newItem = new ChoiceItem();
 			Options.Add(newItem);
@@ -46,7 +46,7 @@ public class ChoiceNodeData : BaseNodeData
 		LineEdit input = new LineEdit { 
 			Text = item.Text, 
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-			PlaceholderText = "请输入选项文字..."
+			PlaceholderText = Tr("KEY_PLACEHOLDER_CHOICE")
 		};
 		box.AddChild(input);
 

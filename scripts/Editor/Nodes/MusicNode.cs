@@ -10,23 +10,17 @@ public class MusicNodeData : BaseNodeData
 
 	public override GraphNode CreateGraphNode(GraphEdit host)
 	{
-		GraphNode node = new GraphNode { Title = "KEY_NODE_AUDIO", Name = Id };
+		GraphNode node = new GraphNode { Title = Tr("KEY_NODE_AUDIO"), Name = Id };
 		SetupBaseNodeUI(node);
 		node.SetSlot(0, true, 0, new Color(0.4f, 0.7f, 1.0f), true, 0, new Color(0.4f, 0.7f, 1.0f));
-		
-		// 音乐选取
 		_musicSelector = new OptionButton();
 		AudioLibrary.PopulateOptionButton(_musicSelector, AudioFile);
 		node.AddChild(_musicSelector);
-		
-		// 播放预览按钮
-		Button playBtn = new Button { Text = "KEY_BTN_PLAY_PREVIEW", Flat = false };
+		Button playBtn = new Button { Text = Tr("KEY_BTN_PLAY_PREVIEW"), Flat = false };
 		playBtn.Pressed += () => PlayPreview(_musicSelector);
 		node.AddChild(playBtn);
-		
-		// 音量
 		HBoxContainer volBox = new HBoxContainer();
-		Label volLabel = new Label { Text = "KEY_LABEL_VOLUME" };
+		Label volLabel = new Label { Text = Tr("KEY_LABEL_VOLUME") };
 		volLabel.AddThemeFontSizeOverride("font_size", 12);
 		volBox.AddChild(volLabel);
 		HSlider volumeSlider = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05f, Value = Volume, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };

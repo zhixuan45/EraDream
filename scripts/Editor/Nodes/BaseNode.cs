@@ -10,50 +10,42 @@ namespace UmaArchive.Editor.Nodes
 	[JsonDerivedType(typeof(MusicNodeData), typeDiscriminator: "music")]
 	[JsonDerivedType(typeof(ChoiceNodeData), typeDiscriminator: "choice")]
 	[JsonDerivedType(typeof(BranchNodeData), typeDiscriminator: "branch")]
+	[JsonDerivedType(typeof(StartNodeData), typeDiscriminator: "start")]
+	[JsonDerivedType(typeof(EndNodeData), typeDiscriminator: "end")]
+	[JsonDerivedType(typeof(BackgroundNodeData), typeDiscriminator: "background")]
+	[JsonDerivedType(typeof(SpriteNodeData), typeDiscriminator: "sprite")]
 	public abstract class BaseNodeData
 	{
 		public string Id { get; set; } = Guid.NewGuid().ToString();
 		public string NextNodeId { get; set; } = "";
 		public bool IsExpanded { get; set; } = false;
+		public float PosX { get; set; } = 0;
+		public float PosY { get; set; } = 0;
 
-		// 核心回调：用于通知管理器删除此节点
 		[JsonIgnore]
-		public Action OnDeleteRequested;
+		public Action OnDeleteRequested { get; set; }
 
 		public abstract GraphNode CreateGraphNode(GraphEdit host);
 		public abstract void SyncFromView(GraphNode view);
 
+		// 便捷翻译方法，解决普通类无法调用 Tr 的问题
+		protected string Tr(string key) => TranslationServer.Translate(key);
+
 		protected void SetupBaseNodeUI(GraphNode node)
 		{
-			// 创建功能头，设置固定高度确保可见
-			HBoxContainer header = new HBoxContainer {
-				CustomMinimumSize = new Vector2(0, 32),
-				SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-			};
+			node.Resizable = true;
+			node.CustomMinimumSize = new Vector2(200, 100);
 			
-			// 详细信息按钮 (左侧)
-			Button detailBtn = new Button { 
-				Text = " ≡ ", 
-				Flat = true,
-				TooltipText = "KEY_NODE_SETTINGS"
-			};
+			HBoxContainer header = new HBoxContainer();
+			Button detailBtn = new Button { Text = "≡", Flat = true };
+			Button closeBtn = new Button { Text = "×", Flat = true };
+			
 			header.AddChild(detailBtn);
-			
-			Control spacer = new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-			header.AddChild(spacer);
-
-			// 删除按钮 (右侧)
-			Button closeBtn = new Button {
-				Text = " × ",
-				Flat = true,
-				TooltipText = "KEY_NODE_DELETE"
-			};
+			header.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
 			header.AddChild(closeBtn);
-			
 			node.AddChild(header);
 			
 			detailBtn.Pressed += () => OnDetailPressed(node);
-			// 直接执行回调，绕过信号系统
 			closeBtn.Pressed += () => OnDeleteRequested?.Invoke();
 		}
 

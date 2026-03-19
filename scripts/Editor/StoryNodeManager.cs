@@ -1,56 +1,66 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.IO;
+using System.Linq;
 using UmaArchive.Editor.Nodes;
 
 public class StoryNodeManager
 {
     private static string _savePath = "user://story_project.json";
 
-    // 用于生成逻辑视图中心坐标
-    public static Vector2 GetViewCenter(GraphEdit graphEdit)
+    public static void SaveProject(GraphEdit graph, List<BaseNodeData> nodes, string path)
     {
-        Vector2 viewportCenter = graphEdit.Size / 2;
-        return (graphEdit.ScrollOffset + viewportCenter) / graphEdit.Zoom;
+        // 1. 同步连接和坐标
+        SyncConnectionsAndPositions(graph, nodes);
+
+        // 2. 序列化
+        string json = JsonSerializer.Serialize(nodes, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(path, json);
     }
 
-    // 保存所有数据到指定物理路径
-    public static void SaveProject(GraphEdit graphEdit, List<BaseNodeData> nodes, string absolutePath)
+    /// <summary>
+    /// 将 GraphEdit 视图中的实时连接和坐标数据同步到内存对象中
+    /// </summary>
+    public static void SyncConnectionsAndPositions(GraphEdit graph, List<BaseNodeData> nodes)
     {
-        foreach (Node child in graphEdit.GetChildren())
+        var connections = graph.GetConnectionList();
+        
+        foreach (var nodeData in nodes)
         {
-            if (child is GraphNode gNode)
+            // 同步坐标 (保留2位小数)
+            if (graph.HasNode(nodeData.Id))
             {
-                BaseNodeData data = nodes.Find(n => n.Id == gNode.Name);
-                if (data != null)
-                {
-                    data.SyncFromView(gNode);
-                    
-                    data.NextNodeId = ""; 
-                    foreach (var conn in graphEdit.GetConnectionList())
-                    {
-                        if (conn["from_node"].AsString() == gNode.Name)
-                        {
-                            data.NextNodeId = conn["to_node"].AsString();
-                            break; 
-                        }
-                    }
-                }
+                var viewNode = graph.GetNode<GraphNode>(nodeData.Id);
+                nodeData.PosX = (float)Math.Round(viewNode.PositionOffset.X, 2);
+                nodeData.PosY = (float)Math.Round(viewNode.PositionOffset.Y, 2);
+            }
+
+            // 同步单输出节点的 NextNodeId
+            if (!(nodeData is ChoiceNodeData) && !(nodeData is BranchNodeData))
+            {
+                var conn = connections.FirstOrDefault(c => (string)c["from_node"] == nodeData.Id);
+                nodeData.NextNodeId = conn != null ? (string)conn["to_node"] : "";
             }
         }
-
-        string json = JsonSerializer.Serialize(nodes, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(absolutePath, json);
-        GD.Print($"Project Saved to: {absolutePath}");
     }
 
-    // 从指定物理路径读取
     public static List<BaseNodeData> LoadProject(string absolutePath)
     {
         if (!File.Exists(absolutePath)) return new List<BaseNodeData>();
 
-        string json = File.ReadAllText(absolutePath);
-        return JsonSerializer.Deserialize<List<BaseNodeData>>(json);
+        try {
+            string json = File.ReadAllText(absolutePath);
+            var result = JsonSerializer.Deserialize<List<BaseNodeData>>(json);
+            return result ?? new List<BaseNodeData>();
+        } catch {
+            return new List<BaseNodeData>();
+        }
+    }
+
+    public static Vector2 GetViewCenter(GraphEdit graph)
+    {
+        return (graph.Size / 2 + graph.ScrollOffset) / graph.Zoom;
     }
 }

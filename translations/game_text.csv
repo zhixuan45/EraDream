@@ -31,6 +31,41 @@ KEY_LABEL_VOICE_SYNC,语音同步：,Voice Sync:
 KEY_LABEL_BG_ID,背景 ID：,Background ID:
 KEY_LABEL_VOLUME,音量：,Vol:
 KEY_BTN_PLAY_PREVIEW,▶ 播放预览,▶ Play Preview
-KEY_CHAR_PROTAGONIST,主角,Protagonist
-KEY_CHAR_SIDEKICK,伙伴,Sidekick
-KEY_CHAR_NARRATOR,旁白,Narrator
+KEY_NODE_ACTOR,角色对话,Character Dialogue
+KEY_NODE_SPRITE,立绘控制,Sprite Control
+KEY_NODE_BRANCH,条件分支,Condition Branch
+KEY_NODE_CHOICE,选项分支,Choice Branch
+KEY_NODE_AUDIO,音频控制,Audio Control
+KEY_NODE_BACKGROUND,背景控制,Background Control
+KEY_NODE_START,开始,Start
+KEY_NODE_END,结束,End
+KEY_LABEL_CHAR_SELECT,选择角色:,Select Character:
+KEY_LABEL_ACTION_TYPE,操作类型:,Action Type:
+KEY_LABEL_EXPRESSION,表情/差分:,Expression:
+KEY_LABEL_POSITION,位置:,Position:
+KEY_LABEL_SILHOUETTE,开启剪影,Silhouette
+KEY_ACTION_SHOW,显示立绘,Show
+KEY_ACTION_CHANGE,切换状态,Change
+KEY_ACTION_HIDE,隐藏立绘,Hide
+KEY_POS_LEFT,左,Left
+KEY_POS_CENTER,中,Center
+KEY_POS_RIGHT,右,Right
+KEY_LABEL_VAR_ID,变量 ID:,Var ID:
+KEY_LABEL_COMP_VALUE,对比值:,Comp Value:
+KEY_LABEL_TRUE,满足条件 (True),True
+KEY_LABEL_FALSE,不满足条件 (False),False
+KEY_LABEL_ADD_OPTION,+ 添加新选项,+ Add Option
+KEY_PLACEHOLDER_VAR_ID,变量 ID (如 gold_count),Var ID (e.g. gold_count)
+KEY_PLACEHOLDER_COMP_VALUE,对比值 (判定 >=),Value (Check >=)
+KEY_PLACEHOLDER_CHOICE,请输入选项文字...,Input option text...
+KEY_PLACEHOLDER_NARRATIVE,叙述文本...,Narrative text...
+KEY_LABEL_BG_SELECT,选择背景:,Select Background:
+KEY_LABEL_TRANSITION,过渡效果:,Transition:
+KEY_TRANS_FADE,渐变 (Fade),Fade
+KEY_TRANS_CUT,切场 (Cut),Cut
+KEY_TRANS_SLIDE,滑入 (Slide),Slide
+KEY_START_INFO,剧情起点,Story Start
+KEY_END_TITLE,返回标题,Back to Title
+KEY_END_NEXT,下一章节,Next Chapter
+KEY_END_CUSTOM,自定义场景,Custom Scene
+KEY_PLACEHOLDER_SCENE,res://scenes/...,res://scenes/...

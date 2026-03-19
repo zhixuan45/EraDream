@@ -33,7 +33,10 @@ public partial class LoadingScreen : Control
     private Label _loadingText;
     private List<BarrageRow> _rows = new List<BarrageRow>();
     private float _timer = 0f;
-    private const float LoadTime = 4f;
+    private const float LoadTime = 1.2f; // 缩短加载时间
+
+    // 静态变量，用于控制加载后的跳转目标
+    public static string TargetScene = "res://scenes/MainMenuScreen.tscn";
 
     private bool _isDarkMode = true;
 
@@ -51,10 +54,14 @@ public partial class LoadingScreen : Control
     };
 
     [Export]
-    public Shader TextShader = GD.Load<Shader>("res://Shaders/Text.gdshader");
+    public Shader TextShader;
 
     public override void _Ready()
     {
+        if (TextShader == null)
+        {
+            TextShader = ResourceLoader.Load<Shader>("res://Shaders/Text.gdshader");
+        }
         _bgContainer = GetNode<Control>("BackgroundContainer");
         _loadingText = GetNode<Label>("LoadingText");
         
@@ -206,7 +213,7 @@ public partial class LoadingScreen : Control
 
         if (_timer >= LoadTime)
         {
-            GetTree().ChangeSceneToFile("res://scenes/MainMenuScreen.tscn");
+            GetTree().ChangeSceneToFile(TargetScene);
         }
     }
 }
