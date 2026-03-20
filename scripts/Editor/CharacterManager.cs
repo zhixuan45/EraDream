@@ -2,6 +2,7 @@ using Godot;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using FileAccess = Godot.FileAccess;
 
 public class CharacterData
 {
@@ -18,13 +19,14 @@ public static class CharacterManager
 
     public static void LoadCharacters(string path)
     {
-        if (!File.Exists(path)) {
+        if (!FileAccess.FileExists(path)) {
             Characters = new List<CharacterData>();
             return;
         }
         
         try {
-            string json = File.ReadAllText(path);
+            using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+            string json = file.GetAsText();
             Characters = JsonSerializer.Deserialize<List<CharacterData>>(json) ?? new List<CharacterData>();
         } catch {
             Characters = new List<CharacterData>();

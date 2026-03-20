@@ -9,12 +9,19 @@ public class SpriteNodeData : BaseNodeData
 	public string Expression { get; set; } = "Neutral";
 	public string Position { get; set; } = "Center"; // Left, Center, Right
 	public bool IsSilhouette { get; set; } = false;
+	
+	// Visual Edit Properties
+	public float OffsetX { get; set; } = 0;
+	public float OffsetY { get; set; } = 0;
+	public float Scale { get; set; } = 1.0f;
+	public bool FlipH { get; set; } = false;
 
 	private OptionButton _charSelector;
 	private OptionButton _actionSelector;
 	private OptionButton _exprSelector;
 	private OptionButton _posSelector;
 	private CheckBox _silhouetteCheck;
+	private Button _btnVisualEdit;
 
 	public override GraphNode CreateGraphNode(GraphEdit host)
 	{
@@ -66,16 +73,24 @@ public class SpriteNodeData : BaseNodeData
 		_silhouetteCheck = new CheckBox { Text = Tr("KEY_LABEL_SILHOUETTE"), ButtonPressed = IsSilhouette };
 		container.AddChild(_silhouetteCheck);
 
+		// 可视化编辑按钮
+		_btnVisualEdit = new Button { Text = "可视化编辑", CustomMinimumSize = new Vector2(0, 30) };
+		_btnVisualEdit.Pressed += () => OnVisualEditRequested?.Invoke(Id);
+		container.AddChild(_btnVisualEdit);
+
 		// 交互逻辑
 		_actionSelector.ItemSelected += (idx) => {
 			bool isHide = (idx == 2);
 			_exprSelector.Disabled = isHide;
 			_posSelector.Disabled = isHide;
 			_silhouetteCheck.Disabled = isHide;
+			_btnVisualEdit.Disabled = isHide;
 		};
+		// 初始化禁用状态
+		_btnVisualEdit.Disabled = ActionType == "Hide";
 
 		node.AddChild(container);
-		node.CustomMinimumSize = new Vector2(200, 240);
+		node.CustomMinimumSize = new Vector2(200, 280);
 		node.Size = Vector2.Zero;
 		return node;
 	}

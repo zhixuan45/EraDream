@@ -1,6 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text.Json;
 
 public class ProjectMetadata
@@ -72,7 +73,7 @@ public static class ProjectManager
     public static string ImportFile(string sourcePath, string targetSubDir)
     {
         if (!IsProjectOpened) {
-            GD.PrintErr("Import failed: Project not opened.");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast("Import failed: Project not opened.");
             return "";
         }
         
@@ -86,8 +87,66 @@ public static class ProjectManager
             File.Copy(sourcePath, destPath, true);
             return fileName;
         } catch (System.Exception e) {
-            GD.PrintErr($"Import Error: {e.Message}");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast($"Import Error: {e.Message}");
             return "";
+        }
+    }
+
+    public static void ExportAsEra(string destinationPath)
+    {
+        if (!IsProjectOpened) return;
+
+        var packer = new PckPacker();
+        // 开始打包，32位对齐
+        packer.PckStart(destinationPath, 32);
+
+        // 递归添加项目下所有有效文件
+        AddDirectoryToPacker(packer, CurrentProjectRoot, "");
+
+        packer.Flush();
+        GD.Print($"Project Exported as ERA Package: {destinationPath}");
+    }
+
+    private static void AddDirectoryToPacker(PckPacker packer, string rootDir, string subDir)
+    {
+        string currentPath = string.IsNullOrEmpty(subDir) ? rootDir : Path.Combine(rootDir, subDir);
+        
+        // 遍历所有文件
+        foreach (string file in Directory.GetFiles(currentPath))
+        {
+            string fileName = Path.GetFileName(file);
+            // 排除系统文件和临时文件
+            if (fileName.StartsWith(".") || fileName.EndsWith(".tmp")) continue;
+
+            // 内部路径映射到 res:// 根目录
+            string internalPath = "res://" + (string.IsNullOrEmpty(subDir) ? fileName : Path.Combine(subDir, fileName).Replace("\\", "/"));
+            packer.AddFile(internalPath, file);
+        }
+
+        // 递归处理子目录
+        foreach (string dir in Directory.GetDirectories(currentPath))
+        {
+            string dirName = Path.GetFileName(dir);
+            AddDirectoryToPacker(packer, rootDir, string.IsNullOrEmpty(subDir) ? dirName : Path.Combine(subDir, dirName));
+        }
+    }
+
+    public static void ExportProject(string destinationZipPath)
+    {
+        if (!IsProjectOpened) return;
+
+        try
+        {
+            if (File.Exists(destinationZipPath))
+            {
+                File.Delete(destinationZipPath);
+            }
+            ZipFile.CreateFromDirectory(CurrentProjectRoot, destinationZipPath, CompressionLevel.Optimal, false);
+            GD.Print($"Project Exported Successfully to: {destinationZipPath}");
+        }
+        catch (System.Exception ex)
+        {
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowErrorDialog("导出失败", $"Export Project Error: {ex.Message}");
         }
     }
 }

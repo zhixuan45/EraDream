@@ -11,7 +11,7 @@ public static class ResourceManagerUI
     {
         if (!ProjectManager.IsProjectOpened)
         {
-            GD.PrintErr("Must open a project before importing resources.");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowErrorDialog("导入失败", "Must open a project before importing resources.");
             return;
         }
 
@@ -55,7 +55,7 @@ public static class ResourceManagerUI
         }
         else
         {
-            GD.PrintErr($"Failed to import: {sourcePath}");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast($"Failed to import: {sourcePath}");
         }
     }
 }

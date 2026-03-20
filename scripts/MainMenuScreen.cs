@@ -75,7 +75,14 @@ public partial class MainMenuScreen : Control
 
     private void OnSettingsPressed()
     {
-        GD.Print(Tr("KEY_SETTINGS"));
+        if (SettingsOverlay.Instance != null)
+        {
+            SettingsOverlay.Instance.ShowOverlay();
+        }
+        else
+        {
+            GD.PrintErr("SettingsOverlay instance is null!");
+        }
     }
 
     private void OnExitPressed()

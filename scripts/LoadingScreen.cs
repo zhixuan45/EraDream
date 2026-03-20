@@ -38,7 +38,7 @@ public partial class LoadingScreen : Control
     // 静态变量，用于控制加载后的跳转目标
     public static string TargetScene = "res://scenes/MainMenuScreen.tscn";
 
-    private bool _isDarkMode = true;
+    private bool _isDarkMode => SettingsManager.Instance?.IsDarkMode ?? true;
 
     [Export]
     public string[] BarrageTexts = new string[] 
@@ -81,9 +81,12 @@ public partial class LoadingScreen : Control
     {
         if (@event.IsActionPressed("ui_focus_next") || (@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.D))
         {
-            _isDarkMode = !_isDarkMode;
-            UpdateModeConfiguration();
-            GenerateBarrageBackground();
+            if (SettingsManager.Instance != null)
+            {
+                SettingsManager.Instance.IsDarkMode = !SettingsManager.Instance.IsDarkMode;
+                UpdateModeConfiguration();
+                GenerateBarrageBackground();
+            }
         }
     }
 

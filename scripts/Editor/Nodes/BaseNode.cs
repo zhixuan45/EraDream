@@ -25,6 +25,9 @@ namespace UmaArchive.Editor.Nodes
 		[JsonIgnore]
 		public Action OnDeleteRequested { get; set; }
 
+		[JsonIgnore]
+		public Action<string> OnVisualEditRequested { get; set; }
+
 		public abstract GraphNode CreateGraphNode(GraphEdit host);
 		public abstract void SyncFromView(GraphNode view);
 

@@ -44,7 +44,7 @@ public partial class StorySelectorScreen : Control
             string fileName = dir.GetNext();
             while (fileName != "")
             {
-                if (!dir.CurrentIsDir() && fileName.EndsWith(".json"))
+                if (!dir.CurrentIsDir() && (fileName.EndsWith(".json") || fileName.EndsWith(".era")))
                 {
                     _allStories.Add(fileName);
                 }
@@ -62,9 +62,10 @@ public partial class StorySelectorScreen : Control
 
         foreach (var story in stories)
         {
+            string displayName = story.EndsWith(".era") ? "[包] " + story.Replace(".era", "") : story.Replace(".json", "");
             Button btn = new Button
             {
-                Text = story.Replace(".json", ""),
+                Text = displayName,
                 Alignment = HorizontalAlignment.Left,
                 CustomMinimumSize = new Vector2(0, 60),
                 ToggleMode = true,
@@ -103,8 +104,31 @@ public partial class StorySelectorScreen : Control
     {
         if (string.IsNullOrEmpty(_selectedStoryPath)) return;
         
-        // 传递路径给引擎并跳转
-        StoryPlayerEngine.CurrentStoryPath = _selectedStoryPath;
+        if (_selectedStoryPath.EndsWith(".era"))
+        {
+            GD.Print($"[Selector] Loading ERA Package: {_selectedStoryPath}");
+            // 挂载资源包
+            bool success = ProjectSettings.LoadResourcePack(_selectedStoryPath);
+            if (success)
+            {
+                // 挂载后，包内资源在 res:// 根目录
+                StoryPlayerEngine.CurrentStoryPath = "res://story.json";
+                CharacterManager.LoadCharacters("res://characters.json");
+            }
+            else
+            {
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowErrorDialog("加载失败", "[Selector] Failed to load ERA package!");
+                return;
+            }
+        }
+        else
+        {
+            StoryPlayerEngine.CurrentStoryPath = _selectedStoryPath;
+            // 尝试加载同级目录下的角色文件（如果是文件夹模式）
+            string charFile = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_selectedStoryPath), "characters.json");
+            if (System.IO.File.Exists(charFile)) CharacterManager.LoadCharacters(charFile);
+        }
+
         LoadingScreen.TargetScene = "res://scenes/StoryPlayerScreen.tscn";
         GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }

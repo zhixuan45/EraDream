@@ -27,7 +27,12 @@ public partial class StoryPlayerEngine : Control
 
     public static string CurrentStoryPath = "";
     public static List<BaseNodeData> PreviewNodes = null;
+    public static string StartNodeId = null;
+    public static bool EnableVisualEditing = false;
     public bool IsPreviewMode { get; set; } = false;
+
+    private CharacterSprite _draggedSprite = null;
+    private Vector2 _dragOffset = Vector2.Zero;
 
     [Signal] public delegate void StoryFinishedEventHandler();
 
@@ -67,7 +72,13 @@ public partial class StoryPlayerEngine : Control
             GD.Print("[Engine] Entering Preview Mode...");
             IsPreviewMode = true;
             _storyNodes = PreviewNodes;
-            _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
+            
+            if (!string.IsNullOrEmpty(StartNodeId)) {
+                _currentNode = _storyNodes.FirstOrDefault(n => n.Id == StartNodeId);
+            } else {
+                _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
+            }
+            
             ProcessCurrentNode();
             PreviewNodes = null; 
             return;
@@ -75,7 +86,7 @@ public partial class StoryPlayerEngine : Control
 
         if (string.IsNullOrEmpty(CurrentStoryPath))
         {
-            GD.PrintErr("[Engine] Story path is empty!");
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowErrorDialog("加载失败", "[Engine] Story path is empty!");
             GetTree().ChangeSceneToFile("res://scenes/MainMenuScreen.tscn");
             return;
         }
@@ -101,17 +112,46 @@ public partial class StoryPlayerEngine : Control
         _dialogueBox.Show();
         foreach (Node child in _choiceContainer.GetChildren()) child.QueueFree();
 
+        // 可视化编辑模式拦截：如果当前节点是目标编辑节点，则执行完逻辑后停止，不自动跳转
+        bool shouldPauseForEdit = EnableVisualEditing && _currentNode.Id == StartNodeId;
+
         switch (_currentNode)
         {
-            case StartNodeData start: GoToNextNode(start.NextNodeId); break;
-            case EndNodeData end: FinishStory(end.EndType); break;
-            case BackgroundNodeData bg: UpdateBackground(bg.BackgroundFile, bg.TransitionType); GoToNextNode(bg.NextNodeId); break;
-            case DialogueNodeData dialogue: UpdateDialogueAndCharacter(dialogue); break;
-            case NarrativeNodeData narrative: UpdateDialogueUI("", narrative.Content); break;
-            case MusicNodeData music: PlayBGM(music.AudioFile); GoToNextNode(music.NextNodeId); break;
-            case SpriteNodeData sprite: HandleSpriteNode(sprite); GoToNextNode(sprite.NextNodeId); break;
-            case ChoiceNodeData choice: ShowChoiceButtons(choice); break;
-            case BranchNodeData branch: HandleBranchNode(branch); break;
+            case StartNodeData start: 
+                if (shouldPauseForEdit) return;
+                GoToNextNode(start.NextNodeId); 
+                break;
+            case EndNodeData end: 
+                FinishStory(end.EndType); 
+                break;
+            case BackgroundNodeData bg: 
+                UpdateBackground(bg.BackgroundFile, bg.TransitionType); 
+                if (shouldPauseForEdit) return;
+                GoToNextNode(bg.NextNodeId); 
+                break;
+            case DialogueNodeData dialogue: 
+                UpdateDialogueAndCharacter(dialogue); 
+                break;
+            case NarrativeNodeData narrative: 
+                UpdateDialogueUI("", narrative.Content); 
+                break;
+            case MusicNodeData music: 
+                PlayBGM(music.AudioFile); 
+                if (shouldPauseForEdit) return;
+                GoToNextNode(music.NextNodeId); 
+                break;
+            case SpriteNodeData sprite: 
+                HandleSpriteNode(sprite); 
+                if (shouldPauseForEdit) return;
+                GoToNextNode(sprite.NextNodeId); 
+                break;
+            case ChoiceNodeData choice: 
+                ShowChoiceButtons(choice); 
+                break;
+            case BranchNodeData branch: 
+                if (shouldPauseForEdit) return;
+                HandleBranchNode(branch); 
+                break;
         }
     }
 
@@ -136,8 +176,73 @@ public partial class StoryPlayerEngine : Control
             _characterContainer.AddChild(targetSprite);
             _activeSprites[data.CharacterId] = targetSprite;
         }
+        targetSprite.SourceData = data; // 传递数据引用以供回写
         targetSprite.UpdateCharacter(data.CharacterId, data.Expression, data.IsSilhouette);
         UpdateSpritePosition(targetSprite, data.Position);
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        // 全局退出预览快捷键
+        if (IsPreviewMode && @event is InputEventKey ek && ek.Pressed && ek.Keycode == Key.Escape)
+        {
+            GetViewport().SetInputAsHandled();
+            FinishStory();
+            return;
+        }
+
+        if (!IsPreviewMode || !EnableVisualEditing) return;
+
+        if (@event is InputEventMouseButton mb)
+        {
+            if (mb.ButtonIndex == MouseButton.Left)
+            {
+                if (mb.Pressed) {
+                    foreach (var sprite in _activeSprites.Values) {
+                        if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
+                            _draggedSprite = sprite;
+                            _dragOffset = sprite.GlobalPosition - mb.GlobalPosition;
+                            GetViewport().SetInputAsHandled();
+                            break;
+                        }
+                    }
+                } else {
+                    _draggedSprite = null;
+                }
+            }
+            else if (mb.ButtonIndex == MouseButton.Right && mb.Pressed) {
+                foreach (var sprite in _activeSprites.Values) {
+                    if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
+                        sprite.ToggleFlip();
+                        GetViewport().SetInputAsHandled();
+                        break;
+                    }
+                }
+            }
+            else if (mb.ButtonIndex == MouseButton.WheelUp && mb.Pressed) {
+                foreach (var sprite in _activeSprites.Values) {
+                    if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
+                        sprite.AdjustScale(0.05f);
+                        GetViewport().SetInputAsHandled();
+                        break;
+                    }
+                }
+            }
+            else if (mb.ButtonIndex == MouseButton.WheelDown && mb.Pressed) {
+                foreach (var sprite in _activeSprites.Values) {
+                    if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
+                        sprite.AdjustScale(-0.05f);
+                        GetViewport().SetInputAsHandled();
+                        break;
+                    }
+                }
+            }
+        }
+        else if (@event is InputEventMouseMotion mm && _draggedSprite != null)
+        {
+            _draggedSprite.ApplyDrag(mm.GlobalPosition + _dragOffset);
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     private void UpdateSpritePosition(CharacterSprite sprite, string position)
@@ -149,7 +254,11 @@ public partial class StoryPlayerEngine : Control
             "Right" => Size.X * 0.75f - size.X / 2,
             _ => (Size.X - size.X) / 2
         };
-        sprite.Position = new Vector2(xPos, Size.Y - size.Y);
+        
+        float offsetX = sprite.SourceData != null ? sprite.SourceData.OffsetX : 0;
+        float offsetY = sprite.SourceData != null ? sprite.SourceData.OffsetY : 0;
+        
+        sprite.Position = new Vector2(xPos + offsetX, Size.Y - size.Y + offsetY);
     }
 
     private void UpdateBackground(string file, string transition)
@@ -157,14 +266,20 @@ public partial class StoryPlayerEngine : Control
         if (string.IsNullOrEmpty(file)) return;
         
         string rawPath = ProjectManager.IsProjectOpened ? Path.Combine(ProjectManager.BackgroundDir, file) : "res://backgrounds/" + file;
-        string absolutePath = rawPath.StartsWith("res://") ? ProjectSettings.GlobalizePath(rawPath) : rawPath;
         
-        GD.Print($"[Engine] Attempting to load background from: {absolutePath}");
+        GD.Print($"[Engine] Attempting to load background from: {rawPath}");
 
-        if (Godot.FileAccess.FileExists(absolutePath))
+        if (Godot.FileAccess.FileExists(rawPath))
         {
-            var image = Image.LoadFromFile(absolutePath);
-            if (image != null)
+            // 对于 res:// 路径（资源包内），我们需要通过 FileAccess 读取原始数据以绕过物理路径限制
+            using var fileAccess = Godot.FileAccess.Open(rawPath, Godot.FileAccess.ModeFlags.Read);
+            byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
+            var image = new Image();
+            var error = image.LoadPngFromBuffer(data); // 假设是 PNG
+            if (error != Error.Ok) error = image.LoadJpgFromBuffer(data); // 尝试 JPG
+            if (error != Error.Ok) error = image.LoadWebpFromBuffer(data); // 尝试 WebP
+
+            if (error == Error.Ok)
             {
                 var texture = ImageTexture.CreateFromImage(image);
                 _backgroundRect.Texture = texture;
@@ -173,24 +288,41 @@ public partial class StoryPlayerEngine : Control
             }
             else
             {
-                GD.PrintErr($"[Engine] Failed to create Image from file: {absolutePath}");
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Engine] Failed to load Image buffer from: {rawPath}, Error: {error}");
             }
         }
-        else GD.PrintErr($"[Engine] Background file NOT found at: {absolutePath}");
+        else GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Engine] Background file NOT found at: {rawPath}");
     }
 
     private void PlayBGM(string file)
     {
         if (string.IsNullOrEmpty(file)) { _bgmPlayer.Stop(); return; }
         string rawPath = ProjectManager.IsProjectOpened ? Path.Combine(ProjectManager.AudioDir, file) : "res://audio/" + file;
-        string absolutePath = rawPath.StartsWith("res://") ? ProjectSettings.GlobalizePath(rawPath) : rawPath;
         
-        if (Godot.FileAccess.FileExists(absolutePath))
+        if (Godot.FileAccess.FileExists(rawPath))
         {
-            // 音频加载在外部文件模式下比较特殊，目前主要支持 res:// 内部资源
-            if (absolutePath.Contains(".godot/imported")) {
-                var stream = GD.Load<AudioStream>(absolutePath);
+            // 如果是项目编辑模式且是 Godot 导入的资源
+            if (rawPath.Contains(".godot/imported")) {
+                var stream = GD.Load<AudioStream>(rawPath);
                 if (_bgmPlayer.Stream != stream) { _bgmPlayer.Stream = stream; _bgmPlayer.Play(); }
+                return;
+            }
+
+            // 加载原始音频文件
+            using var fileAccess = Godot.FileAccess.Open(rawPath, Godot.FileAccess.ModeFlags.Read);
+            byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
+            AudioStream newStream = null;
+            
+            if (file.ToLower().EndsWith(".mp3")) {
+                var mp3 = new AudioStreamMP3(); mp3.Data = data; newStream = mp3;
+            } else if (file.ToLower().EndsWith(".wav")) {
+                var wav = new AudioStreamWav(); wav.Data = data; newStream = wav;
+            } else if (file.ToLower().EndsWith(".ogg")) {
+                var ogg = AudioStreamOggVorbis.LoadFromBuffer(data); newStream = ogg;
+            }
+
+            if (newStream != null) {
+                if (_bgmPlayer.Stream != newStream) { _bgmPlayer.Stream = newStream; _bgmPlayer.Play(); }
             }
         }
     }

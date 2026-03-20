@@ -11,11 +11,16 @@ public partial class EditorScreen : Control
     private Dictionary<string, BaseNodeData> _nodeDataMap = new Dictionary<string, BaseNodeData>();
     private MenuBar _menuBar;
 
+    private Control _loadingOverlay;
+    private ProgressBar _loadingProgress;
+
     public override void _Ready()
     {
         SetupLayout();
         _graphEdit = GetNode<GraphEdit>("VBoxContainer/HSplitContainer/GraphEdit");
         
+        SetupLoadingOverlay();
+
         // 绑定工厂按钮
         GetNode<Button>("VBoxContainer/HSplitContainer/SidePanel/VBoxContainer/BtnAddNode").Pressed += () => SpawnNode(new DialogueNodeData());
         AddSideButton("添加旁白节点", () => SpawnNode(new NarrativeNodeData()));
@@ -27,17 +32,7 @@ public partial class EditorScreen : Control
         AddSideButton("添加开始节点", () => SpawnNode(new StartNodeData()));
         AddSideButton("添加结束节点", () => SpawnNode(new EndNodeData()));
 
-        AddSideButton(" 预览剧情 ", () => {
-            // 1. 同步所有节点视图内部数据
-            foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>())
-            {
-                if (_nodeDataMap.TryGetValue(node.Name, out var data)) data.SyncFromView(node);
-            }
-            // 2. 同步连接关系和坐标
-            StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
-            
-            StoryPreviewUI.Preview(this, _nodeDataMap.Values.ToList());
-        });
+        AddSideButton(" 预览剧情 ", () => LaunchPreview(null, false));
 
         GetNode<Button>("VBoxContainer/HSplitContainer/SidePanel/VBoxContainer/BtnReturn").Pressed += () => {
             LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
@@ -50,6 +45,19 @@ public partial class EditorScreen : Control
         _graphEdit.DeleteNodesRequest += (nodes) => { 
             foreach (string n in nodes) DeleteNode(n); 
         };
+    }
+
+    private void LaunchPreview(string startNodeId = null, bool isEditMode = false)
+    {
+        // 1. 同步所有节点视图内部数据
+        foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>())
+        {
+            if (_nodeDataMap.TryGetValue(node.Name, out var data)) data.SyncFromView(node);
+        }
+        // 2. 同步连接关系和坐标
+        StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
+        
+        StoryPreviewUI.Preview(this, _nodeDataMap.Values.ToList(), startNodeId, isEditMode);
     }
 
     private void SetupLayout()
@@ -79,6 +87,8 @@ public partial class EditorScreen : Control
         fileMenu.AddItem("打开项目文件夹", 1);
         fileMenu.AddSeparator();
         fileMenu.AddItem("保存项目", 2);
+        fileMenu.AddItem("导出剧情包 (.era)", 3);
+        fileMenu.AddItem("导出项目压缩包 (.zip)", 4);
         fileMenu.AddSeparator();
         
         PopupMenu importMenu = new PopupMenu { Name = "Import" };
@@ -131,6 +141,30 @@ public partial class EditorScreen : Control
                     GD.Print("Project Saved Successfully.");
                 }
                 break;
+            case 3:
+                if (ProjectManager.IsProjectOpened)
+                {
+                    StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile);
+                    CharacterManager.SaveCharacters(ProjectManager.CharacterFile);
+                    ProjectManager.SaveMetadata();
+                    
+                    FileIOManager.OpenSaveDialog("导出剧情包", $"{ProjectManager.Metadata.Title}.era", "*.era", (path) => {
+                        ProjectManager.ExportAsEra(path);
+                    });
+                }
+                break;
+            case 4:
+                if (ProjectManager.IsProjectOpened)
+                {
+                    StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile);
+                    CharacterManager.SaveCharacters(ProjectManager.CharacterFile);
+                    ProjectManager.SaveMetadata();
+                    
+                    FileIOManager.OpenSaveDialog("导出项目压缩包", $"{ProjectManager.Metadata.Title}.zip", "*.zip", (path) => {
+                        ProjectManager.ExportProject(path);
+                    });
+                }
+                break;
         }
     }
 
@@ -165,6 +199,7 @@ public partial class EditorScreen : Control
     private void SpawnNode(BaseNodeData data, Vector2? position = null)
     {
         data.OnDeleteRequested = () => DeleteNode(data.Id);
+        data.OnVisualEditRequested = (nodeId) => LaunchPreview(nodeId, true);
         GraphNode gNode = data.CreateGraphNode(_graphEdit);
         _nodeDataMap[gNode.Name] = data; 
         gNode.PositionOffset = position ?? (StoryNodeManager.GetViewCenter(_graphEdit) - new Vector2(100, 50));
@@ -181,20 +216,84 @@ public partial class EditorScreen : Control
         }
     }
 
-    private void LoadAndRender(string path)
+    private void SetupLoadingOverlay()
     {
+        _loadingOverlay = new ColorRect {
+            Color = new Color(0, 0, 0, 0.7f),
+            Visible = false
+        };
+        _loadingOverlay.SetAnchorsPreset(LayoutPreset.FullRect);
+        
+        VBoxContainer vbox = new VBoxContainer {
+            Alignment = BoxContainer.AlignmentMode.Center,
+            SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
+            SizeFlagsVertical = SizeFlags.ShrinkCenter
+        };
+        _loadingOverlay.AddChild(vbox);
+        vbox.SetAnchorsPreset(LayoutPreset.Center);
+
+        Label lbl = new Label { Text = "加载大型剧本中，请稍候...", HorizontalAlignment = HorizontalAlignment.Center };
+        vbox.AddChild(lbl);
+
+        _loadingProgress = new ProgressBar {
+            CustomMinimumSize = new Vector2(400, 20),
+            MinValue = 0, MaxValue = 100, Step = 1
+        };
+        vbox.AddChild(_loadingProgress);
+
+        AddChild(_loadingOverlay);
+    }
+
+    private async void LoadAndRender(string path)
+    {
+        // 1. 显示遮罩，禁用图表
+        _loadingOverlay.Show();
+        _loadingProgress.Value = 0;
+        _graphEdit.MouseFilter = MouseFilterEnum.Ignore;
+        
         _graphEdit.ClearConnections();
         _nodeDataMap.Clear();
         foreach (Node child in _graphEdit.GetChildren()) if (child is GraphNode) child.QueueFree();
 
-        var loadedData = StoryNodeManager.LoadProject(path);
+        // 2. 在工作线程加载数据以防反序列化卡顿
+        var loadedData = await System.Threading.Tasks.Task.Run(() => StoryNodeManager.LoadProject(path));
+        
+        if (loadedData.Count == 0)
+        {
+            FinishLoading();
+            return;
+        }
+
+        // 3. 分批实例化节点 (Godot API 必须在主线程)
+        int total = loadedData.Count;
+        int batchSize = 30; // 每帧实例化的节点数，平衡速度与流畅度
+        int processed = 0;
+
         foreach (var data in loadedData)
         {
             Vector2 savedPos = new Vector2(data.PosX, data.PosY);
             if (savedPos == Vector2.Zero) savedPos = StoryNodeManager.GetViewCenter(_graphEdit);
             SpawnNode(data, savedPos);
+
+            processed++;
+            if (processed % batchSize == 0)
+            {
+                _loadingProgress.Value = (processed / (float)total) * 100;
+                // 挂起当前协程，让出主线程一帧用于渲染
+                await ToSignal(GetTree(), "process_frame");
+            }
         }
-        CallDeferred(nameof(RebuildConnections));
+
+        // 4. 重建连线并结束
+        _loadingProgress.Value = 100;
+        RebuildConnections();
+        FinishLoading();
+    }
+
+    private void FinishLoading()
+    {
+        _loadingOverlay.Hide();
+        _graphEdit.MouseFilter = MouseFilterEnum.Stop;
     }
 
     private void RebuildConnections()

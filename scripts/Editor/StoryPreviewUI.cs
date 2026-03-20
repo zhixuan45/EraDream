@@ -6,27 +6,29 @@ using UmaArchive.Editor.Nodes;
 
 public partial class StoryPreviewUI : Node
 {
-    public static void Preview(Node parent, List<BaseNodeData> nodes)
+    public static void Preview(Node parent, List<BaseNodeData> nodes, string startNodeId = null, bool isEditMode = false)
     {
         if (nodes == null || nodes.Count == 0) return;
 
         var previewer = new StoryPreviewUI();
         parent.AddChild(previewer);
-        previewer.CreatePreviewWindow(nodes);
+        previewer.CreatePreviewWindow(nodes, startNodeId, isEditMode);
     }
 
-    private void CreatePreviewWindow(List<BaseNodeData> nodes)
+    private void CreatePreviewWindow(List<BaseNodeData> nodes, string startNodeId, bool isEditMode)
     {
         Window window = new Window {
-            Title = "剧情实时预览 (Preview)",
+            Title = isEditMode ? "可视化立绘编辑 (Visual Edit)" : "剧情实时预览 (Preview)",
             Size = new Vector2I(1280, 720),
-            Transient = true,
-            Exclusive = true,
+            Transient = false,   // 独立原生窗口，不锁定在主窗口之上
+            Exclusive = false,   // 不阻塞主编辑器
             InitialPosition = Window.WindowInitialPosition.CenterPrimaryScreen
         };
 
         // 核心：设置播放引擎的预览数据
         StoryPlayerEngine.PreviewNodes = nodes;
+        StoryPlayerEngine.StartNodeId = startNodeId;
+        StoryPlayerEngine.EnableVisualEditing = isEditMode;
 
         // 实例化播放场景
         var playerScene = GD.Load<PackedScene>("res://scenes/StoryPlayerScreen.tscn");

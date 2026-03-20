@@ -5,6 +5,7 @@ public partial class CharacterSprite : Control
 {
     private TextureRect _textureRect;
     public int CurrentCharacterId { get; private set; } = -1;
+    public SpriteNodeData SourceData { get; set; } // 供预览回写数据
 
     public override void _Ready()
     {
@@ -17,6 +18,39 @@ public partial class CharacterSprite : Control
         };
         _textureRect.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_textureRect);
+    }
+
+    public void AdjustScale(float delta)
+    {
+        if (SourceData == null) return;
+        SourceData.Scale = Mathf.Clamp(SourceData.Scale + delta, 0.1f, 5.0f);
+        ApplyTransform();
+    }
+
+    public void ToggleFlip()
+    {
+        if (SourceData == null) return;
+        SourceData.FlipH = !SourceData.FlipH;
+        ApplyTransform();
+    }
+
+    public void ApplyDrag(Vector2 globalPos)
+    {
+        if (SourceData == null) return;
+        // 计算相对于默认位置的偏移
+        // 因为 UpdateSpritePosition 会设置 Position, 所以这里的拖拽偏移量需要叠加
+        SourceData.OffsetX += globalPos.X - GlobalPosition.X;
+        SourceData.OffsetY += globalPos.Y - GlobalPosition.Y;
+        GlobalPosition = globalPos;
+    }
+
+    public void ApplyTransform()
+    {
+        if (SourceData == null) return;
+        
+        PivotOffset = Size / 2; // 确保中心缩放
+        Scale = new Vector2(SourceData.Scale, SourceData.Scale);
+        _textureRect.FlipH = SourceData.FlipH;
     }
 
     public void UpdateCharacter(int charId, string emotion = "Neutral", bool silhouette = false)
@@ -42,21 +76,35 @@ public partial class CharacterSprite : Control
         string path = ProjectManager.IsProjectOpened ? 
             System.IO.Path.Combine(ProjectManager.SpriteDir, fileName) : 
             "res://sprites/" + fileName;
-            
-        string absolutePath = ProjectSettings.GlobalizePath(path);
-        
-        // 关键修复：对于外部路径或 res 路径，使用 Image 实时加载
-        if (Godot.FileAccess.FileExists(absolutePath))
+
+        GD.Print($"[Sprite] Attempting to load from: {path}");
+
+        if (Godot.FileAccess.FileExists(path))
         {
-            var image = Image.LoadFromFile(absolutePath);
-            var texture = ImageTexture.CreateFromImage(image);
-            _textureRect.Texture = texture;
-            _textureRect.SelfModulate = silhouette ? new Color(0, 0, 0, 1) : new Color(1, 1, 1, 1);
-            GD.Print($"[Sprite] Loaded character {charId} from {absolutePath}");
+            using var fileAccess = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
+            byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
+            var image = new Image();
+            var error = image.LoadPngFromBuffer(data);
+            if (error != Error.Ok) error = image.LoadJpgFromBuffer(data);
+            if (error != Error.Ok) error = image.LoadWebpFromBuffer(data);
+
+            if (error == Error.Ok)
+            {
+                var texture = ImageTexture.CreateFromImage(image);
+                _textureRect.Texture = texture;
+                _textureRect.SelfModulate = silhouette ? new Color(0, 0, 0, 1) : new Color(1, 1, 1, 1);
+                GD.Print($"[Sprite] Loaded character {charId} successfully");
+                
+                ApplyTransform();
+            }
+            else
+            {
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Sprite] Failed to load buffer from {path}, Error: {error}");
+            }
         }
         else
         {
-            GD.PrintErr($"[Sprite] File not found: {absolutePath}");
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Sprite] File not found: {path}");
         }
     }
 }

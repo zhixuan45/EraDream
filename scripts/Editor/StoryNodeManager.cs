@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.IO;
 using System.Linq;
 using UmaArchive.Editor.Nodes;
+using FileAccess = Godot.FileAccess;
 
 public class StoryNodeManager
 {
@@ -48,10 +49,11 @@ public class StoryNodeManager
 
     public static List<BaseNodeData> LoadProject(string absolutePath)
     {
-        if (!File.Exists(absolutePath)) return new List<BaseNodeData>();
+        if (!FileAccess.FileExists(absolutePath)) return new List<BaseNodeData>();
 
         try {
-            string json = File.ReadAllText(absolutePath);
+            using var file = FileAccess.Open(absolutePath, FileAccess.ModeFlags.Read);
+            string json = file.GetAsText();
             var result = JsonSerializer.Deserialize<List<BaseNodeData>>(json);
             return result ?? new List<BaseNodeData>();
         } catch {

@@ -18,6 +18,9 @@ config/icon="res://icon.svg"
 [autoload]
 
 ResponsiveManager="*res://scripts/Core/ResponsiveManager.cs"
+ErrorNotifier="*res://scripts/Core/ErrorNotifier.cs"
+SettingsManager="*res://scripts/Core/SettingsManager.cs"
+SettingsOverlay="*res://scripts/Core/SettingsOverlay.cs"
 
 [display]
 
