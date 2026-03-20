@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace UmaArchive.Core
+namespace UmaEraArchive.Core
 {
     /// <summary>
     /// 全局游戏状态，存储剧情运行时的所有变量 ID 和数值

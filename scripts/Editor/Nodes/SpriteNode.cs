@@ -1,5 +1,5 @@
 using Godot;
-using UmaArchive.Editor.Nodes;
+using UmaEraArchive.Editor.Nodes;
 using System.Collections.Generic;
 
 public class SpriteNodeData : BaseNodeData

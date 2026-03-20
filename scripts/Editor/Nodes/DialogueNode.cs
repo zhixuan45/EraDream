@@ -1,6 +1,6 @@
 using Godot;
 using System.Collections.Generic;
-using UmaArchive.Editor.Nodes;
+using UmaEraArchive.Editor.Nodes;
 
 public class DialogueNodeData : BaseNodeData
 {

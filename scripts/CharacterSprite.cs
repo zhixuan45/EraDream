@@ -84,9 +84,16 @@ public partial class CharacterSprite : Control
             using var fileAccess = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
             byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
             var image = new Image();
-            var error = image.LoadPngFromBuffer(data);
-            if (error != Error.Ok) error = image.LoadJpgFromBuffer(data);
-            if (error != Error.Ok) error = image.LoadWebpFromBuffer(data);
+            string ext = System.IO.Path.GetExtension(path).ToLower();
+            Error error = Error.Failed;
+            
+            if (ext == ".jpg" || ext == ".jpeg") error = image.LoadJpgFromBuffer(data);
+            else if (ext == ".webp") error = image.LoadWebpFromBuffer(data);
+            else error = image.LoadPngFromBuffer(data);
+            
+            if (error != Error.Ok && ext != ".png") error = image.LoadPngFromBuffer(data);
+            if (error != Error.Ok && (ext != ".jpg" && ext != ".jpeg")) error = image.LoadJpgFromBuffer(data);
+            if (error != Error.Ok && ext != ".webp") error = image.LoadWebpFromBuffer(data);
 
             if (error == Error.Ok)
             {

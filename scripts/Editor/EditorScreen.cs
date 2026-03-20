@@ -2,8 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UmaArchive.Editor.Nodes;
-using UmaArchive.Core;
+using UmaEraArchive.Editor.Nodes;
+using UmaEraArchive.Core;
 
 public partial class EditorScreen : Control
 {
@@ -18,21 +18,45 @@ public partial class EditorScreen : Control
     {
         SetupLayout();
         _graphEdit = GetNode<GraphEdit>("VBoxContainer/HSplitContainer/GraphEdit");
+        _graphEdit.AddThemeColorOverride("activity_color", new Color(1, 0.2f, 0.2f)); // 设置激活连线颜色为警告红
         
         SetupLoadingOverlay();
 
         // 绑定工厂按钮
-        GetNode<Button>("VBoxContainer/HSplitContainer/SidePanel/VBoxContainer/BtnAddNode").Pressed += () => SpawnNode(new DialogueNodeData());
-        AddSideButton("添加旁白节点", () => SpawnNode(new NarrativeNodeData()));
-        AddSideButton("添加背景节点", () => SpawnNode(new BackgroundNodeData()));
-        AddSideButton("添加立绘节点", () => SpawnNode(new SpriteNodeData()));
-        AddSideButton("添加选项节点", () => SpawnNode(new ChoiceNodeData()));
-        AddSideButton("添加判定节点", () => SpawnNode(new BranchNodeData()));
-        AddSideButton("添加音乐节点", () => SpawnNode(new MusicNodeData()));
-        AddSideButton("添加开始节点", () => SpawnNode(new StartNodeData()));
-        AddSideButton("添加结束节点", () => SpawnNode(new EndNodeData()));
+        GetNode<Button>("VBoxContainer/HSplitContainer/SidePanel/VBoxContainer/BtnAddNode").Pressed += () => {
+            if (EnsureProjectOpen()) SpawnNode(new DialogueNodeData());
+        };
+        AddSideButton("添加旁白节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new NarrativeNodeData());
+        });
+        AddSideButton("添加背景节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new BackgroundNodeData());
+        });
+        AddSideButton("添加立绘节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new SpriteNodeData());
+        });
+        AddSideButton("添加选项节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new ChoiceNodeData());
+        });
+        AddSideButton("添加判定节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new BranchNodeData());
+        });
+        AddSideButton("添加音乐节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new MusicNodeData());
+        });
+        AddSideButton("添加开始节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new StartNodeData());
+        });
+        AddSideButton("添加结束节点", () => {
+            if (EnsureProjectOpen()) SpawnNode(new EndNodeData());
+        });
 
-        AddSideButton(" 预览剧情 ", () => LaunchPreview(null, false));
+        AddSideButton("自动纠正节点顺序", () => {
+            if (EnsureProjectOpen()) AutoFixNodeOrder();
+        });
+        AddSideButton(" 预览剧情 ", () => {
+            if (EnsureProjectOpen()) LaunchPreview(null, false);
+        });
 
         GetNode<Button>("VBoxContainer/HSplitContainer/SidePanel/VBoxContainer/BtnReturn").Pressed += () => {
             LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
@@ -40,15 +64,49 @@ public partial class EditorScreen : Control
         };
 
         // 基础图表信号
-        _graphEdit.ConnectionRequest += (f, fp, t, tp) => _graphEdit.ConnectNode(f, (int)fp, t, (int)tp);
-        _graphEdit.DisconnectionRequest += (f, fp, t, tp) => _graphEdit.DisconnectNode(f, (int)fp, t, (int)tp);
+        _graphEdit.ConnectionRequest += (f, fp, t, tp) => {
+            _graphEdit.ConnectNode(f, (int)fp, t, (int)tp);
+            if (_nodeDataMap.TryGetValue(f, out var fromData) && _nodeDataMap.TryGetValue(t, out var toData))
+            {
+                // 手动同步一下连接关系到内存
+                if (fromData is DialogueNodeData d) d.NextNodeId = toData.Id;
+                UpdateNodeWarnings();
+                
+                if (fromData is DialogueNodeData && (toData is SpriteNodeData || toData is BackgroundNodeData || toData is MusicNodeData))
+                {
+                    GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("⚠️ 警告：该对话节点已标红，建议将视觉/音频节点置于其前。");
+                }
+            }
+        };
+        _graphEdit.DisconnectionRequest += (f, fp, t, tp) => {
+            if (!EnsureProjectOpen()) return;
+            _graphEdit.DisconnectNode(f, (int)fp, t, (int)tp);
+            if (_nodeDataMap.TryGetValue(f, out var fromData))
+            {
+                if (fromData is DialogueNodeData d) d.NextNodeId = null;
+                UpdateNodeWarnings();
+            }
+        };
         _graphEdit.DeleteNodesRequest += (nodes) => { 
+            if (!EnsureProjectOpen()) return;
             foreach (string n in nodes) DeleteNode(n); 
         };
     }
 
+    private bool EnsureProjectOpen()
+    {
+        if (!ProjectManager.IsProjectOpened)
+        {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先新建或打开一个项目！");
+            return false;
+        }
+        return true;
+    }
+
     private void LaunchPreview(string startNodeId = null, bool isEditMode = false)
     {
+        if (!EnsureProjectOpen()) return;
+
         // 1. 同步所有节点视图内部数据
         foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>())
         {
@@ -133,16 +191,17 @@ public partial class EditorScreen : Control
                 });
                 break;
             case 2:
-                if (ProjectManager.IsProjectOpened)
+                if (EnsureProjectOpen())
                 {
                     StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile);
                     CharacterManager.SaveCharacters(ProjectManager.CharacterFile);
                     ProjectManager.SaveMetadata();
                     GD.Print("Project Saved Successfully.");
+                    GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目保存成功！");
                 }
                 break;
             case 3:
-                if (ProjectManager.IsProjectOpened)
+                if (EnsureProjectOpen())
                 {
                     StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile);
                     CharacterManager.SaveCharacters(ProjectManager.CharacterFile);
@@ -154,7 +213,7 @@ public partial class EditorScreen : Control
                 }
                 break;
             case 4:
-                if (ProjectManager.IsProjectOpened)
+                if (EnsureProjectOpen())
                 {
                     StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile);
                     CharacterManager.SaveCharacters(ProjectManager.CharacterFile);
@@ -170,6 +229,8 @@ public partial class EditorScreen : Control
 
     private void OnImportMenuIdPressed(long id)
     {
+        if (!EnsureProjectOpen()) return;
+
         switch (id)
         {
             case 10: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Background); break;
@@ -180,6 +241,8 @@ public partial class EditorScreen : Control
 
     private void OnCharMenuIdPressed(long id)
     {
+        if (!EnsureProjectOpen()) return;
+
         switch (id)
         {
             case 0: CharacterEditorUI.Open(this); break;
@@ -301,18 +364,138 @@ public partial class EditorScreen : Control
         foreach (var data in _nodeDataMap.Values)
         {
             if (!string.IsNullOrEmpty(data.NextNodeId))
+            {
                 _graphEdit.ConnectNode(data.Id, 0, data.NextNodeId, 0);
+                // 加载时也检查是否需要标红
+                if (data is DialogueNodeData && _nodeDataMap.TryGetValue(data.NextNodeId, out var toData))
+                {
+                    if (toData is SpriteNodeData || toData is BackgroundNodeData || toData is MusicNodeData)
+                    {
+                        _graphEdit.SetConnectionActivity(data.Id, 0, data.NextNodeId, 0, 1.0f);
+                    }
+                }
+            }
 
             if (data is ChoiceNodeData choice)
             {
                 for (int i = 0; i < choice.Options.Count; i++)
+                {
                     if (!string.IsNullOrEmpty(choice.Options[i].TargetNodeId))
+                    {
                         _graphEdit.ConnectNode(data.Id, i, choice.Options[i].TargetNodeId, 0);
+                    }
+                }
             }
             else if (data is BranchNodeData branch)
             {
                 if (!string.IsNullOrEmpty(branch.SuccessNodeId)) _graphEdit.ConnectNode(data.Id, 0, branch.SuccessNodeId, 0);
                 if (!string.IsNullOrEmpty(branch.FailNodeId)) _graphEdit.ConnectNode(data.Id, 1, branch.FailNodeId, 0);
+            }
+        }
+    }
+
+    private void AutoFixNodeOrder()
+    {
+        // 1. 同步最新数据
+        foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>())
+        {
+            if (_nodeDataMap.TryGetValue(node.Name, out var data)) data.SyncFromView(node);
+        }
+        StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
+
+        bool changed = false;
+        bool keepChecking = true;
+        
+        while (keepChecking)
+        {
+            keepChecking = false;
+            foreach (var b in _nodeDataMap.Values.ToList())
+            {
+                if (b is DialogueNodeData dialogueB && !string.IsNullOrEmpty(dialogueB.NextNodeId))
+                {
+                    if (_nodeDataMap.TryGetValue(dialogueB.NextNodeId, out var c))
+                    {
+                        if (c is SpriteNodeData || c is BackgroundNodeData || c is MusicNodeData)
+                        {
+                            // 逻辑交换
+                            float tempX = b.PosX; float tempY = b.PosY;
+                            b.PosX = c.PosX; b.PosY = c.PosY;
+                            c.PosX = tempX; c.PosY = tempY;
+
+                            foreach (var n in _nodeDataMap.Values)
+                            {
+                                if (n.Id == b.Id || n.Id == c.Id) continue;
+                                if (n.NextNodeId == b.Id) n.NextNodeId = c.Id;
+                                else if (n is ChoiceNodeData choice)
+                                    foreach (var opt in choice.Options) if (opt.TargetNodeId == b.Id) opt.TargetNodeId = c.Id;
+                                else if (n is BranchNodeData branch)
+                                {
+                                    if (branch.SuccessNodeId == b.Id) branch.SuccessNodeId = c.Id;
+                                    if (branch.FailNodeId == b.Id) branch.FailNodeId = c.Id;
+                                }
+                            }
+
+                            string tempNext = c.NextNodeId;
+                            c.NextNodeId = b.Id;
+                            b.NextNodeId = tempNext;
+
+                            changed = true;
+                            keepChecking = true;
+                            break; 
+                        }
+                    }
+                }
+            }
+        }
+
+        if (changed)
+        {
+            // 2. 原地更新视图：不删除节点，只更新坐标和连线
+            _graphEdit.ClearConnections();
+            foreach (var data in _nodeDataMap.Values)
+            {
+                if (_graphEdit.HasNode(data.Id))
+                {
+                    var gNode = _graphEdit.GetNode<GraphNode>(data.Id);
+                    gNode.PositionOffset = new Vector2(data.PosX, data.PosY);
+                }
+            }
+            RebuildConnections();
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("自动纠正完成：已交换对话与视觉节点顺序。");
+        }
+        else
+        {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("无需纠正：当前没有发现错位的节点。");
+        }
+        UpdateNodeWarnings();
+    }
+
+    private void UpdateNodeWarnings()
+    {
+        foreach (var data in _nodeDataMap.Values)
+        {
+            if (!_graphEdit.HasNode(data.Id)) continue;
+            var gNode = _graphEdit.GetNode<GraphNode>(data.Id);
+            
+            if (data is DialogueNodeData dialogue)
+            {
+                bool hasIssue = false;
+                if (!string.IsNullOrEmpty(dialogue.NextNodeId) && _nodeDataMap.TryGetValue(dialogue.NextNodeId, out var toData))
+                {
+                    if (toData is SpriteNodeData || toData is BackgroundNodeData || toData is MusicNodeData)
+                        hasIssue = true;
+                }
+
+                if (hasIssue)
+                {
+                    gNode.Title = "⚠️ " + Tr("KEY_NODE_ACTOR");
+                    gNode.AddThemeColorOverride("title_color", new Color(1, 0.3f, 0.3f));
+                }
+                else
+                {
+                    gNode.Title = Tr("KEY_NODE_ACTOR");
+                    gNode.RemoveThemeColorOverride("title_color");
+                }
             }
         }
     }

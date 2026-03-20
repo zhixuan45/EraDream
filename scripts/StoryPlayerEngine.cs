@@ -3,8 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using UmaArchive.Editor.Nodes;
-using UmaArchive.Core;
+using UmaEraArchive.Editor.Nodes;
+using UmaEraArchive.Core;
 
 public partial class StoryPlayerEngine : Control
 {
@@ -45,16 +45,25 @@ public partial class StoryPlayerEngine : Control
         _interactButton = GetNode<Button>("UI_Layer/InteractButton");
         _backgroundRect = GetNode<TextureRect>("Background");
         _overlay = GetNode<Control>("ColorRectOverlay");
+        _overlay.MouseFilter = MouseFilterEnum.Ignore; // 确保遮罩层不拦截点击
+        
+        // 初始化滤镜着色器
+        var blurShader = GD.Load<Shader>("res://Shaders/blur_shader.gdshader");
+        var mat = new ShaderMaterial { Shader = blurShader };
+        mat.SetShaderParameter("color_over", new Color(0, 0, 0, 1));
+        mat.SetShaderParameter("blur_amount", 0.0f);
+        mat.SetShaderParameter("mix_amount", 0.0f);
+        _overlay.Material = mat;
         
         // 背景层初始化
         _backgroundRect.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
         _backgroundRect.StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered;
         _backgroundRect.SetAnchorsPreset(LayoutPreset.FullRect);
-        _backgroundRect.MouseFilter = MouseFilterEnum.Ignore;
+        _backgroundRect.MouseFilter = MouseFilterEnum.Ignore; // 确保背景不拦截点击
 
         _characterContainer = new Control { Name = "CharacterContainer" };
         _characterContainer.SetAnchorsPreset(LayoutPreset.FullRect);
-        _characterContainer.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _characterContainer.MouseFilter = Control.MouseFilterEnum.Ignore; // 立绘容器不拦截
         AddChild(_characterContainer);
 
         // 严格校正层级：背景(0) -> 遮罩(1) -> 立绘(2) -> UI
@@ -62,10 +71,13 @@ public partial class StoryPlayerEngine : Control
         MoveChild(_overlay, 1);
         MoveChild(_characterContainer, 2);
 
+        _choiceContainer.MouseFilter = MouseFilterEnum.Pass; // 允许子按钮接收事件
+        
         _bgmPlayer = new AudioStreamPlayer();
         AddChild(_bgmPlayer);
 
         _interactButton.Pressed += OnInteraction;
+        _interactButton.MouseFilter = MouseFilterEnum.Pass; // 交互按钮默认 Pass
 
         if (PreviewNodes != null && PreviewNodes.Count > 0)
         {
@@ -110,7 +122,13 @@ public partial class StoryPlayerEngine : Control
 
         _choiceContainer.Hide();
         _dialogueBox.Show();
+        _interactButton.Show(); // 默认显示全屏交互按钮
         foreach (Node child in _choiceContainer.GetChildren()) child.QueueFree();
+
+        // 默认重置滤镜（如果当前节点没有指定，则恢复清晰）
+        if (_currentNode is NarrativeNodeData narrative) ApplyVisualEffects(narrative.BlurValue, narrative.Darkness);
+        else if (_currentNode is ChoiceNodeData choice) ApplyVisualEffects(choice.BlurValue, choice.Darkness);
+        else ApplyVisualEffects(0, 0);
 
         // 可视化编辑模式拦截：如果当前节点是目标编辑节点，则执行完逻辑后停止，不自动跳转
         bool shouldPauseForEdit = EnableVisualEditing && _currentNode.Id == StartNodeId;
@@ -131,9 +149,11 @@ public partial class StoryPlayerEngine : Control
                 break;
             case DialogueNodeData dialogue: 
                 UpdateDialogueAndCharacter(dialogue); 
+                PreExecuteVisualNodes(dialogue.NextNodeId);
                 break;
-            case NarrativeNodeData narrative: 
-                UpdateDialogueUI("", narrative.Content); 
+            case NarrativeNodeData narrativeNode: 
+                UpdateDialogueUI("", narrativeNode.Content); 
+                PreExecuteVisualNodes(narrativeNode.NextNodeId);
                 break;
             case MusicNodeData music: 
                 PlayBGM(music.AudioFile); 
@@ -145,13 +165,25 @@ public partial class StoryPlayerEngine : Control
                 if (shouldPauseForEdit) return;
                 GoToNextNode(sprite.NextNodeId); 
                 break;
-            case ChoiceNodeData choice: 
-                ShowChoiceButtons(choice); 
+            case ChoiceNodeData choiceNode: 
+                ShowChoiceButtons(choiceNode); 
                 break;
             case BranchNodeData branch: 
                 if (shouldPauseForEdit) return;
                 HandleBranchNode(branch); 
                 break;
+        }
+    }
+
+    private void ApplyVisualEffects(float blur, float darkness)
+    {
+        if (_overlay.Material is ShaderMaterial mat)
+        {
+            // 使用 Tween 实现平滑过渡
+            var tween = CreateTween();
+            tween.SetParallel(true);
+            tween.TweenMethod(Callable.From((float v) => mat.SetShaderParameter("blur_amount", v)), (float)mat.GetShaderParameter("blur_amount"), blur, 0.5f);
+            tween.TweenMethod(Callable.From((float v) => mat.SetShaderParameter("mix_amount", v)), (float)mat.GetShaderParameter("mix_amount"), darkness, 0.5f);
         }
     }
 
@@ -275,9 +307,16 @@ public partial class StoryPlayerEngine : Control
             using var fileAccess = Godot.FileAccess.Open(rawPath, Godot.FileAccess.ModeFlags.Read);
             byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
             var image = new Image();
-            var error = image.LoadPngFromBuffer(data); // 假设是 PNG
-            if (error != Error.Ok) error = image.LoadJpgFromBuffer(data); // 尝试 JPG
-            if (error != Error.Ok) error = image.LoadWebpFromBuffer(data); // 尝试 WebP
+            string ext = System.IO.Path.GetExtension(rawPath).ToLower();
+            Error error = Error.Failed;
+            
+            if (ext == ".jpg" || ext == ".jpeg") error = image.LoadJpgFromBuffer(data);
+            else if (ext == ".webp") error = image.LoadWebpFromBuffer(data);
+            else error = image.LoadPngFromBuffer(data);
+            
+            if (error != Error.Ok && ext != ".png") error = image.LoadPngFromBuffer(data);
+            if (error != Error.Ok && (ext != ".jpg" && ext != ".jpeg")) error = image.LoadJpgFromBuffer(data);
+            if (error != Error.Ok && ext != ".webp") error = image.LoadWebpFromBuffer(data);
 
             if (error == Error.Ok)
             {
@@ -354,7 +393,9 @@ public partial class StoryPlayerEngine : Control
 
     private void ShowChoiceButtons(ChoiceNodeData choice)
     {
-        _dialogueBox.Hide(); _choiceContainer.Show();
+        _dialogueBox.Hide(); 
+        _choiceContainer.Show();
+        _interactButton.Hide(); // 隐藏全屏交互按钮，否则它会挡住选项按钮点击
         foreach (var option in choice.Options)
         {
             Button btn = new Button { Text = LocalTr(option.Text), CustomMinimumSize = new Vector2(300, 50) };
@@ -380,6 +421,36 @@ public partial class StoryPlayerEngine : Control
     {
         _currentNode = string.IsNullOrEmpty(nextId) ? null : _storyNodes.FirstOrDefault(n => n.Id == nextId);
         ProcessCurrentNode();
+    }
+
+    private void PreExecuteVisualNodes(string nextId)
+    {
+        string currentCheckId = nextId;
+        while (!string.IsNullOrEmpty(currentCheckId))
+        {
+            var node = _storyNodes.FirstOrDefault(n => n.Id == currentCheckId);
+            if (node == null) break;
+
+            if (node is SpriteNodeData sprite)
+            {
+                HandleSpriteNode(sprite);
+                currentCheckId = sprite.NextNodeId;
+            }
+            else if (node is BackgroundNodeData bg)
+            {
+                UpdateBackground(bg.BackgroundFile, bg.TransitionType);
+                currentCheckId = bg.NextNodeId;
+            }
+            else if (node is MusicNodeData music)
+            {
+                PlayBGM(music.AudioFile);
+                currentCheckId = music.NextNodeId;
+            }
+            else
+            {
+                break; // Stop when hitting a blocking node (Dialogue, Choice, Branch, etc.)
+            }
+        }
     }
 
     private void LoadLocalTranslations(string storyPath) { } 

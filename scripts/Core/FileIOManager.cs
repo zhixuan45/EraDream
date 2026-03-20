@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Linq;
 
-namespace UmaArchive.Core
+namespace UmaEraArchive.Core
 {
     public static class FileIOManager
     {

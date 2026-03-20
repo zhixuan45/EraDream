@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Godot;
 
-namespace UmaArchive.Editor.Nodes
+namespace UmaEraArchive.Editor.Nodes
 {
 	[JsonDerivedType(typeof(DialogueNodeData), typeDiscriminator: "dialogue")]
 	[JsonDerivedType(typeof(NarrativeNodeData), typeDiscriminator: "narrative")]

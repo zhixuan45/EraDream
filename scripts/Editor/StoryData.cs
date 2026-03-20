@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace UmaArchive.Editor
+namespace UmaEraArchive.Editor
 {
     /// <summary>
     /// 剧情节点类型枚举

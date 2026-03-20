@@ -1,7 +1,7 @@
 using Godot;
 using System;
 using System.IO;
-using UmaArchive.Core;
+using UmaEraArchive.Core;
 
 public static class ResourceManagerUI
 {

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace UmaArchive.Core
+namespace UmaEraArchive.Core
 {
     public enum ScreenOrientation
     {

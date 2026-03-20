@@ -1,10 +1,16 @@
 using Godot;
 using System.Collections.Generic;
-using UmaArchive.Editor.Nodes;
+using UmaEraArchive.Editor.Nodes;
 
 public class ChoiceNodeData : BaseNodeData
 {
 	public List<ChoiceItem> Options { get; set; } = new List<ChoiceItem>();
+	public float BlurValue { get; set; } = 0.0f;
+	public float Darkness { get; set; } = 0.0f;
+
+	private VBoxContainer _detailPanel;
+	private HSlider _blurSlider;
+	private HSlider _darkSlider;
 
 	public class ChoiceItem
 	{
@@ -17,8 +23,18 @@ public class ChoiceNodeData : BaseNodeData
 		GraphNode node = new GraphNode { Title = Tr("KEY_NODE_CHOICE"), Name = Id };
 		SetupBaseNodeUI(node);
 		
-		// Slot 0 (Header): 关闭所有端口，恢复整洁
 		node.SetSlot(0, false, 0, new Color(1, 1, 1), false, 0, new Color(1, 1, 1));
+
+		// 详细面板 (滤镜等)
+		_detailPanel = new VBoxContainer { Visible = IsExpanded };
+		_detailPanel.AddChild(new Label { Text = "背景虚化 (Blur)", ThemeTypeVariation = "HeaderSmall" });
+		_blurSlider = new HSlider { MinValue = 0, MaxValue = 5, Step = 0.1, Value = BlurValue };
+		_detailPanel.AddChild(_blurSlider);
+
+		_detailPanel.AddChild(new Label { Text = "背景暗度 (Darkness)", ThemeTypeVariation = "HeaderSmall" });
+		_darkSlider = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05, Value = Darkness };
+		_detailPanel.AddChild(_darkSlider);
+		node.AddChild(_detailPanel);
 
 		if (Options.Count == 0) Options.Add(new ChoiceItem());
 
@@ -40,6 +56,13 @@ public class ChoiceNodeData : BaseNodeData
 		return node;
 	}
 
+	protected override void OnDetailPressed(GraphNode node)
+	{
+		IsExpanded = !IsExpanded;
+		_detailPanel.Visible = IsExpanded;
+		ResetSize(node);
+	}
+
 	private void AddOptionSlot(GraphNode node, int index, ChoiceItem item)
 	{
 		HBoxContainer box = new HBoxContainer();
@@ -56,19 +79,16 @@ public class ChoiceNodeData : BaseNodeData
 		node.AddChild(box);
 		node.MoveChild(box, node.GetChildCount() - 2);
 
-		// 获取当前子节点索引作为槽位索引
 		int slotIndex = node.GetChildCount() - 2;
 		
-		// 关键更改：仅为第一个选项（index == 0）开启左侧流入白色小点
 		bool enableInput = (index == 0);
 		node.SetSlot(slotIndex, enableInput, 0, new Color(1, 1, 1), true, 0, new Color(1, 0.6f, 0));
 
 		delBtn.Pressed += () => {
-			if (node.GetChildCount() > 3) {
+			if (node.GetChildCount() > 4) { // 考虑 detailPanel 和 addBtn
 				node.RemoveChild(box);
 				box.QueueFree();
 				ResetSize(node);
-				// 提醒：如果删除了第一个选项，需要重新指定输入点（这里简单处理，建议通过刷新实现）
 			}
 		};
 	}
@@ -81,6 +101,9 @@ public class ChoiceNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		BlurValue = (float)_blurSlider.Value;
+		Darkness = (float)_darkSlider.Value;
+
 		Options.Clear();
 		int currentPort = 0; 
 		

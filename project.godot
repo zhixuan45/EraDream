@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="umaarchive-new"
+config/name="umaEraArchive"
 run/main_scene="uid://c6587dhy1q4a"
 config/features=PackedStringArray("4.6", "C#", "Mobile")
 config/icon="res://icon.svg"
@@ -31,7 +31,7 @@ window/stretch/aspect="expand"
 
 [dotnet]
 
-project/assembly_name="umaarchive-new"
+project/assembly_name="umaEraArchive"
 
 [internationalization]
 
@@ -45,3 +45,4 @@ locale/translations=PackedStringArray("res://translations/game_text.zh.translati
 
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
