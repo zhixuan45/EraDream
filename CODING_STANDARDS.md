@@ -27,3 +27,11 @@
 ## 4. 预览模式逻辑
 
 - **IsPreviewMode**: 播放引擎应检测此标记。在预览模式下，点击结束节点应通过 `StoryFinished` 信号通知 UI 关闭预览窗口，而非跳转至主菜单。
+
+## 5. 代码结构与可维护性 (Code Structure)
+
+- **行数限制 (Line Limit)**: 单个源文件不应超过 **1000 行**。
+- **逻辑拆分 (Logic Splitting)**: 
+  - 当类或文件超过此限制时，必须进行重构和拆分。
+  - 优先考虑将逻辑拆分为更小的、逻辑独立的组件（Components）、分部类（Partial Classes）或辅助工具类（Helper Utilities）。
+  - 每个文件应遵循单一职责原则（SRP）；文件长度过大通常意味着职责过于分散。

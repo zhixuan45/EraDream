@@ -26,6 +26,7 @@ SettingsOverlay="*res://scripts/Core/SettingsOverlay.cs"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+window/subwindows/embed_subwindows=false
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

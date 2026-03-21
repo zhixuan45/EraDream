@@ -9,6 +9,7 @@ public class ProjectMetadata
     public string Title { get; set; } = "新剧情项目";
     public string Version { get; set; } = "1.0.0";
     public string Author { get; set; } = "Unknown";
+    public string Description { get; set; } = "";
     public string LastModified { get; set; } = System.DateTime.Now.ToString();
 }
 

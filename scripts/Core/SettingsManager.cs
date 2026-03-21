@@ -2,12 +2,6 @@ using Godot;
 using System;
 using System.Text.Json;
 
-public class AppSettings
-{
-    public bool IsDarkMode { get; set; } = true;
-    public float MasterVolume { get; set; } = 1.0f;
-}
-
 public partial class SettingsManager : Node
 {
     public static SettingsManager Instance { get; private set; }
@@ -31,10 +25,31 @@ public partial class SettingsManager : Node
         }
     }
 
+    public bool IsEmbeddedSubwindows
+    {
+        get => _currentSettings.IsEmbeddedSubwindows;
+        set
+        {
+            if (_currentSettings.IsEmbeddedSubwindows != value)
+            {
+                _currentSettings.IsEmbeddedSubwindows = value;
+                ApplyWindowSettings();
+                SaveSettings();
+            }
+        }
+    }
+
     public override void _Ready()
     {
         Instance = this;
         LoadSettings();
+        // 延迟调用以确保树已准备好
+        CallDeferred(MethodName.ApplyWindowSettings);
+    }
+
+    private void ApplyWindowSettings()
+    {
+        GetTree().Root.GuiEmbedSubwindows = _currentSettings.IsEmbeddedSubwindows;
     }
 
     private void LoadSettings()
