@@ -33,7 +33,7 @@ public partial class LoadingScreen : Control
     private Label _loadingText;
     private List<BarrageRow> _rows = new List<BarrageRow>();
     private float _timer = 0f;
-    private const float LoadTime = 1.2f; // 缩短加载时间
+    private float _minLoadTime = 0.5f; // 给一个最小加载时间，防止画面一闪而过
 
     // 静态变量，用于控制加载后的跳转目标
     public static string TargetScene = "res://scenes/MainMenuScreen.tscn";
@@ -58,8 +58,10 @@ public partial class LoadingScreen : Control
 
     public override void _Ready()
     {
+        GD.Print($"[Debug] LoadingScreen: _Ready starting, Target: {TargetScene}");
         if (TextShader == null)
         {
+            GD.Print("[Debug] LoadingScreen: Loading shader...");
             TextShader = ResourceLoader.Load<Shader>("res://Shaders/Text.gdshader");
         }
         _bgContainer = GetNode<Control>("BackgroundContainer");
@@ -75,6 +77,17 @@ public partial class LoadingScreen : Control
         
         Resized += () => CallDeferred(nameof(GenerateBarrageBackground));
         CallDeferred(nameof(GenerateBarrageBackground));
+        GD.Print("[Debug] LoadingScreen: _Ready finished.");
+        
+        // 开启后台异步加载，避免主线程卡死
+        if (ResourceLoader.Exists(TargetScene))
+        {
+            ResourceLoader.LoadThreadedRequest(TargetScene);
+        }
+        else
+        {
+            GD.PrintErr($"[Error] LoadingScreen: TargetScene {TargetScene} does not exist!");
+        }
     }
 
     public override void _Input(InputEvent @event)
@@ -124,63 +137,92 @@ public partial class LoadingScreen : Control
         }
     }
 
+    // === 分帧渐进生成弹幕的状态 ===
+    private bool _barrageReady = false;
+    private int _barrageCurrentRow = 0;
+    private int _barrageTargetRowCount = 0;
+    private int _barrageFontSize = 18;
+    private float _barrageDiagonal = 0f;
+    private Vector2 _barrageStartPos;
+    private Color _barrageColorA, _barrageColorB;
+    private SystemFont _barrageBoldFont;
+    private const int MaxBarrageRows = 50; // 限制最大行数
+    private const int RowsPerFrame = 5;    // 每帧生成行数
+
     private void GenerateBarrageBackground()
     {
+        // 清理旧内容
         foreach (Node child in _bgContainer.GetChildren()) child.QueueFree();
         _rows.Clear();
 
         _bgContainer.PivotOffset = Size / 2;
         _bgContainer.RotationDegrees = 27.5f;
 
-        int fontSize = Mathf.Max(18, (int)(Size.Y / 25));
-        SystemFont boldFont = new SystemFont();
-        boldFont.FontWeight = 700;
+        // 预计算参数，存到成员变量供 _Process 分帧使用
+        _barrageFontSize = Mathf.Max(32, (int)(Size.Y / 20));
+        _barrageBoldFont = new SystemFont();
+        _barrageBoldFont.FontWeight = 700;
 
-        float diagonal = Size.Length() * 1.5f;
-        float ySpacing = fontSize * 1.6f;
-        int rowCount = Mathf.CeilToInt(diagonal / ySpacing) + 2;
-        
-        Vector2 startPos = (Size / 2) - new Vector2(diagonal / 2, diagonal / 2);
-        
-        Color rowColorA, rowColorB;
+        _barrageDiagonal = Size.Length() * 1.5f;
+        float ySpacing = _barrageFontSize * 2.2f;
+        _barrageTargetRowCount = Mathf.Min(Mathf.CeilToInt(_barrageDiagonal / ySpacing) + 2, MaxBarrageRows);
+        _barrageStartPos = (Size / 2) - new Vector2(_barrageDiagonal / 2, _barrageDiagonal / 2);
+
         if (_isDarkMode)
         {
-            rowColorA = new Color("#444444"); 
-            rowColorB = new Color("#888888");
+            _barrageColorA = new Color("#444444");
+            _barrageColorB = new Color("#888888");
         }
         else
         {
-            rowColorA = new Color("#555555");
-            rowColorB = new Color("#999999");
+            _barrageColorA = new Color("#555555");
+            _barrageColorB = new Color("#999999");
         }
 
-        for (int i = 0; i < rowCount; i++)
+        _barrageCurrentRow = 0;
+        _barrageReady = false;
+    }
+
+    /// <summary>
+    /// 每帧创建若干行弹幕，避免一次性全生成导致卡顿
+    /// </summary>
+    private void ProgressiveBarrageGenerate()
+    {
+        if (_barrageReady) return;
+
+        float ySpacing = _barrageFontSize * 2.2f;
+        int endRow = Mathf.Min(_barrageCurrentRow + RowsPerFrame, _barrageTargetRowCount);
+
+        for (int i = _barrageCurrentRow; i < endRow; i++)
         {
             string rawText = BarrageTexts[i % BarrageTexts.Length];
             string repeatedText = rawText;
-            while (boldFont.GetStringSize(repeatedText, fontSize: fontSize).X < diagonal)
+            while (_barrageBoldFont.GetStringSize(repeatedText, fontSize: _barrageFontSize).X < _barrageDiagonal)
             {
                 repeatedText += rawText;
             }
 
-            float rowWidth = boldFont.GetStringSize(repeatedText, fontSize: fontSize).X;
-            Color rowColor = (i % 2 == 0) ? rowColorA : rowColorB;
-            float rowY = startPos.Y + i * ySpacing;
-            
+            float rowWidth = _barrageBoldFont.GetStringSize(repeatedText, fontSize: _barrageFontSize).X;
+            Color rowColor = (i % 2 == 0) ? _barrageColorA : _barrageColorB;
+            float rowY = _barrageStartPos.Y + i * ySpacing;
+
             float rowSpeed = 60f + (GD.Randi() % 40);
             float initialOffset = (float)GD.RandRange(0, rowWidth);
 
-            Label l1 = CreateLabel(repeatedText, boldFont, fontSize, rowColor);
-            Label l2 = CreateLabel(repeatedText, boldFont, fontSize, rowColor);
+            Label l1 = CreateLabel(repeatedText, _barrageBoldFont, _barrageFontSize, rowColor);
+            Label l2 = CreateLabel(repeatedText, _barrageBoldFont, _barrageFontSize, rowColor);
 
-            l1.Position = new Vector2(startPos.X - initialOffset, rowY);
+            l1.Position = new Vector2(_barrageStartPos.X - initialOffset, rowY);
             l2.Position = new Vector2(l1.Position.X + rowWidth, rowY);
 
             _bgContainer.AddChild(l1);
             _bgContainer.AddChild(l2);
-
             _rows.Add(new BarrageRow { L1 = l1, L2 = l2, Width = rowWidth, Speed = rowSpeed });
         }
+
+        _barrageCurrentRow = endRow;
+        if (_barrageCurrentRow >= _barrageTargetRowCount)
+            _barrageReady = true;
     }
 
     private Label CreateLabel(string text, Font font, int fontSize, Color color)
@@ -203,6 +245,10 @@ public partial class LoadingScreen : Control
 
     public override void _Process(double delta)
     {
+        // 先推进弹幕的分帧生成
+        ProgressiveBarrageGenerate();
+
+        // 驱动已有弹幕行的滚动动画
         foreach (var row in _rows)
         {
             row.Update((float)delta);
@@ -210,13 +256,34 @@ public partial class LoadingScreen : Control
 
         _timer += (float)delta;
         
-        // 更新百分比显示
-        float progress = Mathf.Clamp(_timer / LoadTime, 0f, 1f);
-        _loadingText.Text = $"Loading... {Mathf.RoundToInt(progress * 100)}%";
+        Godot.Collections.Array progressArray = new Godot.Collections.Array();
+        ResourceLoader.ThreadLoadStatus status = ResourceLoader.LoadThreadedGetStatus(TargetScene, progressArray);
 
-        if (_timer >= LoadTime)
+        if (status == ResourceLoader.ThreadLoadStatus.Loaded)
         {
-            GetTree().ChangeSceneToFile(TargetScene);
+            _loadingText.Text = "Loading... 100%";
+            if (_timer >= _minLoadTime)
+            {
+                SetProcess(false);
+                PackedScene nextScene = (PackedScene)ResourceLoader.LoadThreadedGet(TargetScene);
+                GetTree().ChangeSceneToPacked(nextScene);
+            }
+        }
+        else if (status == ResourceLoader.ThreadLoadStatus.InProgress)
+        {
+            float currentProgress = progressArray.Count > 0 ? (float)progressArray[0] : 0f;
+            // 防止异步加载太快，结合 _timer 做一个缓动
+            float visualProgress = Mathf.Min(currentProgress, _timer / _minLoadTime);
+            _loadingText.Text = $"Loading... {Mathf.RoundToInt(visualProgress * 100)}%";
+        }
+        else
+        {
+            _loadingText.Text = "Loading Failed!";
+            if (_timer >= _minLoadTime)
+            {
+                SetProcess(false);
+                GetTree().ChangeSceneToFile(TargetScene); // 回退方案
+            }
         }
     }
 }

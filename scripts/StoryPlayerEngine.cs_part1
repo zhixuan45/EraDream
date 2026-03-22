@@ -1,0 +1,142 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
+using UmaEraArchive.Editor.Nodes;
+using UmaEraArchive.Core;
+
+public partial class StoryPlayerEngine : Control
+{
+    private Label _nameLabel;
+    private RichTextLabel _contentLabel;
+    private VBoxContainer _choiceContainer;
+    private Control _dialogueBox;
+    private Button _interactButton;
+    private TextureRect _backgroundRect;
+    private AudioStreamPlayer _bgmPlayer;
+    private Control _characterContainer;
+    private Control _overlay;
+    private Dictionary<int, CharacterSprite> _activeSprites = new Dictionary<int, CharacterSprite>();
+
+    private List<BaseNodeData> _storyNodes = new List<BaseNodeData>();
+    private BaseNodeData _currentNode;
+    private bool _isTextAnimating = false;
+    private float _textSpeed = 0.05f;
+    private Tween _textTween;
+
+    public static string CurrentStoryPath = "";
+    public static List<BaseNodeData> PreviewNodes = null;
+    public static string StartNodeId = null;
+    public static bool EnableVisualEditing = false;
+    public bool IsPreviewMode { get; set; } = false;
+
+    private CharacterSprite _draggedSprite = null;
+    private Vector2 _dragOffset = Vector2.Zero;
+
+    [Signal] public delegate void StoryFinishedEventHandler();
+
+    public override void _Ready()
+    {
+        _nameLabel = GetNode<Label>("UI_Layer/DialogueBox/NameLabel");
+        _contentLabel = GetNode<RichTextLabel>("UI_Layer/DialogueBox/ContentLabel");
+        _choiceContainer = GetNode<VBoxContainer>("UI_Layer/ChoiceContainer");
+        _dialogueBox = GetNode<Control>("UI_Layer/DialogueBox");
+        _interactButton = GetNode<Button>("UI_Layer/InteractButton");
+        _backgroundRect = GetNode<TextureRect>("Background");
+        _overlay = GetNode<Control>("ColorRectOverlay");
+        _overlay.MouseFilter = MouseFilterEnum.Ignore; // 确保遮罩层不拦截点击
+
+        if (ResponsiveManager.Instance != null)
+        {
+            ResponsiveManager.Instance.OnSafeAreaChanged += ApplySafeArea;
+            ApplySafeArea(ResponsiveManager.Instance.SafeAreaPadding);
+        }
+
+        // 绑定资源库
+        var blurShader = GD.Load<Shader>("res://resources/shaders/blur_overlay.gdshader");
+        var mat = new ShaderMaterial { Shader = blurShader };
+        mat.SetShaderParameter("color_over", new Color(0, 0, 0, 1));
+        mat.SetShaderParameter("blur_amount", 0.0f);
+        mat.SetShaderParameter("mix_amount", 0.0f);
+        _overlay.Material = mat;
+        
+        // 背景层初始化
+        _backgroundRect.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+        _backgroundRect.StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered;
+        _backgroundRect.SetAnchorsPreset(LayoutPreset.FullRect);
+        _backgroundRect.MouseFilter = MouseFilterEnum.Ignore; // 确保背景不拦截点击
+
+        _characterContainer = new Control { Name = "CharacterContainer" };
+        _characterContainer.SetAnchorsPreset(LayoutPreset.FullRect);
+        _characterContainer.MouseFilter = Control.MouseFilterEnum.Ignore; // 立绘容器不拦截
+        AddChild(_characterContainer);
+
+        // 严格校正层级：背景(0) -> 遮罩(1) -> 立绘(2) -> UI
+        MoveChild(_backgroundRect, 0);
+        MoveChild(_overlay, 1);
+        MoveChild(_characterContainer, 2);
+
+        _choiceContainer.MouseFilter = MouseFilterEnum.Pass; // 允许子按钮接收事件
+        
+        _bgmPlayer = new AudioStreamPlayer();
+        AddChild(_bgmPlayer);
+
+        _interactButton.Pressed += OnInteraction;
+        _interactButton.MouseFilter = MouseFilterEnum.Pass; // 交互按钮默认 Pass
+
+        if (PreviewNodes != null && PreviewNodes.Count > 0)
+        {
+            GD.Print("[Engine] Entering Preview Mode...");
+            IsPreviewMode = true;
+            _storyNodes = PreviewNodes;
+            
+            if (!string.IsNullOrEmpty(StartNodeId)) {
+                _currentNode = _storyNodes.FirstOrDefault(n => n.Id == StartNodeId);
+            } else {
+                _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
+            }
+            
+            ProcessCurrentNode();
+            PreviewNodes = null; 
+            return;
+        }
+
+        if (string.IsNullOrEmpty(CurrentStoryPath))
+        {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowErrorDialog("加载失败", "[Engine] Story path is empty!");
+            GetTree().ChangeSceneToFile("res://scenes/MainMenuScreen.tscn");
+            return;
+        }
+
+        LoadStory(CurrentStoryPath);
+    }
+
+    private void ApplySafeArea(float padding)
+    {
+        // 建议在 UI_Layer 下增加一个 MarginContainer 作为所有 UI 的根
+        var marginContainer = GetNodeOrNull<MarginContainer>("UI_Layer/MarginContainer");
+        if (marginContainer != null)
+        {
+            marginContainer.AddThemeConstantOverride("margin_left", (int)padding);
+            marginContainer.AddThemeConstantOverride("margin_right", (int)padding);
+            marginContainer.AddThemeConstantOverride("margin_top", (int)padding);
+            marginContainer.AddThemeConstantOverride("margin_bottom", (int)padding);
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        if (ResponsiveManager.Instance != null)
+        {
+            ResponsiveManager.Instance.OnSafeAreaChanged -= ApplySafeArea;
+        }
+    }
+
+    private void LoadStory(string path)
+    {
+        _storyNodes = StoryNodeManager.LoadProject(path);
+        if (_storyNodes.Count == 0) return;
+        _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
+        ProcessCurrentNode();
+    }

@@ -15,13 +15,13 @@ public partial class StorySelectorScreen : Control
 
     public override void _Ready()
     {
-        _storyList = GetNode<VBoxContainer>("MarginContainer/VBoxContainer/ScrollContainer/StoryList");
-        _searchEdit = GetNode<LineEdit>("MarginContainer/VBoxContainer/Header/SearchEdit");
-        _btnPlay = GetNode<Button>("MarginContainer/VBoxContainer/Footer/BtnPlay");
+        _storyList = GetNode<VBoxContainer>("SafeAreaAdapter/VBoxContainer/ScrollContainer/StoryList");
+        _searchEdit = GetNode<LineEdit>("SafeAreaAdapter/VBoxContainer/Header/SearchEdit");
+        _btnPlay = GetNode<Button>("SafeAreaAdapter/VBoxContainer/Footer/BtnPlay");
         
         // 绑定事件
         _searchEdit.TextChanged += OnSearchTextChanged;
-        GetNode<Button>("MarginContainer/VBoxContainer/Footer/BtnBack").Pressed += () => {
+        GetNode<Button>("SafeAreaAdapter/VBoxContainer/Footer/BtnBack").Pressed += () => {
             LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
             GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
         };
@@ -125,8 +125,9 @@ public partial class StorySelectorScreen : Control
         {
             StoryPlayerEngine.CurrentStoryPath = _selectedStoryPath;
             // 尝试加载同级目录下的角色文件（如果是文件夹模式）
-            string charFile = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_selectedStoryPath), "characters.json");
-            if (System.IO.File.Exists(charFile)) CharacterManager.LoadCharacters(charFile);
+            string baseDir = _selectedStoryPath.Substring(0, _selectedStoryPath.LastIndexOf('/'));
+            string charFile = baseDir + "/characters.json";
+            if (FileAccess.FileExists(charFile)) CharacterManager.LoadCharacters(charFile);
         }
 
         LoadingScreen.TargetScene = "res://scenes/StoryPlayerScreen.tscn";

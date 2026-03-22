@@ -89,4 +89,7 @@ public class DialogueNodeData : BaseNodeData
 		else
 			VoiceFile = "";
 	}
+
+	// 搜索时返回角色和对话内容
+	public override string GetSearchableText() => $"对话 {Content}";
 }

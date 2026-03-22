@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://story_player_01"]
+[gd_scene load_steps=3 format=3 uid="uid://story_player_01"]
 
 [ext_resource type="Script" path="res://scripts/StoryPlayerEngine.cs" id="1_player"]
+[ext_resource type="Script" path="res://scripts/Core/SafeAreaAdapter.cs" id="2_safe"]
 
 [node name="StoryPlayerScreen" type="Control"]
 layout_mode = 3
@@ -32,7 +33,19 @@ color = Color(0, 0, 0, 0.4)
 
 [node name="UI_Layer" type="CanvasLayer" parent="."]
 
-[node name="DialogueBox" type="Panel" parent="UI_Layer"]
+[node name="SafeAreaAdapter" type="MarginContainer" parent="UI_Layer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_safe")
+
+[node name="Control_Root" type="Control" parent="UI_Layer/SafeAreaAdapter"]
+layout_mode = 2
+
+[node name="DialogueBox" type="Panel" parent="UI_Layer/SafeAreaAdapter/Control_Root"]
+layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
@@ -45,7 +58,7 @@ offset_bottom = -40.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="NameLabel" type="Label" parent="UI_Layer/DialogueBox"]
+[node name="NameLabel" type="Label" parent="UI_Layer/SafeAreaAdapter/Control_Root/DialogueBox"]
 layout_mode = 0
 offset_left = 20.0
 offset_top = -40.0
@@ -55,7 +68,7 @@ theme_override_font_sizes/font_size = 24
 text = "Character Name"
 vertical_alignment = 2
 
-[node name="ContentLabel" type="RichTextLabel" parent="UI_Layer/DialogueBox"]
+[node name="ContentLabel" type="RichTextLabel" parent="UI_Layer/SafeAreaAdapter/Control_Root/DialogueBox"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -70,7 +83,7 @@ theme_override_font_sizes/normal_font_size = 22
 bbcode_enabled = true
 text = "Here goes the dialogue text content..."
 
-[node name="NextArrow" type="Label" parent="UI_Layer/DialogueBox"]
+[node name="NextArrow" type="Label" parent="UI_Layer/SafeAreaAdapter/Control_Root/DialogueBox"]
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -86,7 +99,8 @@ grow_vertical = 0
 text = "▼"
 horizontal_alignment = 2
 
-[node name="ChoiceContainer" type="VBoxContainer" parent="UI_Layer"]
+[node name="ChoiceContainer" type="VBoxContainer" parent="UI_Layer/SafeAreaAdapter/Control_Root"]
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5

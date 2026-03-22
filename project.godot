@@ -35,6 +35,10 @@ window/stretch/aspect="expand"
 
 project/assembly_name="umaEraArchive"
 
+[input_devices]
+
+pointing/android/disable_scroll_deadzone=true
+
 [internationalization]
 
 locale/translations=PackedStringArray("res://translations/game_text.zh.translation", "res://translations/game_text.en.translation")
@@ -47,4 +51,5 @@ locale/translations=PackedStringArray("res://translations/game_text.zh.translati
 
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true

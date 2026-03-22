@@ -20,16 +20,45 @@ public partial class MainMenuScreen : Control
         GetNode<Button>("VBoxContainer/ExitButton").Pressed += OnExitPressed;
 
         // 注册响应式布局回调
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.OnSafeAreaPaddingChanged += ApplySafeArea;
+            ApplySafeArea(SettingsManager.Instance.SafeAreaPadding);
+        }
+        
         if (ResponsiveManager.Instance != null)
         {
             ResponsiveManager.Instance.OnOrientationChanged += AdjustLayout;
-            // 初始化调用一次
             AdjustLayout(ResponsiveManager.Instance.CurrentOrientation == ScreenOrientation.Landscape);
+        }
+    }
+
+    private void ApplySafeArea(float padding)
+    {
+        // 寻找根包装容器，通常主界面根节点就是控制节点
+        // 直接设置全局 Offset 或内边距
+        if (this is Control root)
+        {
+            // 通过调整宿主节点的 Margin 来避开安全区
+            // 如果根节点是 Control，我们可以包装一层或手动设置 Offset
+            // 这里使用更稳定的方式：设置 Position 和 Size 缩放，或者寻找 MarginContainer
+            var marginContainer = GetNodeOrNull<MarginContainer>("MarginContainer");
+            if (marginContainer != null)
+            {
+                marginContainer.AddThemeConstantOverride("margin_left", (int)padding);
+                marginContainer.AddThemeConstantOverride("margin_right", (int)padding);
+                marginContainer.AddThemeConstantOverride("margin_top", (int)padding);
+                marginContainer.AddThemeConstantOverride("margin_bottom", (int)padding);
+            }
         }
     }
 
     public override void _ExitTree()
     {
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.OnSafeAreaPaddingChanged -= ApplySafeArea;
+        }
         if (ResponsiveManager.Instance != null)
         {
             ResponsiveManager.Instance.OnOrientationChanged -= AdjustLayout;

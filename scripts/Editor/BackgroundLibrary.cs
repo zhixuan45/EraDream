@@ -1,6 +1,5 @@
 using Godot;
 using System.Collections.Generic;
-using System.IO;
 
 public static class BackgroundLibrary
 {
@@ -12,21 +11,23 @@ public static class BackgroundLibrary
         var files = new List<string>();
         string path = ProjectManager.IsProjectOpened ? ProjectManager.BackgroundDir : "res://backgrounds/";
         
-        string absolutePath = ProjectSettings.GlobalizePath(path);
-
-        if (!Directory.Exists(absolutePath)) {
-            if (!path.StartsWith("res://")) {
-                Directory.CreateDirectory(absolutePath);
+        if (!DirAccess.DirExistsAbsolute(path)) {
+            if (!path.StartsWith("res://") && ProjectManager.IsProjectOpened) {
+                ProjectManager.EnsureDir("backgrounds");
             }
             return files;
         }
 
-        foreach (string file in Directory.GetFiles(absolutePath))
+        using var dir = DirAccess.Open(path);
+        if (dir != null)
         {
-            string ext = Path.GetExtension(file).ToLower();
-            if (ext == ".png" || ext == ".jpg" || ext == ".webp")
+            foreach (string file in dir.GetFiles())
             {
-                files.Add(Path.GetFileName(file));
+                string ext = file.GetExtension().ToLower();
+                if (ext == "png" || ext == "jpg" || ext == "webp")
+                {
+                    files.Add(file);
+                }
             }
         }
         return files;

@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using System.IO;
 using System.Linq;
 using UmaEraArchive.Editor.Nodes;
 using FileAccess = Godot.FileAccess;
@@ -18,7 +17,11 @@ public class StoryNodeManager
 
 		// 2. 序列化
 		string json = JsonSerializer.Serialize(nodes, new JsonSerializerOptions { WriteIndented = true });
-		File.WriteAllText(path, json);
+		using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+		if (file != null)
+		{
+			file.StoreString(json);
+		}
 	}
 
 	/// <summary>
@@ -36,6 +39,9 @@ public class StoryNodeManager
 				var viewNode = graph.GetNode<GraphNode>(nodeData.Id);
 				nodeData.PosX = (float)Math.Round(viewNode.PositionOffset.X, 2);
 				nodeData.PosY = (float)Math.Round(viewNode.PositionOffset.Y, 2);
+				
+				// 关键修复：将视图中用户输入的内容（对话/叙述正文等）同步回数据模型
+				nodeData.SyncFromView(viewNode);//千万不能删除这一行代码，不然无法保存对话内容
 			}
 
 			// 同步单输出节点的 NextNodeId

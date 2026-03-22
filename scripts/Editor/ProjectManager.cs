@@ -1,8 +1,9 @@
 using Godot;
 using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
+using FileAccess = Godot.FileAccess;
+using DirAccess = Godot.DirAccess;
 
 public class ProjectMetadata
 {
@@ -19,42 +20,61 @@ public static class ProjectManager
     public static ProjectMetadata Metadata { get; private set; } = new ProjectMetadata();
 
     public static string ProjectFileName => "project.uma";
-    public static string StoryFile => Path.Combine(CurrentProjectRoot, "story.json");
-    public static string CharacterFile => Path.Combine(CurrentProjectRoot, "characters.json");
+    public static string StoryFile => CurrentProjectRoot.PathJoin("story.json");
+    public static string CharacterFile => CurrentProjectRoot.PathJoin("characters.json");
     
-    public static string AudioDir => Path.Combine(CurrentProjectRoot, "audio");
-    public static string BackgroundDir => Path.Combine(CurrentProjectRoot, "backgrounds");
-    public static string SpriteDir => Path.Combine(CurrentProjectRoot, "sprites");
+    public static string AudioDir => CurrentProjectRoot.PathJoin("audio");
+    public static string BackgroundDir => CurrentProjectRoot.PathJoin("backgrounds");
+    public static string SpriteDir => CurrentProjectRoot.PathJoin("sprites");
 
-    public static bool IsProjectOpened => !string.IsNullOrEmpty(CurrentProjectRoot) && Directory.Exists(CurrentProjectRoot);
+    public static bool IsProjectOpened => !string.IsNullOrEmpty(CurrentProjectRoot) && DirAccess.DirExistsAbsolute(CurrentProjectRoot);
+
+    public static void EnsureDir(string subDir)
+    {
+        using var dir = DirAccess.Open(CurrentProjectRoot);
+        if (dir != null)
+        {
+            if (!dir.DirExists(subDir))
+            {
+                Error err = dir.MakeDir(subDir);
+                if (err != Error.Ok)
+                {
+                    GD.PrintErr($"Failed to create directory {subDir}: {err}");
+                }
+            }
+        }
+        else
+        {
+            DirAccess.MakeDirRecursiveAbsolute(CurrentProjectRoot.PathJoin(subDir));
+        }
+    }
 
     public static void CreateNewProject(string folderPath)
     {
-        // 确保路径是绝对路径并规范化
-        CurrentProjectRoot = Path.GetFullPath(ProjectSettings.GlobalizePath(folderPath));
+        CurrentProjectRoot = folderPath;
         
-        Directory.CreateDirectory(AudioDir);
-        Directory.CreateDirectory(BackgroundDir);
-        Directory.CreateDirectory(SpriteDir);
+        EnsureDir("audio");
+        EnsureDir("backgrounds");
+        EnsureDir("sprites");
         
-        Metadata = new ProjectMetadata { Title = Path.GetFileName(CurrentProjectRoot) };
+        Metadata = new ProjectMetadata { Title = CurrentProjectRoot.GetFile() };
         SaveMetadata();
 
-        File.WriteAllText(StoryFile, "[]");
-        File.WriteAllText(CharacterFile, "[]");
+        WriteAllText(StoryFile, "[]");
+        WriteAllText(CharacterFile, "[]");
         
         GD.Print($"Project Created and Initialized at: {CurrentProjectRoot}");
     }
 
     public static bool OpenProject(string umaFilePath)
     {
-        string absolutePath = Path.GetFullPath(ProjectSettings.GlobalizePath(umaFilePath));
-        if (!File.Exists(absolutePath)) return false;
+        if (!FileAccess.FileExists(umaFilePath)) return false;
 
-        CurrentProjectRoot = Path.GetDirectoryName(absolutePath);
+        CurrentProjectRoot = umaFilePath.GetBaseDir();
         
         try {
-            string json = File.ReadAllText(absolutePath);
+            using var file = FileAccess.Open(umaFilePath, FileAccess.ModeFlags.Read);
+            string json = file.GetAsText();
             Metadata = JsonSerializer.Deserialize<ProjectMetadata>(json) ?? new ProjectMetadata();
             GD.Print($"Project Loaded: {Metadata.Title} at {CurrentProjectRoot}");
             return true;
@@ -68,7 +88,7 @@ public static class ProjectManager
         if (!IsProjectOpened) return;
         Metadata.LastModified = System.DateTime.Now.ToString();
         string json = JsonSerializer.Serialize(Metadata, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(Path.Combine(CurrentProjectRoot, ProjectFileName), json);
+        WriteAllText(CurrentProjectRoot.PathJoin(ProjectFileName), json);
     }
 
     public static string ImportFile(string sourcePath, string targetSubDir)
@@ -78,17 +98,17 @@ public static class ProjectManager
             return "";
         }
         
-        string absoluteTargetDir = ProjectSettings.GlobalizePath(Path.Combine(CurrentProjectRoot, targetSubDir));
-        Directory.CreateDirectory(absoluteTargetDir);
+        EnsureDir(targetSubDir);
+        string targetDir = CurrentProjectRoot.PathJoin(targetSubDir);
         
-        string fileName = Path.GetFileName(sourcePath);
-        string destPath = Path.Combine(absoluteTargetDir, fileName);
+        string fileName = sourcePath.GetFile();
+        string destPath = targetDir.PathJoin(fileName);
         
-        try {
-            File.Copy(sourcePath, destPath, true);
+        Error err = DirAccess.CopyAbsolute(sourcePath, destPath);
+        if (err == Error.Ok) {
             return fileName;
-        } catch (System.Exception e) {
-            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast($"Import Error: {e.Message}");
+        } else {
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast($"Import Error: {err}");
             return "";
         }
     }
@@ -98,10 +118,8 @@ public static class ProjectManager
         if (!IsProjectOpened) return;
 
         var packer = new PckPacker();
-        // 开始打包，32位对齐
         packer.PckStart(destinationPath, 32);
 
-        // 递归添加项目下所有有效文件
         AddDirectoryToPacker(packer, CurrentProjectRoot, "");
 
         packer.Flush();
@@ -110,25 +128,23 @@ public static class ProjectManager
 
     private static void AddDirectoryToPacker(PckPacker packer, string rootDir, string subDir)
     {
-        string currentPath = string.IsNullOrEmpty(subDir) ? rootDir : Path.Combine(rootDir, subDir);
+        string currentPath = string.IsNullOrEmpty(subDir) ? rootDir : rootDir.PathJoin(subDir);
         
-        // 遍历所有文件
-        foreach (string file in Directory.GetFiles(currentPath))
-        {
-            string fileName = Path.GetFileName(file);
-            // 排除系统文件和临时文件
-            if (fileName.StartsWith(".") || fileName.EndsWith(".tmp")) continue;
+        using var dir = DirAccess.Open(currentPath);
+        if (dir == null) return;
 
-            // 内部路径映射到 res:// 根目录
-            string internalPath = "res://" + (string.IsNullOrEmpty(subDir) ? fileName : Path.Combine(subDir, fileName).Replace("\\", "/"));
-            packer.AddFile(internalPath, file);
+        foreach (string file in dir.GetFiles())
+        {
+            if (file.StartsWith(".") || file.EndsWith(".tmp")) continue;
+
+            string internalPath = "res://" + (string.IsNullOrEmpty(subDir) ? file : subDir.PathJoin(file).Replace("\\", "/"));
+            packer.AddFile(internalPath, currentPath.PathJoin(file));
         }
 
-        // 递归处理子目录
-        foreach (string dir in Directory.GetDirectories(currentPath))
+        foreach (string d in dir.GetDirectories())
         {
-            string dirName = Path.GetFileName(dir);
-            AddDirectoryToPacker(packer, rootDir, string.IsNullOrEmpty(subDir) ? dirName : Path.Combine(subDir, dirName));
+            if (d.StartsWith(".")) continue;
+            AddDirectoryToPacker(packer, rootDir, string.IsNullOrEmpty(subDir) ? d : subDir.PathJoin(d));
         }
     }
 
@@ -138,16 +154,28 @@ public static class ProjectManager
 
         try
         {
-            if (File.Exists(destinationZipPath))
+            if (FileAccess.FileExists(destinationZipPath))
             {
-                File.Delete(destinationZipPath);
+                DirAccess.RemoveAbsolute(destinationZipPath);
             }
-            ZipFile.CreateFromDirectory(CurrentProjectRoot, destinationZipPath, CompressionLevel.Optimal, false);
+            // ZipFile requires global paths
+            string globalSource = ProjectSettings.GlobalizePath(CurrentProjectRoot);
+            string globalDest = ProjectSettings.GlobalizePath(destinationZipPath);
+            ZipFile.CreateFromDirectory(globalSource, globalDest, CompressionLevel.Optimal, false);
             GD.Print($"Project Exported Successfully to: {destinationZipPath}");
         }
         catch (System.Exception ex)
         {
             ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowErrorDialog("导出失败", $"Export Project Error: {ex.Message}");
+        }
+    }
+
+    private static void WriteAllText(string path, string content)
+    {
+        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+        if (file != null)
+        {
+            file.StoreString(content);
         }
     }
 }

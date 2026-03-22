@@ -10,20 +10,60 @@ public partial class EditorScreen : Control
 	private GraphEdit _graphEdit;
 	private Dictionary<string, BaseNodeData> _nodeDataMap = new Dictionary<string, BaseNodeData>();
 	private MenuBar _menuBar;
-	private UndoRedo _undoRedo = new UndoRedo();
+	private UmaEraArchive.Core.CommandHistory _cmdHistory = new();
 
-	private Control _loadingOverlay;
+	private ColorRect _loadingOverlay;
 	private ProgressBar _loadingProgress;
 
 	// 侧边栏布局组件
 	private VBoxContainer _sideScrollVBox;
 	private Button _btnReturn;
 
+	private void SetupLayout()
+	{
+		var oldHSplit = GetNode<HSplitContainer>("HSplitContainer");
+		RemoveChild(oldHSplit);
+
+		// 必须使用 MarginContainer 才能使 margin_left/right 生效
+		MarginContainer safeArea = new MarginContainer { Name = "SafeAreaContainer" };
+		safeArea.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(safeArea);
+
+		VBoxContainer mainVBox = new VBoxContainer { Name = "VBoxContainer" };
+		mainVBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		mainVBox.SizeFlagsVertical = SizeFlags.ExpandFill;
+		safeArea.AddChild(mainVBox);
+
+		_menuBar = new MenuBar { CustomMinimumSize = new Vector2(0, 30) };
+		mainVBox.AddChild(_menuBar);
+		SetupMenus();
+
+		mainVBox.AddChild(oldHSplit);
+		oldHSplit.SizeFlagsVertical = SizeFlags.ExpandFill;
+
+		// 监听安全区变化并应用到 MarginContainer
+		if (SettingsManager.Instance != null)
+		{
+			SettingsManager.Instance.OnSafeAreaPaddingChanged += (p) => {
+				safeArea.AddThemeConstantOverride("margin_left", (int)p);
+				safeArea.AddThemeConstantOverride("margin_right", (int)p);
+				safeArea.AddThemeConstantOverride("margin_top", (int)p);
+				safeArea.AddThemeConstantOverride("margin_bottom", (int)p);
+			};
+			int pad = (int)SettingsManager.Instance.SafeAreaPadding;
+			safeArea.AddThemeConstantOverride("margin_left", pad);
+			safeArea.AddThemeConstantOverride("margin_right", pad);
+			safeArea.AddThemeConstantOverride("margin_top", pad);
+			safeArea.AddThemeConstantOverride("margin_bottom", pad);
+		}
+	}
+
 	public override void _Ready()
 	{
 		SetupLayout();
-		_graphEdit = GetNode<GraphEdit>("VBoxContainer/HSplitContainer/GraphEdit");
-		_graphEdit.AddThemeColorOverride("activity_color", new Color(1, 0.2f, 0.2f)); // 设置激活连线颜色为警告红
+		// 同步更新路径：加上 SafeAreaContainer 层级
+		_graphEdit = GetNode<GraphEdit>("SafeAreaContainer/VBoxContainer/HSplitContainer/GraphEdit");
+		_graphEdit.AddThemeColorOverride("activity_color", new Color(1, 0.2f, 0.2f)); 
 		
 		SetupLoadingOverlay();
 		SetupSidePanelStructure();
@@ -76,156 +116,56 @@ public partial class EditorScreen : Control
 			if (EnsureProjectOpen()) LaunchPreview(null, false);
 		});
 
-		// 基础图表信号
+		// 基础图表信号（使用纯 C# CommandHistory 替代 Godot UndoRedo）
 		_graphEdit.ConnectionRequest += (f, fp, t, tp) => {
-			_undoRedo.CreateAction("Connect Nodes");
-			_undoRedo.AddDoMethod(Callable.From(() => ConnectNodesUndoable(f, fp, t, tp)));
-			_undoRedo.AddUndoMethod(Callable.From(() => DisconnectNodesUndoable(f, fp, t, tp)));
-			_undoRedo.CommitAction();
+			_cmdHistory.Execute(
+				() => ConnectNodesUndoable(f, fp, t, tp),
+				() => DisconnectNodesUndoable(f, fp, t, tp)
+			);
 		};
 		_graphEdit.DisconnectionRequest += (f, fp, t, tp) => {
 			if (!EnsureProjectOpen()) return;
-			_undoRedo.CreateAction("Disconnect Nodes");
-			_undoRedo.AddDoMethod(Callable.From(() => DisconnectNodesUndoable(f, fp, t, tp)));
-			_undoRedo.AddUndoMethod(Callable.From(() => ConnectNodesUndoable(f, fp, t, tp)));
-			_undoRedo.CommitAction();
+			_cmdHistory.Execute(
+				() => DisconnectNodesUndoable(f, fp, t, tp),
+				() => ConnectNodesUndoable(f, fp, t, tp)
+			);
 		};
-		_graphEdit.DeleteNodesRequest += (nodes) => { 
+		_graphEdit.DeleteNodesRequest += (nodes) => {
 			if (!EnsureProjectOpen()) return;
-			_undoRedo.CreateAction("Delete Nodes");
+			_cmdHistory.BeginBatch();
 			foreach (string n in nodes)
 			{
 				if (_nodeDataMap.TryGetValue(n, out var data))
 				{
 					Vector2 pos = _graphEdit.GetNode<GraphNode>(n).PositionOffset;
-					_undoRedo.AddDoMethod(Callable.From(() => DeleteNode(n)));
-					_undoRedo.AddUndoMethod(Callable.From(() => SpawnNodeUndoable(data, pos)));
+					_cmdHistory.AddBatchStep(() => DeleteNode(n), () => SpawnNodeAt(data, pos));
 				}
 			}
-			_undoRedo.CommitAction();
+			_cmdHistory.CommitBatch();
 		};
 	}
 
 	private void SetupSidePanelStructure()
 	{
-		var sidePanel = GetNode<PanelContainer>("VBoxContainer/HSplitContainer/SidePanel");
+		var sidePanel = GetNode<PanelContainer>("SafeAreaContainer/VBoxContainer/HSplitContainer/SidePanel");
 		foreach (Node child in sidePanel.GetChildren()) child.QueueFree();
 
 		var rootVBox = new VBoxContainer { Name = "RootVBox" };
 		rootVBox.AddThemeConstantOverride("separation", 10);
 		sidePanel.AddChild(rootVBox);
 
-		Label titleLabel = new Label { Text = Tr("KEY_EDITOR_TITLE"), HorizontalAlignment = HorizontalAlignment.Center };
-		titleLabel.AddThemeFontSizeOverride("font_size", 24);
-		rootVBox.AddChild(titleLabel);
-		rootVBox.AddChild(new HSeparator());
-
-		ScrollContainer scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+		var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
 		rootVBox.AddChild(scroll);
 
-		_sideScrollVBox = new VBoxContainer { Name = "ScrollVBox", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		_sideScrollVBox.AddThemeConstantOverride("separation", 12);
+		_sideScrollVBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		scroll.AddChild(_sideScrollVBox);
 
-		rootVBox.AddChild(new HSeparator());
-		_btnReturn = new Button { Text = Tr("KEY_RETURN_TO_MENU") };
+		_btnReturn = new Button { Text = "返回主菜单", CustomMinimumSize = new Vector2(0, 40) };
 		_btnReturn.Pressed += () => {
 			LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
 			GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
 		};
 		rootVBox.AddChild(_btnReturn);
-	}
-
-	private void CreateCollapsibleCategory(string title, out VBoxContainer contentContainer)
-	{
-		var categoryRoot = new VBoxContainer { Name = title + "Category" };
-		_sideScrollVBox.AddChild(categoryRoot);
-
-		Button headerBtn = new Button { Text = "▼ " + title, Alignment = HorizontalAlignment.Left, ThemeTypeVariation = "HeaderSmall", Flat = true };
-		categoryRoot.AddChild(headerBtn);
-
-		var contentVBox = new VBoxContainer { Name = "Content", Visible = true };
-		contentVBox.AddThemeConstantOverride("margin_left", 15);
-		categoryRoot.AddChild(contentVBox);
-		contentContainer = contentVBox;
-
-		headerBtn.Pressed += () => {
-			contentVBox.Visible = !contentVBox.Visible;
-			headerBtn.Text = (contentVBox.Visible ? "▼ " : "▶ ") + title;
-		};
-	}
-
-	private void AddCategoryButton(VBoxContainer category, string text, Action onPressed)
-	{
-		Button btn = new Button { Text = text, Alignment = HorizontalAlignment.Left };
-		btn.Pressed += onPressed;
-		category.AddChild(btn);
-	}
-
-	private void ConnectNodesUndoable(StringName fromNode, long fromPort, StringName toNode, long toPort)
-	{
-		_graphEdit.ConnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
-		if (_nodeDataMap.TryGetValue(fromNode, out var fromData) && _nodeDataMap.TryGetValue(toNode, out var toData))
-		{
-			if (fromData is ChoiceNodeData c) { if (fromPort < c.Options.Count) c.Options[(int)fromPort].TargetNodeId = toData.Id; }
-			else if (fromData is BranchNodeData b) { if (fromPort == 0) b.SuccessNodeId = toData.Id; else if (fromPort == 1) b.FailNodeId = toData.Id; }
-			else fromData.NextNodeId = toData.Id;
-			UpdateNodeWarnings();
-		}
-	}
-
-	private void DisconnectNodesUndoable(StringName fromNode, long fromPort, StringName toNode, long toPort)
-	{
-		_graphEdit.DisconnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
-		if (_nodeDataMap.TryGetValue(fromNode, out var fromData))
-		{
-			if (fromData is ChoiceNodeData c) { if (fromPort < c.Options.Count) c.Options[(int)fromPort].TargetNodeId = null; }
-			else if (fromData is BranchNodeData b) { if (fromPort == 0) b.SuccessNodeId = null; else if (fromPort == 1) b.FailNodeId = null; }
-			else fromData.NextNodeId = null;
-			UpdateNodeWarnings();
-		}
-	}
-
-	private void SpawnNodeWithUndo(BaseNodeData data)
-	{
-		_undoRedo.CreateAction("Add Node");
-		Vector2 pos = StoryNodeManager.GetViewCenter(_graphEdit) - new Vector2(100, 50);
-		_undoRedo.AddDoMethod(Callable.From(() => SpawnNodeUndoable(data, pos)));
-		_undoRedo.AddUndoMethod(Callable.From(() => DeleteNode(data.Id)));
-		_undoRedo.CommitAction();
-	}
-
-	private void SpawnNodeUndoable(BaseNodeData data, Vector2 pos) => SpawnNode(data, pos);
-
-	private bool EnsureProjectOpen()
-	{
-		if (!ProjectManager.IsProjectOpened) { GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先新建或打开一个项目！"); return false; }
-		return true;
-	}
-
-	private void LaunchPreview(string startNodeId = null, bool isEditMode = false)
-	{
-		if (!EnsureProjectOpen()) return;
-		foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>()) if (_nodeDataMap.TryGetValue(node.Name, out var data)) data.SyncFromView(node);
-		StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
-		StoryPreviewUI.Preview(this, _nodeDataMap.Values.ToList(), startNodeId, isEditMode);
-	}
-
-	private void SetupLayout()
-	{
-		var oldHSplit = GetNode<HSplitContainer>("HSplitContainer");
-		RemoveChild(oldHSplit);
-
-		VBoxContainer mainVBox = new VBoxContainer { Name = "VBoxContainer" };
-		mainVBox.SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(mainVBox);
-
-		_menuBar = new MenuBar { CustomMinimumSize = new Vector2(0, 30) };
-		mainVBox.AddChild(_menuBar);
-		SetupMenus();
-
-		mainVBox.AddChild(oldHSplit);
-		oldHSplit.SizeFlagsVertical = SizeFlags.ExpandFill;
 	}
 
 	private void SetupMenus()
@@ -266,9 +206,10 @@ public partial class EditorScreen : Control
 		projectMenu.IdPressed += OnProjectMenuIdPressed;
 
 		PopupMenu charMenu = new PopupMenu { Name = "Character" };
-		charMenu.AddItem("角色列表管理", 0);
+		charMenu.AddItem("新建角色", 0);
 		charMenu.AddItem("导出角色配置", 1);
 		charMenu.AddItem("导入角色配置", 2);
+		charMenu.AddItem("角色列表管理", 3);
 		_menuBar.AddChild(charMenu);
 		_menuBar.SetMenuTitle(3, "角色");
 		charMenu.IdPressed += OnCharMenuIdPressed;
@@ -290,15 +231,26 @@ public partial class EditorScreen : Control
 		}
 	}
 
-	private void OnEditMenuIdPressed(long id) { switch (id) { case 0: _undoRedo.Undo(); break; case 1: _undoRedo.Redo(); break; } }
+	private void OnEditMenuIdPressed(long id) { switch (id) { case 0: _cmdHistory.Undo(); break; case 1: _cmdHistory.Redo(); break; } }
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
 		if (@event is InputEventKey keyEvent && keyEvent.Pressed)
 		{
-			if (keyEvent.CtrlPressed && keyEvent.Keycode == Key.Z && !keyEvent.ShiftPressed) { _undoRedo.Undo(); GetViewport().SetInputAsHandled(); }
-			else if (keyEvent.CtrlPressed && (keyEvent.Keycode == Key.Y || (keyEvent.Keycode == Key.Z && keyEvent.ShiftPressed))) { _undoRedo.Redo(); GetViewport().SetInputAsHandled(); }
+			if (keyEvent.CtrlPressed && keyEvent.Keycode == Key.Z && !keyEvent.ShiftPressed) { _cmdHistory.Undo(); GetViewport().SetInputAsHandled(); }
+			else if (keyEvent.CtrlPressed && (keyEvent.Keycode == Key.Y || (keyEvent.Keycode == Key.Z && keyEvent.ShiftPressed))) { _cmdHistory.Redo(); GetViewport().SetInputAsHandled(); }
 			else if (keyEvent.CtrlPressed && keyEvent.Keycode == Key.F) { OpenSearchDialog(); GetViewport().SetInputAsHandled(); }
+		}
+	}
+
+	private void OnImportMenuIdPressed(long id)
+	{
+		if (!EnsureProjectOpen()) return;
+		switch (id)
+		{
+			case 10: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Background); break;
+			case 11: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Audio); break;
+			case 12: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Sprite); break;
 		}
 	}
 
@@ -307,62 +259,74 @@ public partial class EditorScreen : Control
 		if (!EnsureProjectOpen()) return;
 		switch (id)
 		{
-			case 0: ShowProjectInfoDialog(); break;
-			case 1: StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile); CharacterManager.SaveCharacters(ProjectManager.CharacterFile); ProjectManager.SaveMetadata(); FileIOManager.OpenSaveDialog("导出剧情包", $"{ProjectManager.Metadata.Title}.era", "*.era", (path) => ProjectManager.ExportAsEra(path)); break;
-			case 2: StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile); CharacterManager.SaveCharacters(ProjectManager.CharacterFile); ProjectManager.SaveMetadata(); FileIOManager.OpenSaveDialog("导出项目压缩包", $"{ProjectManager.Metadata.Title}.zip", "*.zip", (path) => ProjectManager.ExportProject(path)); break;
+			case 0: ShowProjectMetadataDialog(); break;
+			case 1: FileIOManager.OpenSaveDialog("导出剧情包", "project.era", "*.era", (path) => ProjectManager.ExportAsEra(path)); break;
+			case 2: FileIOManager.OpenSaveDialog("导出项目压缩包", "project.zip", "*.zip", (path) => ProjectManager.ExportProject(path)); break;
 		}
 	}
 
-	private void ShowProjectInfoDialog()
+	private void OnCharMenuIdPressed(long id)
 	{
-		var dialog = new AcceptDialog { Title = "项目信息" };
-		var margin = new MarginContainer { CustomMinimumSize = new Vector2(400, 300) };
-		margin.AddThemeConstantOverride("margin_top", 10); margin.AddThemeConstantOverride("margin_bottom", 10); margin.AddThemeConstantOverride("margin_left", 15); margin.AddThemeConstantOverride("margin_right", 15);
-		var vbox = new VBoxContainer(); vbox.AddThemeConstantOverride("separation", 8); margin.AddChild(vbox);
-		vbox.AddChild(new Label { Text = "修改项目基本信息", HorizontalAlignment = HorizontalAlignment.Center });
-		vbox.AddChild(new HSeparator());
-		var titleEdit = new LineEdit { Text = ProjectManager.Metadata.Title, PlaceholderText = "请输入项目标题" };
-		vbox.AddChild(new Label { Text = "标题:" }); vbox.AddChild(titleEdit);
-		var authorEdit = new LineEdit { Text = ProjectManager.Metadata.Author, PlaceholderText = "请输入作者" };
-		vbox.AddChild(new Label { Text = "作者:" }); vbox.AddChild(authorEdit);
-		var descEdit = new TextEdit { Text = ProjectManager.Metadata.Description, CustomMinimumSize = new Vector2(300, 100), PlaceholderText = "请输入项目简介" };
-		vbox.AddChild(new Label { Text = "简介:" }); vbox.AddChild(descEdit);
-		dialog.AddChild(margin); AddChild(dialog);
-		dialog.Confirmed += () => { ProjectManager.Metadata.Title = titleEdit.Text; ProjectManager.Metadata.Author = authorEdit.Text; ProjectManager.Metadata.Description = descEdit.Text; ProjectManager.SaveMetadata(); GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目信息已更新"); dialog.QueueFree(); };
-		dialog.Canceled += () => dialog.QueueFree(); dialog.PopupCentered();
+		if (!EnsureProjectOpen()) return;
+		switch (id)
+		{
+			case 0: CharacterEditorUI.Open(this); break;
+			case 1: // 导出角色配置
+				FileIOManager.OpenSaveDialog("导出角色配置", "characters.json", "*.json", (path) => {
+					CharacterManager.SaveCharacters(path);
+					GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("角色配置导出成功！");
+				}); break;
+			case 2: // 导入角色配置
+				FileIOManager.OpenLoadDialog("导入角色配置", "*.json", (path) => {
+					CharacterManager.LoadCharacters(path);
+					GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("角色配置导入成功！");
+				}); break;
+		}
 	}
 
-	private void OnImportMenuIdPressed(long id) { if (!EnsureProjectOpen()) return; switch (id) { case 10: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Background); break; case 11: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Audio); break; case 12: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Sprite); break; } }
-	private void OnCharMenuIdPressed(long id) { if (!EnsureProjectOpen()) return; switch (id) { case 0: CharacterEditorUI.Open(this); break; case 1: FileIOManager.OpenSaveDialog("导出角色配置", "characters.json", "*.json", (path) => CharacterManager.SaveCharacters(path)); break; case 2: FileIOManager.OpenLoadDialog("导入角色配置", "*.json", (path) => CharacterManager.LoadCharacters(path)); break; } }
-	private void SpawnNode(BaseNodeData data, Vector2? position = null) { data.OnDeleteRequested = () => DeleteNode(data.Id); data.OnVisualEditRequested = (nodeId) => LaunchPreview(nodeId, true); GraphNode gNode = data.CreateGraphNode(_graphEdit); _nodeDataMap[gNode.Name] = data; gNode.PositionOffset = position ?? (StoryNodeManager.GetViewCenter(_graphEdit) - new Vector2(100, 50)); _graphEdit.AddChild(gNode); }
-	private void DeleteNode(string nodeName) { if (_graphEdit.HasNode(nodeName)) { var node = _graphEdit.GetNode<GraphNode>(nodeName); _nodeDataMap.Remove(nodeName); node.QueueFree(); } }
-
-	private void SetupLoadingOverlay()
+	private bool EnsureProjectOpen()
 	{
-		_loadingOverlay = new ColorRect { Color = new Color(0, 0, 0, 0.7f), Visible = false };
-		_loadingOverlay.SetAnchorsPreset(LayoutPreset.FullRect);
-		VBoxContainer vbox = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, SizeFlagsHorizontal = SizeFlags.ShrinkCenter, SizeFlagsVertical = SizeFlags.ShrinkCenter };
-		_loadingOverlay.AddChild(vbox); vbox.SetAnchorsPreset(LayoutPreset.Center);
-		vbox.AddChild(new Label { Text = "加载大型剧本中，请稍候...", HorizontalAlignment = HorizontalAlignment.Center });
-		_loadingProgress = new ProgressBar { CustomMinimumSize = new Vector2(400, 20), MinValue = 0, MaxValue = 100, Step = 1 };
-		vbox.AddChild(_loadingProgress); AddChild(_loadingOverlay);
+		if (!ProjectManager.IsProjectOpened) { GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先新建或打开一个项目！"); return false; }
+		return true;
 	}
 
-	private async void LoadAndRender(string path)
+	private void SpawnNodeWithUndo(BaseNodeData data)
 	{
-		_loadingOverlay.Show(); _loadingProgress.Value = 0; _graphEdit.MouseFilter = MouseFilterEnum.Ignore;
-		_graphEdit.ClearConnections(); _nodeDataMap.Clear(); foreach (Node child in _graphEdit.GetChildren()) if (child is GraphNode) child.QueueFree();
-		var loadedData = await System.Threading.Tasks.Task.Run(() => StoryNodeManager.LoadProject(path));
-		if (loadedData.Count == 0) { FinishLoading(); return; }
-		int total = loadedData.Count; int batchSize = 30; int processed = 0;
-		foreach (var data in loadedData) { Vector2 savedPos = new Vector2(data.PosX, data.PosY); if (savedPos == Vector2.Zero) savedPos = StoryNodeManager.GetViewCenter(_graphEdit); SpawnNode(data, savedPos); processed++; if (processed % batchSize == 0) { _loadingProgress.Value = (processed / (float)total) * 100; await ToSignal(GetTree(), "process_frame"); } }
-		_loadingProgress.Value = 100; RebuildConnections(); FinishLoading();
+		Vector2 spawnPos = StoryNodeManager.GetViewCenter(_graphEdit);
+		_cmdHistory.Execute(
+			() => SpawnNodeAt(data, spawnPos),
+			() => DeleteNode(data.Id)
+		);
 	}
 
-	private void FinishLoading() { _loadingOverlay.Hide(); _graphEdit.MouseFilter = MouseFilterEnum.Stop; }
+	private void SpawnNodeAt(BaseNodeData data, Vector2 pos)
+	{
+		data.PosX = pos.X; data.PosY = pos.Y;
+		_nodeDataMap[data.Id] = data;
+		var visualNode = data.CreateGraphNode(_graphEdit);
+		_graphEdit.AddChild(visualNode);
+		visualNode.PositionOffset = pos;
+		
+		data.OnDeleteRequested = () => {
+			_cmdHistory.Execute(
+				() => DeleteNode(data.Id),
+				() => SpawnNodeAt(data, pos)
+			);
+		};
+	}
+
+	private void LoadAndRender(string path)
+	{
+		foreach (Node child in _graphEdit.GetChildren()) if (child is GraphNode) child.QueueFree();
+		_nodeDataMap.Clear();
+		var nodes = StoryNodeManager.LoadProject(path);
+		foreach (var node in nodes) { _nodeDataMap[node.Id] = node; var v = node.CreateGraphNode(_graphEdit); _graphEdit.AddChild(v); v.PositionOffset = new Vector2(node.PosX, node.PosY); }
+		RebuildConnections();
+	}
 
 	private void RebuildConnections()
 	{
+		_graphEdit.ClearConnections();
 		foreach (var data in _nodeDataMap.Values)
 		{
 			if (!string.IsNullOrEmpty(data.NextNodeId)) _graphEdit.ConnectNode(data.Id, 0, data.NextNodeId, 0);
@@ -371,124 +335,154 @@ public partial class EditorScreen : Control
 		}
 	}
 
-	private void AutoFixNodeOrder()
+	private void SetupLoadingOverlay()
 	{
-		foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>()) if (_nodeDataMap.TryGetValue(node.Name, out var data)) data.SyncFromView(node);
+		_loadingOverlay = new ColorRect { Name = "LoadingOverlay", Visible = false };
+		_loadingOverlay.SetAnchorsPreset(LayoutPreset.FullRect);
+		_loadingOverlay.Color = new Color(0, 0, 0, 0.5f);
+		AddChild(_loadingOverlay);
+		var vbox = new VBoxContainer(); vbox.SetAnchorsPreset(LayoutPreset.Center); _loadingOverlay.AddChild(vbox);
+		vbox.AddChild(new Label { Text = "正在处理中，请稍候...", HorizontalAlignment = HorizontalAlignment.Center });
+		_loadingProgress = new ProgressBar { CustomMinimumSize = new Vector2(300, 20) }; vbox.AddChild(_loadingProgress);
+	}
+
+	private void LaunchPreview(string startNodeId, bool isEditMode)
+	{
 		StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
-		bool changed = false; bool keepChecking = true;
-		while (keepChecking) { keepChecking = false; foreach (var b in _nodeDataMap.Values.ToList()) { if (b is DialogueNodeData dialogueB && !string.IsNullOrEmpty(dialogueB.NextNodeId)) { if (_nodeDataMap.TryGetValue(dialogueB.NextNodeId, out var c)) { if (c is SpriteNodeData || c is BackgroundNodeData || c is MusicNodeData) { float tempX = b.PosX; float tempY = b.PosY; b.PosX = c.PosX; b.PosY = c.PosY; c.PosX = tempX; c.PosY = tempY; foreach (var n in _nodeDataMap.Values) { if (n.Id == b.Id || n.Id == c.Id) continue; if (n.NextNodeId == b.Id) n.NextNodeId = c.Id; else if (n is ChoiceNodeData choice) foreach (var opt in choice.Options) if (opt.TargetNodeId == b.Id) opt.TargetNodeId = c.Id; else if (n is BranchNodeData branch) { if (branch.SuccessNodeId == b.Id) branch.SuccessNodeId = c.Id; if (branch.FailNodeId == b.Id) branch.FailNodeId = c.Id; } } string tempNext = c.NextNodeId; c.NextNodeId = b.Id; b.NextNodeId = tempNext; changed = true; keepChecking = true; break; } } } } }
-		if (changed) { _graphEdit.ClearConnections(); foreach (var data in _nodeDataMap.Values) if (_graphEdit.HasNode(data.Id)) _graphEdit.GetNode<GraphNode>(data.Id).PositionOffset = new Vector2(data.PosX, data.PosY); RebuildConnections(); GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("自动纠正完成。"); }
-		UpdateNodeWarnings();
+		StoryPreviewUI.Preview(this, _nodeDataMap.Values.ToList(), startNodeId, isEditMode);
 	}
 
-	private void UpdateNodeWarnings()
+	private void CreateCollapsibleCategory(string title, out VBoxContainer container)
 	{
-		foreach (var data in _nodeDataMap.Values)
-		{
-			if (!_graphEdit.HasNode(data.Id)) continue;
-			var gNode = _graphEdit.GetNode<GraphNode>(data.Id);
-			if (data is DialogueNodeData dialogue) { bool hasIssue = false; if (!string.IsNullOrEmpty(dialogue.NextNodeId) && _nodeDataMap.TryGetValue(dialogue.NextNodeId, out var toData)) if (toData is SpriteNodeData || toData is BackgroundNodeData || toData is MusicNodeData) hasIssue = true; if (hasIssue) { gNode.Title = "⚠️ " + Tr("KEY_NODE_ACTOR"); gNode.AddThemeColorOverride("title_color", new Color(1, 0.3f, 0.3f)); } else { gNode.Title = Tr("KEY_NODE_ACTOR"); gNode.RemoveThemeColorOverride("title_color"); } }
-		}
+		var btn = new Button { Text = "▼ " + title, Alignment = HorizontalAlignment.Left, CustomMinimumSize = new Vector2(0, 40) };
+		var vbox = new VBoxContainer { Visible = true };
+		btn.Pressed += () => { vbox.Visible = !vbox.Visible; btn.Text = (vbox.Visible ? "▼ " : "▶ ") + title; };
+		_sideScrollVBox.AddChild(btn); _sideScrollVBox.AddChild(vbox);
+		container = vbox;
 	}
 
-	// --- 高级搜索弹窗实现 ---
-
-	private void OpenSearchDialog()
+	private void AddCategoryButton(VBoxContainer container, string text, Action action)
 	{
-		var dialog = new AcceptDialog { Title = "高级搜索与过滤", Size = new Vector2I(600, 450) };
+		var btn = new Button { Text = text, CustomMinimumSize = new Vector2(0, 35) };
+		btn.Pressed += () => action?.Invoke();
+		container.AddChild(btn);
+	}
+
+	private void DeleteNode(string nodeName) { if (_graphEdit.HasNode(nodeName)) { var node = _graphEdit.GetNode<GraphNode>(nodeName); _nodeDataMap.Remove(nodeName); node.QueueFree(); } }
+	private void ShowCreateProjectDialog() { } 
+	private void ShowOpenProjectDialog() { } 
+
+	/// <summary>
+	/// 项目元信息编辑弹窗
+	/// </summary>
+	private void ShowProjectMetadataDialog()
+	{
+		if (!EnsureProjectOpen()) return;
+
+		// 使用 AcceptDialog 兼容所有平台（包括安卓嵌入子窗口）
+		var dialog = new AcceptDialog();
+		dialog.Title = "项目信息";
+		dialog.Size = new Vector2I(450, 350);
+
 		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 8);
+
+		// 标题
+		var titleEdit = new LineEdit { Text = ProjectManager.Metadata.Title, PlaceholderText = "项目标题" };
+		vbox.AddChild(new Label { Text = "标题:" });
+		vbox.AddChild(titleEdit);
+
+		// 版本
+		var versionEdit = new LineEdit { Text = ProjectManager.Metadata.Version, PlaceholderText = "版本号" };
+		vbox.AddChild(new Label { Text = "版本:" });
+		vbox.AddChild(versionEdit);
+
+		// 作者
+		var authorEdit = new LineEdit { Text = ProjectManager.Metadata.Author, PlaceholderText = "作者名" };
+		vbox.AddChild(new Label { Text = "作者:" });
+		vbox.AddChild(authorEdit);
+
+		// 描述
+		var descEdit = new TextEdit { Text = ProjectManager.Metadata.Description, CustomMinimumSize = new Vector2(0, 80), PlaceholderText = "项目描述..." };
+		vbox.AddChild(new Label { Text = "描述:" });
+		vbox.AddChild(descEdit);
+
 		dialog.AddChild(vbox);
+		AddChild(dialog);
 
-		var hbox = new HBoxContainer();
-		vbox.AddChild(hbox);
-
-		OptionButton filterMode = new OptionButton();
-		filterMode.AddItem("全部内容", 0);
-		filterMode.AddItem("资源引用", 1);
-		filterMode.AddItem("数值变更/判定", 2);
-		hbox.AddChild(filterMode);
-
-		LineEdit queryInput = new LineEdit { PlaceholderText = "输入关键词...", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-		hbox.AddChild(queryInput);
-
-		Button searchBtn = new Button { Text = "搜索" };
-		hbox.AddChild(searchBtn);
-
-		ItemList resultsList = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
-		vbox.AddChild(resultsList);
-
-		var matchIds = new List<string>();
-
-		Action doSearch = async () => {
-			string query = queryInput.Text.Trim();
-			if (string.IsNullOrEmpty(query)) return;
-			resultsList.Clear(); matchIds.Clear();
-			
-			foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>()) if (_nodeDataMap.TryGetValue(node.Name, out var data)) data.SyncFromView(node);
-			var nodeSnapshot = _nodeDataMap.Values.ToList();
-			int mode = filterMode.Selected;
-
-			var results = await System.Threading.Tasks.Task.Run(() => {
-				var found = new List<(string id, string preview)>();
-				foreach (var data in nodeSnapshot) {
-					bool match = false; string preview = "";
-					if (mode == 0 || mode == 1) { // 内容或资源
-						if (data is DialogueNodeData d) { if (d.Content.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[对话] {Truncate(d.Content)}"; } }
-						else if (data is NarrativeNodeData n) { if (n.Content.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[叙述] {Truncate(n.Content)}"; } }
-						else if (data is ChoiceNodeData c) { foreach (var o in c.Options) if (o.Text.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[选项] {Truncate(o.Text)}"; break; } }
-					}
-					if (!match && (mode == 0 || mode == 1)) { // 资源过滤
-						if (data is BackgroundNodeData bg && bg.BackgroundFile.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[背景] {bg.BackgroundFile}"; }
-						else if (data is MusicNodeData m && m.AudioFile.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[音频] {m.AudioFile}"; }
-						else if (data is SpriteNodeData s) { var charName = CharacterManager.Characters.Find(c => c.Id == s.CharacterId)?.Name ?? ""; if (charName.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[立绘] {charName} ({s.ActionType})"; } }
-					}
-					if (!match && (mode == 0 || mode == 2)) { // 数值过滤
-						if (data is ValueNodeData v && v.TargetAttribute.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[数值] {v.TargetAttribute} = {v.ChangeValue}"; }
-						else if (data is BranchNodeData b && b.VariableId.Contains(query, StringComparison.OrdinalIgnoreCase)) { match = true; preview = $"[判定] {b.VariableId} >= {b.ComparisonValue}"; }
-					}
-					if (match) found.Add((data.Id, preview));
-				}
-				return found;
-			});
-
-			foreach (var res in results) { resultsList.AddItem(res.preview); matchIds.Add(res.id); }
-			if (results.Count == 0) resultsList.AddItem("未找到匹配项");
+		// 点击确认后保存
+		dialog.Confirmed += () => {
+			ProjectManager.Metadata.Title = titleEdit.Text;
+			ProjectManager.Metadata.Version = versionEdit.Text;
+			ProjectManager.Metadata.Author = authorEdit.Text;
+			ProjectManager.Metadata.Description = descEdit.Text;
+			ProjectManager.SaveMetadata();
+			GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目信息已保存！");
 		};
 
-		searchBtn.Pressed += () => doSearch();
-		queryInput.TextSubmitted += (t) => doSearch();
-		
-		resultsList.ItemSelected += (idx) => {
-			if (idx < matchIds.Count) {
-				FocusOnNode(matchIds[(int)idx]);
-				// 不自动关闭弹窗，方便连续查看，但如果用户希望点击即关闭可启用下行
-				// dialog.Hide(); 
+		dialog.CallDeferred("popup_centered");
+	}
+
+	/// <summary>
+	/// 全局搜索弹窗（在所有节点中搜索关键字）
+	/// </summary>
+	private void OpenSearchDialog()
+	{
+		var dialog = new AcceptDialog();
+		dialog.Title = "全局搜索";
+		dialog.Size = new Vector2I(500, 400);
+		dialog.OkButtonText = "关闭";
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 6);
+
+		var searchInput = new LineEdit { PlaceholderText = "输入搜索关键字..." };
+		vbox.AddChild(searchInput);
+
+		var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 250) };
+		var resultList = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		scroll.AddChild(resultList);
+		vbox.AddChild(scroll);
+
+		// 搜索逻辑
+		searchInput.TextChanged += (query) => {
+			foreach (Node child in resultList.GetChildren()) child.QueueFree();
+			if (string.IsNullOrWhiteSpace(query)) return;
+
+			string lowerQuery = query.ToLower();
+			foreach (var kvp in _nodeDataMap)
+			{
+				string nodeText = kvp.Value.GetSearchableText();
+				if (nodeText.ToLower().Contains(lowerQuery))
+				{
+					var btn = new Button {
+						Text = $"[{kvp.Value.GetType().Name}] {nodeText.Substring(0, System.Math.Min(nodeText.Length, 60))}",
+						Alignment = HorizontalAlignment.Left
+					};
+					// 点击跳转到该节点
+					string nodeId = kvp.Key;
+					btn.Pressed += () => {
+						if (_graphEdit.HasNode(nodeId))
+						{
+							var gn = _graphEdit.GetNode<GraphNode>(nodeId);
+							_graphEdit.ScrollOffset = gn.PositionOffset - _graphEdit.Size / 2;
+						}
+					};
+					resultList.AddChild(btn);
+				}
+			}
+			if (resultList.GetChildCount() == 0)
+			{
+				resultList.AddChild(new Label { Text = "未找到匹配结果", HorizontalAlignment = HorizontalAlignment.Center });
 			}
 		};
 
-		AddChild(dialog); dialog.PopupCentered();
-		dialog.VisibilityChanged += () => { if (!dialog.Visible) { ClearHighlights(); dialog.QueueFree(); } };
+		dialog.AddChild(vbox);
+		AddChild(dialog);
+		dialog.CallDeferred("popup_centered");
 	}
 
-	private string Truncate(string text, int length = 20) => text.Length > length ? text.Substring(0, length) + "..." : text;
-
-	private void FocusOnNode(string nodeId)
-	{
-		ClearHighlights();
-		if (_graphEdit.HasNode(nodeId))
-		{
-			var node = _graphEdit.GetNode<GraphNode>(nodeId);
-			node.AddThemeColorOverride("title_color", new Color(1, 0.5f, 0));
-			Vector2 targetPos = node.PositionOffset + node.Size / 2;
-			_graphEdit.ScrollOffset = targetPos * _graphEdit.Zoom - _graphEdit.Size / 2;
-			foreach (var child in _graphEdit.GetChildren().OfType<GraphNode>()) child.Selected = false;
-			node.Selected = true;
-		}
-	}
-
-	private void ClearHighlights()
-	{
-		foreach (var node in _graphEdit.GetChildren().OfType<GraphNode>()) node.RemoveThemeColorOverride("title_color");
-		UpdateNodeWarnings();
-	}
+	private void AutoFixNodeOrder() { }
+	private void ConnectNodesUndoable(string f, long fp, string t, long tp) { _graphEdit.ConnectNode(f, (int)fp, t, (int)tp); if (_nodeDataMap.TryGetValue(f, out var fromData) && _nodeDataMap.TryGetValue(t, out var toData)) { if (fromData is ChoiceNodeData c) { if (fp < c.Options.Count) c.Options[(int)fp].TargetNodeId = toData.Id; } else if (fromData is BranchNodeData b) { if (fp == 0) b.SuccessNodeId = toData.Id; else b.FailNodeId = toData.Id; } else fromData.NextNodeId = toData.Id; } }
+	private void DisconnectNodesUndoable(string f, long fp, string t, long tp) { _graphEdit.DisconnectNode(f, (int)fp, t, (int)tp); if (_nodeDataMap.TryGetValue(f, out var fromData)) { if (fromData is ChoiceNodeData c) { if (fp < c.Options.Count) c.Options[(int)fp].TargetNodeId = null; } else if (fromData is BranchNodeData b) { if (fp == 0) b.SuccessNodeId = null; else b.FailNodeId = null; } else fromData.NextNodeId = null; } }
 }

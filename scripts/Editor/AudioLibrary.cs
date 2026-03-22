@@ -1,6 +1,5 @@
 using Godot;
 using System.Collections.Generic;
-using System.IO;
 
 public static class AudioLibrary
 {
@@ -12,23 +11,24 @@ public static class AudioLibrary
         var files = new List<string>();
         string path = ProjectManager.IsProjectOpened ? ProjectManager.AudioDir : "res://audio/";
         
-        // 关键修复：将 Godot 虚拟路径转换为系统绝对路径
-        string absolutePath = ProjectSettings.GlobalizePath(path);
-
-        if (!Directory.Exists(absolutePath)) {
+        if (!DirAccess.DirExistsAbsolute(path)) {
             // 如果是 res:// 路径，在运行时通常是只读的，不建议创建目录
-            if (!path.StartsWith("res://")) {
-                Directory.CreateDirectory(absolutePath);
+            if (!path.StartsWith("res://") && ProjectManager.IsProjectOpened) {
+                ProjectManager.EnsureDir("audio");
             }
             return files;
         }
 
-        foreach (string file in Directory.GetFiles(absolutePath))
+        using var dir = DirAccess.Open(path);
+        if (dir != null)
         {
-            string ext = Path.GetExtension(file).ToLower();
-            if (ext == ".ogg" || ext == ".mp3" || ext == ".wav")
+            foreach (string file in dir.GetFiles())
             {
-                files.Add(Path.GetFileName(file));
+                string ext = file.GetExtension().ToLower();
+                if (ext == "ogg" || ext == "mp3" || ext == "wav")
+                {
+                    files.Add(file);
+                }
             }
         }
         return files;

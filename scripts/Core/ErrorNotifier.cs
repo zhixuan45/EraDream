@@ -15,11 +15,13 @@ public partial class ErrorNotifier : CanvasLayer
 
     public override void _Ready()
     {
+        GD.Print("[Debug] ErrorNotifier: _Ready starting...");
         Layer = 100; // 确保在最顶层
 
         Theme mainTheme = null;
         if (ResourceLoader.Exists("res://resources/theme_main.tres"))
         {
+            GD.Print("[Debug] ErrorNotifier: Loading theme...");
             mainTheme = GD.Load<Theme>("res://resources/theme_main.tres");
         }
 
@@ -30,6 +32,7 @@ public partial class ErrorNotifier : CanvasLayer
         _errorDialog.Exclusive = true;
         if (mainTheme != null) _errorDialog.Theme = mainTheme;
         AddChild(_errorDialog);
+        GD.Print("[Debug] ErrorNotifier: Dialog initialized.");
 
         // 2. 初始化 Toast 容器
         _toastContainer = new PanelContainer();
@@ -59,12 +62,14 @@ public partial class ErrorNotifier : CanvasLayer
         _toastContainer.Visible = false;
         
         AddChild(_toastContainer);
+        GD.Print("[Debug] ErrorNotifier: Toast container added.");
 
         // 3. 初始化 Timer
         _toastTimer = new Godot.Timer();
         _toastTimer.OneShot = true;
         _toastTimer.Timeout += OnToastTimeout;
         AddChild(_toastTimer);
+        GD.Print("[Debug] ErrorNotifier: _Ready finished.");
     }
 
     public void ShowErrorDialog(string title, string message)

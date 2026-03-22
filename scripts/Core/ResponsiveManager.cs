@@ -20,10 +20,14 @@ namespace UmaEraArchive.Core
 
         public ScreenOrientation CurrentOrientation { get; private set; }
         public Vector2 CurrentScreenSize { get; private set; }
+        public float SafeAreaPadding { get; private set; }
 
         // 事件：当屏幕方向改变时触发
         // 参数：是否为横屏
         public event Action<bool> OnOrientationChanged;
+        
+        // 事件：当安全区偏移改变时触发
+        public event Action<float> OnSafeAreaChanged;
 
         public override void _EnterTree()
         {
@@ -43,6 +47,16 @@ namespace UmaEraArchive.Core
             // 连接屏幕尺寸改变信号
             GetTree().Root.SizeChanged += OnScreenSizeChanged;
             
+            // 监听设置中的安全区改变
+            if (SettingsManager.Instance != null)
+            {
+                SettingsManager.Instance.OnSafeAreaPaddingChanged += (padding) => {
+                    SafeAreaPadding = padding;
+                    OnSafeAreaChanged?.Invoke(padding);
+                };
+                SafeAreaPadding = SettingsManager.Instance.SafeAreaPadding;
+            }
+
             // 初始化计算一次
             CallDeferred(nameof(OnScreenSizeChanged));
         }

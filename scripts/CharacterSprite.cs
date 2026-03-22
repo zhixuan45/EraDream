@@ -73,45 +73,19 @@ public partial class CharacterSprite : Control
             return;
         }
 
-        string path = ProjectManager.IsProjectOpened ? 
-            System.IO.Path.Combine(ProjectManager.SpriteDir, fileName) : 
-            "res://sprites/" + fileName;
+        GD.Print($"[Sprite] Attempting to load sprite: {fileName}");
 
-        GD.Print($"[Sprite] Attempting to load from: {path}");
-
-        if (Godot.FileAccess.FileExists(path))
+        var texture = UmaEraArchive.Core.ResourceProxy.LoadSpriteTexture(fileName);
+        if (texture != null)
         {
-            using var fileAccess = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
-            byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
-            var image = new Image();
-            string ext = System.IO.Path.GetExtension(path).ToLower();
-            Error error = Error.Failed;
-            
-            if (ext == ".jpg" || ext == ".jpeg") error = image.LoadJpgFromBuffer(data);
-            else if (ext == ".webp") error = image.LoadWebpFromBuffer(data);
-            else error = image.LoadPngFromBuffer(data);
-            
-            if (error != Error.Ok && ext != ".png") error = image.LoadPngFromBuffer(data);
-            if (error != Error.Ok && (ext != ".jpg" && ext != ".jpeg")) error = image.LoadJpgFromBuffer(data);
-            if (error != Error.Ok && ext != ".webp") error = image.LoadWebpFromBuffer(data);
-
-            if (error == Error.Ok)
-            {
-                var texture = ImageTexture.CreateFromImage(image);
-                _textureRect.Texture = texture;
-                _textureRect.SelfModulate = silhouette ? new Color(0, 0, 0, 1) : new Color(1, 1, 1, 1);
-                GD.Print($"[Sprite] Loaded character {charId} successfully");
-                
-                ApplyTransform();
-            }
-            else
-            {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Sprite] Failed to load buffer from {path}, Error: {error}");
-            }
+            _textureRect.Texture = texture;
+            _textureRect.SelfModulate = silhouette ? new Color(0, 0, 0, 1) : new Color(1, 1, 1, 1);
+            GD.Print($"[Sprite] Loaded character {charId} successfully");
+            ApplyTransform();
         }
         else
         {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Sprite] File not found: {path}");
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Sprite] Failed to load/find sprite: {fileName}");
         }
     }
 }

@@ -10,6 +10,21 @@ public partial class SettingsManager : Node
     private AppSettings _currentSettings = new AppSettings();
 
     public event Action<bool> OnDarkModeChanged;
+    public event Action<float> OnSafeAreaPaddingChanged;
+
+    public float SafeAreaPadding
+    {
+        get => _currentSettings.SafeAreaPadding;
+        set
+        {
+            if (_currentSettings.SafeAreaPadding != value)
+            {
+                _currentSettings.SafeAreaPadding = value;
+                OnSafeAreaPaddingChanged?.Invoke(value);
+                SaveSettings();
+            }
+        }
+    }
 
     public bool IsDarkMode
     {
@@ -39,17 +54,45 @@ public partial class SettingsManager : Node
         }
     }
 
+    public bool ShowMouseCursor
+    {
+        get => _currentSettings.ShowMouseCursor;
+        set
+        {
+            if (_currentSettings.ShowMouseCursor != value)
+            {
+                _currentSettings.ShowMouseCursor = value;
+                ApplyMouseSettings();
+                SaveSettings();
+            }
+        }
+    }
+
     public override void _Ready()
     {
         Instance = this;
         LoadSettings();
         // 延迟调用以确保树已准备好
         CallDeferred(MethodName.ApplyWindowSettings);
+        CallDeferred(MethodName.ApplyMouseSettings);
+    }
+
+    private void ApplyMouseSettings()
+    {
+        Input.MouseMode = _currentSettings.ShowMouseCursor ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Hidden;
     }
 
     private void ApplyWindowSettings()
     {
-        GetTree().Root.GuiEmbedSubwindows = _currentSettings.IsEmbeddedSubwindows;
+        string osName = OS.GetName();
+        if (osName == "Android" || osName == "iOS")
+        {
+            GetTree().Root.GuiEmbedSubwindows = true;
+        }
+        else
+        {
+            GetTree().Root.GuiEmbedSubwindows = _currentSettings.IsEmbeddedSubwindows;
+        }
     }
 
     private void LoadSettings()

@@ -32,6 +32,11 @@ namespace UmaEraArchive.Editor.Nodes
 		public abstract GraphNode CreateGraphNode(GraphEdit host);
 		public abstract void SyncFromView(GraphNode view);
 
+		/// <summary>
+		/// 返回可供全局搜索匹配的文本，子类可覆盖
+		/// </summary>
+		public virtual string GetSearchableText() => GetType().Name + " " + Id;
+
 		// 便捷翻译方法，解决普通类无法调用 Tr 的问题
 		protected string Tr(string key) => TranslationServer.Translate(key);
 

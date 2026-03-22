@@ -38,21 +38,25 @@ public partial class StoryPlayerEngine : Control
 
     public override void _Ready()
     {
-        _nameLabel = GetNode<Label>("UI_Layer/DialogueBox/NameLabel");
-        _contentLabel = GetNode<RichTextLabel>("UI_Layer/DialogueBox/ContentLabel");
-        _choiceContainer = GetNode<VBoxContainer>("UI_Layer/ChoiceContainer");
-        _dialogueBox = GetNode<Control>("UI_Layer/DialogueBox");
+        _nameLabel = GetNode<Label>("UI_Layer/SafeAreaAdapter/Control_Root/DialogueBox/NameLabel");
+        _contentLabel = GetNode<RichTextLabel>("UI_Layer/SafeAreaAdapter/Control_Root/DialogueBox/ContentLabel");
+        _choiceContainer = GetNode<VBoxContainer>("UI_Layer/SafeAreaAdapter/Control_Root/ChoiceContainer");
+        _dialogueBox = GetNode<Control>("UI_Layer/SafeAreaAdapter/Control_Root/DialogueBox");
         _interactButton = GetNode<Button>("UI_Layer/InteractButton");
         _backgroundRect = GetNode<TextureRect>("Background");
         _overlay = GetNode<Control>("ColorRectOverlay");
         _overlay.MouseFilter = MouseFilterEnum.Ignore; // 确保遮罩层不拦截点击
-        
-        // 初始化滤镜着色器
-        var blurShader = GD.Load<Shader>("res://Shaders/blur_shader.gdshader");
-        var mat = new ShaderMaterial { Shader = blurShader };
-        mat.SetShaderParameter("color_over", new Color(0, 0, 0, 1));
-        mat.SetShaderParameter("blur_amount", 0.0f);
-        mat.SetShaderParameter("mix_amount", 0.0f);
+
+        // 通过 ResourceProxy 安全加载 blur shader（路径不存在时优雅降级）
+        var blurShader = UmaEraArchive.Core.ResourceProxy.LoadBlurOverlayShader();
+        var mat = new ShaderMaterial();
+        if (blurShader != null)
+        {
+            mat.Shader = blurShader;
+            mat.SetShaderParameter("color_over", new Color(0, 0, 0, 1));
+            mat.SetShaderParameter("blur_amount", 0.0f);
+            mat.SetShaderParameter("mix_amount", 0.0f);
+        }
         _overlay.Material = mat;
         
         // 背景层初始化
@@ -106,6 +110,10 @@ public partial class StoryPlayerEngine : Control
         LoadStory(CurrentStoryPath);
     }
 
+    public override void _ExitTree()
+    {
+    }
+
     private void LoadStory(string path)
     {
         _storyNodes = StoryNodeManager.LoadProject(path);
@@ -153,7 +161,7 @@ public partial class StoryPlayerEngine : Control
                 break;
             case NarrativeNodeData narrativeNode: 
                 UpdateDialogueUI("", narrativeNode.Content); 
-                PreExecuteVisualNodes(narrativeNode.NextNodeId);
+                // 叙述节点需等待点击才跳转，不做预执行
                 break;
             case MusicNodeData music: 
                 PlayBGM(music.AudioFile); 
@@ -297,71 +305,32 @@ public partial class StoryPlayerEngine : Control
     {
         if (string.IsNullOrEmpty(file)) return;
         
-        string rawPath = ProjectManager.IsProjectOpened ? Path.Combine(ProjectManager.BackgroundDir, file) : "res://backgrounds/" + file;
-        
-        GD.Print($"[Engine] Attempting to load background from: {rawPath}");
+        GD.Print($"[Engine] Attempting to load background: {file}");
 
-        if (Godot.FileAccess.FileExists(rawPath))
+        var bgTexture = UmaEraArchive.Core.ResourceProxy.LoadBackgroundTexture(file);
+        if (bgTexture != null)
         {
-            // 对于 res:// 路径（资源包内），我们需要通过 FileAccess 读取原始数据以绕过物理路径限制
-            using var fileAccess = Godot.FileAccess.Open(rawPath, Godot.FileAccess.ModeFlags.Read);
-            byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
-            var image = new Image();
-            string ext = System.IO.Path.GetExtension(rawPath).ToLower();
-            Error error = Error.Failed;
-            
-            if (ext == ".jpg" || ext == ".jpeg") error = image.LoadJpgFromBuffer(data);
-            else if (ext == ".webp") error = image.LoadWebpFromBuffer(data);
-            else error = image.LoadPngFromBuffer(data);
-            
-            if (error != Error.Ok && ext != ".png") error = image.LoadPngFromBuffer(data);
-            if (error != Error.Ok && (ext != ".jpg" && ext != ".jpeg")) error = image.LoadJpgFromBuffer(data);
-            if (error != Error.Ok && ext != ".webp") error = image.LoadWebpFromBuffer(data);
-
-            if (error == Error.Ok)
-            {
-                var texture = ImageTexture.CreateFromImage(image);
-                _backgroundRect.Texture = texture;
-                _backgroundRect.Modulate = new Color(1, 1, 1, 1);
-                GD.Print($"[Engine] Background Loaded Successfully: {file}");
-            }
-            else
-            {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Engine] Failed to load Image buffer from: {rawPath}, Error: {error}");
-            }
+            _backgroundRect.Texture = bgTexture;
+            _backgroundRect.Modulate = new Color(1, 1, 1, 1);
+            GD.Print($"[Engine] Background Loaded Successfully: {file}");
         }
-        else GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Engine] Background file NOT found at: {rawPath}");
+        else
+        {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Engine] Background file NOT found/failed to load: {file}");
+        }
     }
 
     private void PlayBGM(string file)
     {
         if (string.IsNullOrEmpty(file)) { _bgmPlayer.Stop(); return; }
-        string rawPath = ProjectManager.IsProjectOpened ? Path.Combine(ProjectManager.AudioDir, file) : "res://audio/" + file;
         
-        if (Godot.FileAccess.FileExists(rawPath))
+        AudioStream stream = UmaEraArchive.Core.ResourceProxy.LoadAudioFromProject(file);
+        if (stream != null)
         {
-            // 如果是项目编辑模式且是 Godot 导入的资源
-            if (rawPath.Contains(".godot/imported")) {
-                var stream = GD.Load<AudioStream>(rawPath);
-                if (_bgmPlayer.Stream != stream) { _bgmPlayer.Stream = stream; _bgmPlayer.Play(); }
-                return;
-            }
-
-            // 加载原始音频文件
-            using var fileAccess = Godot.FileAccess.Open(rawPath, Godot.FileAccess.ModeFlags.Read);
-            byte[] data = fileAccess.GetBuffer((long)fileAccess.GetLength());
-            AudioStream newStream = null;
-            
-            if (file.ToLower().EndsWith(".mp3")) {
-                var mp3 = new AudioStreamMP3(); mp3.Data = data; newStream = mp3;
-            } else if (file.ToLower().EndsWith(".wav")) {
-                var wav = new AudioStreamWav(); wav.Data = data; newStream = wav;
-            } else if (file.ToLower().EndsWith(".ogg")) {
-                var ogg = AudioStreamOggVorbis.LoadFromBuffer(data); newStream = ogg;
-            }
-
-            if (newStream != null) {
-                if (_bgmPlayer.Stream != newStream) { _bgmPlayer.Stream = newStream; _bgmPlayer.Play(); }
+            if (_bgmPlayer.Stream != stream) 
+            { 
+                _bgmPlayer.Stream = stream; 
+                _bgmPlayer.Play(); 
             }
         }
     }
@@ -382,12 +351,13 @@ public partial class StoryPlayerEngine : Control
     {
         _nameLabel.Text = LocalTr(name);
         string translatedContent = LocalTr(content);
-        _contentLabel.Text = "";
+        // 必须先赋值 Text，visible_ratio 动画才有效果
+        _contentLabel.Text = translatedContent;
+        _contentLabel.VisibleRatio = 0.0f;
         _isTextAnimating = true;
         if (_textTween != null) _textTween.Kill();
         _textTween = CreateTween();
-        _textTween.TweenProperty(_contentLabel, "visible_ratio", 1.0f, translatedContent.Length * _textSpeed).From(0.0f);
-        _contentLabel.Text = translatedContent;
+        _textTween.TweenProperty(_contentLabel, "visible_ratio", 1.0f, translatedContent.Length * _textSpeed);
         _textTween.Finished += () => _isTextAnimating = false;
     }
 

@@ -1,6 +1,5 @@
 using Godot;
 using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
 using FileAccess = Godot.FileAccess;
 
@@ -36,7 +35,11 @@ public static class CharacterManager
     public static void SaveCharacters(string path)
     {
         string json = JsonSerializer.Serialize(Characters, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(path, json);
+        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+        if (file != null)
+        {
+            file.StoreString(json);
+        }
     }
 
     public static void AddCharacter(string name)
