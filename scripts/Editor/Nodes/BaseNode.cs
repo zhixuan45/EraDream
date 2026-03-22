@@ -14,6 +14,7 @@ namespace UmaEraArchive.Editor.Nodes
 	[JsonDerivedType(typeof(EndNodeData), typeDiscriminator: "end")]
 	[JsonDerivedType(typeof(BackgroundNodeData), typeDiscriminator: "background")]
 	[JsonDerivedType(typeof(SpriteNodeData), typeDiscriminator: "sprite")]
+	[JsonDerivedType(typeof(StickerNodeData), typeDiscriminator: "sticker")]
 	[JsonDerivedType(typeof(ValueNodeData), typeDiscriminator: "value")]
 	public abstract class BaseNodeData
 	{

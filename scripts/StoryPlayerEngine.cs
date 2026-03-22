@@ -18,6 +18,8 @@ public partial class StoryPlayerEngine : Control
     private Control _characterContainer;
     private Control _overlay;
     private Dictionary<int, CharacterSprite> _activeSprites = new Dictionary<int, CharacterSprite>();
+    // 贴纸精灵：用 stickerId 的负数偏移作为 key，与角色 ID 区分
+    private Dictionary<int, CharacterSprite> _activeStickerSprites = new Dictionary<int, CharacterSprite>();
 
     private List<BaseNodeData> _storyNodes = new List<BaseNodeData>();
     private BaseNodeData _currentNode;
@@ -96,7 +98,13 @@ public partial class StoryPlayerEngine : Control
             }
             
             ProcessCurrentNode();
-            PreviewNodes = null; 
+            PreviewNodes = null;
+            // 可视化编辑模式：禁用全屏交互按钮并隐藏对话框，避免遮挡立绘操作
+            if (EnableVisualEditing)
+            {
+                _interactButton.MouseFilter = MouseFilterEnum.Ignore;
+                _dialogueBox.Hide();
+            }
             return;
         }
 
@@ -173,6 +181,11 @@ public partial class StoryPlayerEngine : Control
                 if (shouldPauseForEdit) return;
                 GoToNextNode(sprite.NextNodeId); 
                 break;
+            case StickerNodeData sticker:
+                HandleStickerNode(sticker);
+                if (shouldPauseForEdit) return;
+                GoToNextNode(sticker.NextNodeId);
+                break;
             case ChoiceNodeData choiceNode: 
                 ShowChoiceButtons(choiceNode); 
                 break;
@@ -221,6 +234,42 @@ public partial class StoryPlayerEngine : Control
         UpdateSpritePosition(targetSprite, data.Position);
     }
 
+    // 处理贴纸节点：加载贴纸图片到场景
+    private void HandleStickerNode(StickerNodeData data)
+    {
+        int stickerKey = -(data.StickerId + 1000); // 用负数 key 避免和角色 ID 冲突
+        if (data.ActionType == "Hide")
+        {
+            if (_activeStickerSprites.TryGetValue(stickerKey, out var s)) { s.QueueFree(); _activeStickerSprites.Remove(stickerKey); }
+            return;
+        }
+
+        var stickerData = StickerManager.Stickers.Find(s => s.Id == data.StickerId);
+        if (stickerData == null || string.IsNullOrEmpty(stickerData.ImageFile)) return;
+
+        if (!_activeStickerSprites.TryGetValue(stickerKey, out var targetSprite))
+        {
+            targetSprite = new CharacterSprite();
+            _characterContainer.AddChild(targetSprite);
+            _activeStickerSprites[stickerKey] = targetSprite;
+        }
+
+        // 复用 SpriteNodeData 格式传递变换参数
+        var proxyData = new SpriteNodeData {
+            OffsetX = data.OffsetX, OffsetY = data.OffsetY,
+            Scale = data.Scale, FlipH = data.FlipH
+        };
+        targetSprite.SourceData = proxyData;
+
+        // 设置贴纸尺寸和位置，通过 UpdateTextureDirect 加载纹理
+        targetSprite.Size = new Vector2(400, 400);
+        targetSprite.Position = new Vector2(
+            (Size.X - 400) / 2 + data.OffsetX,
+            (Size.Y - 400) / 2 + data.OffsetY
+        );
+        targetSprite.UpdateTextureDirect(stickerData.ImageFile);
+    }
+
     public override void _Input(InputEvent @event)
     {
         // 全局退出预览快捷键
@@ -233,12 +282,16 @@ public partial class StoryPlayerEngine : Control
 
         if (!IsPreviewMode || !EnableVisualEditing) return;
 
+        // 合并角色立绘和贴纸精灵，统一处理交互
+        var allSprites = new List<CharacterSprite>(_activeSprites.Values);
+        allSprites.AddRange(_activeStickerSprites.Values);
+
         if (@event is InputEventMouseButton mb)
         {
             if (mb.ButtonIndex == MouseButton.Left)
             {
                 if (mb.Pressed) {
-                    foreach (var sprite in _activeSprites.Values) {
+                    foreach (var sprite in allSprites) {
                         if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
                             _draggedSprite = sprite;
                             _dragOffset = sprite.GlobalPosition - mb.GlobalPosition;
@@ -251,7 +304,7 @@ public partial class StoryPlayerEngine : Control
                 }
             }
             else if (mb.ButtonIndex == MouseButton.Right && mb.Pressed) {
-                foreach (var sprite in _activeSprites.Values) {
+                foreach (var sprite in allSprites) {
                     if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
                         sprite.ToggleFlip();
                         GetViewport().SetInputAsHandled();
@@ -260,7 +313,7 @@ public partial class StoryPlayerEngine : Control
                 }
             }
             else if (mb.ButtonIndex == MouseButton.WheelUp && mb.Pressed) {
-                foreach (var sprite in _activeSprites.Values) {
+                foreach (var sprite in allSprites) {
                     if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
                         sprite.AdjustScale(0.05f);
                         GetViewport().SetInputAsHandled();
@@ -269,7 +322,7 @@ public partial class StoryPlayerEngine : Control
                 }
             }
             else if (mb.ButtonIndex == MouseButton.WheelDown && mb.Pressed) {
-                foreach (var sprite in _activeSprites.Values) {
+                foreach (var sprite in allSprites) {
                     if (sprite.GetGlobalRect().HasPoint(mb.GlobalPosition)) {
                         sprite.AdjustScale(-0.05f);
                         GetViewport().SetInputAsHandled();
@@ -415,6 +468,11 @@ public partial class StoryPlayerEngine : Control
             {
                 PlayBGM(music.AudioFile);
                 currentCheckId = music.NextNodeId;
+            }
+            else if (node is StickerNodeData sticker)
+            {
+                HandleStickerNode(sticker);
+                currentCheckId = sticker.NextNodeId;
             }
             else
             {

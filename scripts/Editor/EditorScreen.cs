@@ -100,6 +100,9 @@ public partial class EditorScreen : Control
 		AddCategoryButton(assetCategory, "添加音乐节点", () => {
 			if (EnsureProjectOpen()) SpawnNodeWithUndo(new MusicNodeData());
 		});
+		AddCategoryButton(assetCategory, "添加贴纸节点", () => {
+			if (EnsureProjectOpen()) SpawnNodeWithUndo(new StickerNodeData());
+		});
 
 		// 4. 流程工具分类
 		CreateCollapsibleCategory("流程与预览", out var flowCategory);
@@ -207,17 +210,26 @@ public partial class EditorScreen : Control
 
 		PopupMenu charMenu = new PopupMenu { Name = "Character" };
 		charMenu.AddItem("新建角色", 0);
+		charMenu.AddItem("角色列表管理", 3);
+		charMenu.AddSeparator();
 		charMenu.AddItem("导出角色配置", 1);
 		charMenu.AddItem("导入角色配置", 2);
-		charMenu.AddItem("角色列表管理", 3);
 		_menuBar.AddChild(charMenu);
 		_menuBar.SetMenuTitle(3, "角色");
 		charMenu.IdPressed += OnCharMenuIdPressed;
 
+		// 贴纸菜单
+		PopupMenu stickerMenu = new PopupMenu { Name = "Sticker" };
+		stickerMenu.AddItem("新建贴纸", 0);
+		stickerMenu.AddItem("贴纸列表管理", 1);
+		_menuBar.AddChild(stickerMenu);
+		_menuBar.SetMenuTitle(4, "贴纸");
+		stickerMenu.IdPressed += OnStickerMenuIdPressed;
+
 		PopupMenu searchMenu = new PopupMenu { Name = "Search" };
 		searchMenu.AddItem("全局搜索 (Ctrl+F)", 0);
 		_menuBar.AddChild(searchMenu);
-		_menuBar.SetMenuTitle(4, "搜索");
+		_menuBar.SetMenuTitle(5, "搜索");
 		searchMenu.IdPressed += (id) => OpenSearchDialog();
 	}
 
@@ -226,8 +238,8 @@ public partial class EditorScreen : Control
 		switch (id)
 		{
 			case 0: FileIOManager.OpenFolderDialog("选择新项目文件夹", (path) => { ProjectManager.CreateNewProject(path); LoadAndRender(ProjectManager.StoryFile); }); break;
-			case 1: FileIOManager.OpenLoadDialog("选择项目文件", "*.uma", (path) => { if (ProjectManager.OpenProject(path)) { CharacterManager.LoadCharacters(ProjectManager.CharacterFile); LoadAndRender(ProjectManager.StoryFile); } }); break;
-			case 2: if (EnsureProjectOpen()) { StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile); CharacterManager.SaveCharacters(ProjectManager.CharacterFile); ProjectManager.SaveMetadata(); GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目保存成功！"); } break;
+			case 1: FileIOManager.OpenLoadDialog("选择项目文件", "*.uma", (path) => { if (ProjectManager.OpenProject(path)) { CharacterManager.LoadCharacters(ProjectManager.CharacterFile); StickerManager.LoadStickers(ProjectManager.StickerFile); LoadAndRender(ProjectManager.StoryFile); } }); break;
+			case 2: if (EnsureProjectOpen()) { StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile); CharacterManager.SaveCharacters(ProjectManager.CharacterFile); StickerManager.SaveStickers(ProjectManager.StickerFile); ProjectManager.SaveMetadata(); GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目保存成功！"); } break;
 		}
 	}
 
@@ -270,7 +282,9 @@ public partial class EditorScreen : Control
 		if (!EnsureProjectOpen()) return;
 		switch (id)
 		{
-			case 0: CharacterEditorUI.Open(this); break;
+			// 新建角色和角色列表管理都跳转到同一个界面
+			case 0:
+			case 3: CharacterEditorUI.Open(this); break;
 			case 1: // 导出角色配置
 				FileIOManager.OpenSaveDialog("导出角色配置", "characters.json", "*.json", (path) => {
 					CharacterManager.SaveCharacters(path);
@@ -282,6 +296,13 @@ public partial class EditorScreen : Control
 					GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("角色配置导入成功！");
 				}); break;
 		}
+	}
+
+	// 贴纸菜单回调：新建贴纸和贴纸列表管理都跳转到同一个界面
+	private void OnStickerMenuIdPressed(long id)
+	{
+		if (!EnsureProjectOpen()) return;
+		StickerEditorUI.Open(this);
 	}
 
 	private bool EnsureProjectOpen()
@@ -306,12 +327,24 @@ public partial class EditorScreen : Control
 		var visualNode = data.CreateGraphNode(_graphEdit);
 		_graphEdit.AddChild(visualNode);
 		visualNode.PositionOffset = pos;
-		
+		BindNodeCallbacks(data, pos);
+	}
+
+	/// <summary>
+	/// 统一绑定节点回调（删除、可视化编辑），避免加载后的节点无法操作
+	/// </summary>
+	private void BindNodeCallbacks(BaseNodeData data, Vector2 pos)
+	{
 		data.OnDeleteRequested = () => {
 			_cmdHistory.Execute(
 				() => DeleteNode(data.Id),
 				() => SpawnNodeAt(data, pos)
 			);
+		};
+		// 可视化编辑回调: 以编辑模式启动预览
+		data.OnVisualEditRequested = (nodeId) => {
+			StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
+			LaunchPreview(nodeId, true);
 		};
 	}
 
@@ -320,7 +353,15 @@ public partial class EditorScreen : Control
 		foreach (Node child in _graphEdit.GetChildren()) if (child is GraphNode) child.QueueFree();
 		_nodeDataMap.Clear();
 		var nodes = StoryNodeManager.LoadProject(path);
-		foreach (var node in nodes) { _nodeDataMap[node.Id] = node; var v = node.CreateGraphNode(_graphEdit); _graphEdit.AddChild(v); v.PositionOffset = new Vector2(node.PosX, node.PosY); }
+		foreach (var node in nodes)
+		{
+			_nodeDataMap[node.Id] = node;
+			var v = node.CreateGraphNode(_graphEdit);
+			_graphEdit.AddChild(v);
+			v.PositionOffset = new Vector2(node.PosX, node.PosY);
+			// 加载的节点也必须绑定删除和可视化编辑回调
+			BindNodeCallbacks(node, v.PositionOffset);
+		}
 		RebuildConnections();
 	}
 

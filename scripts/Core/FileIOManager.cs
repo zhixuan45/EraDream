@@ -17,7 +17,8 @@ namespace UmaEraArchive.Core
             Callable callback = Callable.From((bool status, string[] paths, int index) => {
                 if (status && paths.Length > 0)
                 {
-                    onFileSelected?.Invoke(paths[0]);
+                    string realPath = ConvertContentUriToPath(paths[0]);
+                    onFileSelected?.Invoke(realPath);
                 }
             });
 
@@ -41,7 +42,8 @@ namespace UmaEraArchive.Core
             Callable callback = Callable.From((bool status, string[] paths, int index) => {
                 if (status && paths.Length > 0)
                 {
-                    onFileSelected?.Invoke(paths[0]);
+                    string realPath = ConvertContentUriToPath(paths[0]);
+                    onFileSelected?.Invoke(realPath);
                 }
             });
 
@@ -91,7 +93,8 @@ namespace UmaEraArchive.Core
             Callable callback = Callable.From((bool status, string[] paths, int index) => {
                 if (status && paths.Length > 0)
                 {
-                    onFolderSelected?.Invoke(paths[0]);
+                    string realPath = ConvertContentUriToPath(paths[0]);
+                    onFolderSelected?.Invoke(realPath);
                 }
             });
 
@@ -108,8 +111,7 @@ namespace UmaEraArchive.Core
 
         /// <summary>
         /// 将安卓 SAF 返回的 content:// URI 转换为真实文件系统路径
-        /// 例: content://com.android.externalstorage.documents/tree/primary%3Auma%2Ftest
-        ///   -> /storage/emulated/0/uma/test
+        /// 支持 /tree/ 和 /document/ 格式
         /// </summary>
         private static string ConvertContentUriToPath(string uri)
         {
@@ -119,12 +121,12 @@ namespace UmaEraArchive.Core
 
             try
             {
-                // 提取 tree/ 后面的编码路径部分
-                string treePrefix = "/tree/";
-                int treeIdx = uri.IndexOf(treePrefix, StringComparison.Ordinal);
-                if (treeIdx < 0) return uri;
+                // SAF URI 结尾的编码部分总是我们需要的实体 ID
+                // 例如: .../document/primary%3Auma%2Ftest
+                int lastSlash = uri.LastIndexOf('/');
+                if (lastSlash < 0) return uri;
 
-                string encoded = uri.Substring(treeIdx + treePrefix.Length);
+                string encoded = uri.Substring(lastSlash + 1);
                 // URL 解码: %3A -> :, %2F -> /
                 string decoded = System.Uri.UnescapeDataString(encoded);
 
@@ -139,6 +141,14 @@ namespace UmaEraArchive.Core
                 if (storageId.Equals("primary", StringComparison.OrdinalIgnoreCase))
                 {
                     return "/storage/emulated/0/" + subPath;
+                }
+                else if (storageId.Equals("image", StringComparison.OrdinalIgnoreCase) || 
+                         storageId.Equals("video", StringComparison.OrdinalIgnoreCase) || 
+                         storageId.Equals("audio", StringComparison.OrdinalIgnoreCase) ||
+                         storageId.Equals("msf", StringComparison.OrdinalIgnoreCase))
+                {
+                    // MediaStore 媒体库对应的 URI，直接返回以便给 Godot.FileAccess 使用
+                    return uri;
                 }
                 else
                 {

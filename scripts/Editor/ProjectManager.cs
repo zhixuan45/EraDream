@@ -26,6 +26,7 @@ public static class ProjectManager
     public static string AudioDir => CurrentProjectRoot.PathJoin("audio");
     public static string BackgroundDir => CurrentProjectRoot.PathJoin("backgrounds");
     public static string SpriteDir => CurrentProjectRoot.PathJoin("sprites");
+    public static string StickerFile => CurrentProjectRoot.PathJoin("stickers.json");
 
     public static bool IsProjectOpened => !string.IsNullOrEmpty(CurrentProjectRoot) && DirAccess.DirExistsAbsolute(CurrentProjectRoot);
 
@@ -62,6 +63,7 @@ public static class ProjectManager
 
         WriteAllText(StoryFile, "[]");
         WriteAllText(CharacterFile, "[]");
+        WriteAllText(StickerFile, "[]");
         
         GD.Print($"Project Created and Initialized at: {CurrentProjectRoot}");
     }
@@ -102,15 +104,65 @@ public static class ProjectManager
         string targetDir = CurrentProjectRoot.PathJoin(targetSubDir);
         
         string fileName = sourcePath.GetFile();
-        string destPath = targetDir.PathJoin(fileName);
+        if (sourcePath.StartsWith("content://"))
+        {
+            fileName = System.Uri.UnescapeDataString(fileName).Replace(":", "_");
+        }
         
-        Error err = DirAccess.CopyAbsolute(sourcePath, destPath);
+        // 尝试使用 Godot.FileAccess 读取文件内容 (原生支持 content:// 读取)
+        byte[] fileData = FileAccess.GetFileAsBytes(sourcePath);
+        if (fileData != null && fileData.Length > 0)
+        {
+            string ext = System.IO.Path.GetExtension(fileName);
+            if (string.IsNullOrEmpty(ext))
+            {
+                string detectedExt = GetExtensionFromMagicBytes(fileData);
+                if (!string.IsNullOrEmpty(detectedExt))
+                {
+                    fileName += detectedExt;
+                }
+            }
+
+            string destPath = targetDir.PathJoin(fileName);
+            using var file = FileAccess.Open(destPath, FileAccess.ModeFlags.Write);
+            if (file != null)
+            {
+                file.StoreBuffer(fileData);
+                return fileName;
+            }
+        }
+
+        // 回退逻辑: 直接使用 CopyAbsolute
+        string altDestPath = targetDir.PathJoin(fileName);
+        Error err = DirAccess.CopyAbsolute(sourcePath, altDestPath);
         if (err == Error.Ok) {
             return fileName;
         } else {
-            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast($"Import Error: {err}");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast($"Import Error: {(fileData == null || fileData.Length == 0 ? "ReadFailed" : err.ToString())}");
             return "";
         }
+    }
+
+    private static string GetExtensionFromMagicBytes(byte[] magic)
+    {
+        if (magic == null || magic.Length < 12) return "";
+        // PNG: 89 50 4E 47
+        if (magic[0] == 0x89 && magic[1] == 0x50 && magic[2] == 0x4E && magic[3] == 0x47) return ".png";
+        // JPG: FF D8 FF
+        if (magic[0] == 0xFF && magic[1] == 0xD8 && magic[2] == 0xFF) return ".jpg";
+        // WEBP: 52 49 46 46 ... 57 45 42 50
+        if (magic[0] == 0x52 && magic[1] == 0x49 && magic[2] == 0x46 && magic[3] == 0x46 &&
+            magic[8] == 0x57 && magic[9] == 0x45 && magic[10] == 0x42 && magic[11] == 0x50) return ".webp";
+        // OGG: 4F 67 67 53
+        if (magic[0] == 0x4F && magic[1] == 0x67 && magic[2] == 0x67 && magic[3] == 0x53) return ".ogg";
+        // MP3: ID3 or start with FF FB / FF FA
+        if (magic[0] == 0x49 && magic[1] == 0x44 && magic[2] == 0x33) return ".mp3";
+        if (magic[0] == 0xFF && (magic[1] == 0xFB || magic[1] == 0xFA || magic[1] == 0xF3 || magic[1] == 0xF2)) return ".mp3";
+        // WAV: 52 49 46 46 ... 57 41 56 45
+        if (magic[0] == 0x52 && magic[1] == 0x49 && magic[2] == 0x46 && magic[3] == 0x46 &&
+            magic[8] == 0x57 && magic[9] == 0x41 && magic[10] == 0x56 && magic[11] == 0x45) return ".wav";
+        
+        return "";
     }
 
     public static void ExportAsEra(string destinationPath)

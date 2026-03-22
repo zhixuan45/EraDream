@@ -88,4 +88,18 @@ public partial class CharacterSprite : Control
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Sprite] Failed to load/find sprite: {fileName}");
         }
     }
+
+    /// <summary>
+    /// 直接加载纹理（供贴纸节点使用，不走角色系统）
+    /// </summary>
+    public void UpdateTextureDirect(string fileName)
+    {
+        var texture = UmaEraArchive.Core.ResourceProxy.LoadSpriteTexture(fileName);
+        if (texture != null)
+        {
+            _textureRect.Texture = texture;
+            _textureRect.SelfModulate = new Color(1, 1, 1, 1);
+            ApplyTransform();
+        }
+    }
 }
