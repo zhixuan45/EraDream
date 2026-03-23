@@ -1,0 +1,15 @@
+﻿  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+C:\Users\JuziD\godot\umaarchive-new\scripts\Game\GameManager.cs(51,9): error CS7036: 未提供与“GameManager.StartNewGame(List<string>)”的所需参数“scenarioPaths”对应的参数 [C:\Users\JuziD\godot\umaarchive-new\umaEraArchive.csproj]
+C:\Users\JuziD\godot\umaarchive-new\scripts\MainMenuScreen.cs(117,31): error CS0117: “ErrorNotifier”未包含“Instance”的定义 [C:\Users\JuziD\godot\umaarchive-new\umaEraArchive.csproj]
+C:\Users\JuziD\godot\umaarchive-new\scripts\Editor\StoryNodeManager.cs(11,24): warning CS0414: 字段“StoryNodeManager._savePath”已被赋值，但从未使用过它的值 [C:\Users\JuziD\godot\umaarchive-new\umaEraArchive.csproj]
+
+生成失败。
+
+C:\Users\JuziD\godot\umaarchive-new\scripts\Editor\StoryNodeManager.cs(11,24): warning CS0414: 字段“StoryNodeManager._savePath”已被赋值，但从未使用过它的值 [C:\Users\JuziD\godot\umaarchive-new\umaEraArchive.csproj]
+C:\Users\JuziD\godot\umaarchive-new\scripts\Game\GameManager.cs(51,9): error CS7036: 未提供与“GameManager.StartNewGame(List<string>)”的所需参数“scenarioPaths”对应的参数 [C:\Users\JuziD\godot\umaarchive-new\umaEraArchive.csproj]
+C:\Users\JuziD\godot\umaarchive-new\scripts\MainMenuScreen.cs(117,31): error CS0117: “ErrorNotifier”未包含“Instance”的定义 [C:\Users\JuziD\godot\umaarchive-new\umaEraArchive.csproj]
+    1 个警告
+    2 个错误
+
+已用时间 00:00:00.83

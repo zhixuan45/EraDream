@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using UmaEraArchive.Core;
+using umaEraArchive.Game;
 
 public partial class MainMenuScreen : Control
 {
@@ -94,12 +95,28 @@ public partial class MainMenuScreen : Control
 
     private void OnStartPressed()
     {
-        GD.Print(Tr("KEY_START_GAME"));
+        // 标记为开启养成模式选择，并跳转剧本选择界面
+        StorySelectorScreen.IsForSimulation = true;
+        LoadingScreen.TargetScene = "res://scenes/StorySelectorScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }
 
     private void OnLoadPressed()
     {
-        GD.Print(Tr("KEY_LOAD_GAME"));
+        if (GameManager.Instance != null)
+        {
+            if (FileAccess.FileExists(GameManager.AutoSavePath))
+            {
+                GameManager.Instance.LoadGame(GameManager.AutoSavePath);
+                LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
+                GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            }
+            else
+            {
+                GD.Print("No autosave found!");
+                GetNode<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("未找到自动存档", "无法加载游戏进度");
+            }
+        }
     }
 
     private void OnSettingsPressed()

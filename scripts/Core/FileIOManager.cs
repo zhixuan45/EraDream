@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Linq;
+using System.Text.Json;
 
 namespace UmaEraArchive.Core
 {
@@ -107,6 +108,50 @@ namespace UmaEraArchive.Core
                 new string[] { },
                 callback
             );
+        }
+
+        /// <summary>
+        /// 泛型保存 JSON 数据到指定的虚拟路径
+        /// </summary>
+        public static void SaveJson<T>(string path, T data)
+        {
+            try
+            {
+                string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+                if (file != null)
+                {
+                    file.StoreString(json);
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[FileIOManager] SaveJson failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 泛型从指定的虚拟路径读取 JSON 数据
+        /// </summary>
+        public static T LoadJson<T>(string path)
+        {
+            try
+            {
+                if (FileAccess.FileExists(path))
+                {
+                    using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+                    if (file != null)
+                    {
+                        string json = file.GetAsText();
+                        return JsonSerializer.Deserialize<T>(json);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[FileIOManager] LoadJson failed: {ex.Message}");
+            }
+            return default;
         }
 
         /// <summary>
