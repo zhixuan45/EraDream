@@ -14,7 +14,7 @@ public partial class GameManager : Node
 
     public GameState CurrentState { get; private set; }
 
-    public const string AutoSavePath = "user://autosave.json";
+    public const string AutoSavePath = "user://autosave.sav";
     
     // 子模块引用
     public TrainingModule Training { get; private set; }
@@ -67,21 +67,21 @@ public partial class GameManager : Node
     public void SaveGame(string path)
     {
         if (CurrentState == null) return;
-        FileIOManager.SaveJson(path, CurrentState);
-        GD.Print($"[GameManager] Game saved to: {path}");
+        FileIOManager.SaveBinary(path, CurrentState);
+        GD.Print($"[GameManager] Game binary saved to: {path}");
     }
 
     public void LoadGame(string path)
     {
-        var loadedState = FileIOManager.LoadJson<GameState>(path);
+        var loadedState = FileIOManager.LoadBinary<GameState>(path);
         if (loadedState != null)
         {
             CurrentState = loadedState;
-            GD.Print($"[GameManager] Game loaded from: {path}");
+            GD.Print($"[GameManager] Game binary loaded from: {path}");
         }
         else
         {
-            GD.PrintErr($"[GameManager] Load failed, file might not exist or corrupted: {path}");
+            GD.PrintErr($"[GameManager] Binary load failed, file might not exist or corrupted: {path}");
         }
     }
 

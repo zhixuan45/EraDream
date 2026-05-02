@@ -95,9 +95,8 @@ public partial class MainMenuScreen : Control
 
     private void OnStartPressed()
     {
-        // 标记为开启养成模式选择，并跳转剧本选择界面
-        StorySelectorScreen.IsForSimulation = true;
-        LoadingScreen.TargetScene = "res://scenes/StorySelectorScreen.tscn";
+        // 跳转至存档选择/新建存档中间界面
+        LoadingScreen.TargetScene = "res://scenes/SaveSlotScreen.tscn";
         GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }
 

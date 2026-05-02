@@ -8,6 +8,9 @@ namespace umaEraArchive.Game;
 /// </summary>
 public partial class PlayerStats : RefCounted
 {
+    [JsonPropertyName("player_name")]
+    public string PlayerName { get; set; } = "训练员";
+
     [JsonPropertyName("money")]
     public int Money { get; set; } = 0;
 

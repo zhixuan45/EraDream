@@ -64,6 +64,20 @@
    - **[完成]** 实现了基于 `CanvasLayer` 的全局设置覆盖层 (`SettingsOverlay`)，支持在任何场景呼出。
    - 内置**深色/浅色模式切换**逻辑，并与加载界面 (`LoadingScreen`) 深度联动。
 
+8. **养成模式核心框架 (Simulation Framework)**：
+   - 引入了 `GameManager` 和 `GameState` 处理游戏核心循环（开局、推进回合）。
+   - 建立了包含 `PlayerStats` 和 `UmaStats` (属性、技能、好感度等) 的基础数值模型。
+   - 配置了基础模块：`TrainingModule` (训练)、`RestModule` (休息) 与 `EventModule` (事件调度中心)。
+
+9. **高度解耦的本地存读档系统 (File IO Management)**：
+   - 在 `FileIOManager.cs` 中部署了独立封装的 `SaveJson<T>` 和 `LoadJson<T>` 泛型接口。
+   - 所有存档与配置均依赖此接口读写，极大提高了代码的安全性和可复用性。
+
+10. **多剧本分级挂载与联动触发 (Story Grouping & Triggers)**：
+    - `StorySelectorScreen` 支持扫描 `user://stories/` 及其子目录，动态按文件夹生成 UI 分组。
+    - **养成多选模式**：支持文件夹层级的“一键全选”，一次性挂载多个 `.era`, `.zip` 或 `.json` 剧本集合到同一局游戏。
+    - 编辑器 `StartNode` 开放 `TriggerCondition` (触发条件) 输入属性，允许创作者使用类似 `Affection>=50` 的语法，实现自由的剧情分发。
+
 ---
 
 ## 待办事项 (Next Steps)

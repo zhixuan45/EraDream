@@ -155,6 +155,54 @@ namespace UmaEraArchive.Core
         }
 
         /// <summary>
+        /// 泛型保存数据为压缩二进制格式
+        /// </summary>
+        public static void SaveBinary<T>(string path, T data)
+        {
+            try
+            {
+                string json = JsonSerializer.Serialize(data);
+                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+                
+                // 使用 Zstd 压缩保存，既是二进制也减小体积
+                using var file = FileAccess.OpenCompressed(path, FileAccess.ModeFlags.Write, FileAccess.CompressionMode.Zstd);
+                if (file != null)
+                {
+                    file.StoreBuffer(bytes);
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[FileIOManager] SaveBinary failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 泛型从压缩二进制格式读取数据
+        /// </summary>
+        public static T LoadBinary<T>(string path)
+        {
+            try
+            {
+                if (FileAccess.FileExists(path))
+                {
+                    using var file = FileAccess.OpenCompressed(path, FileAccess.ModeFlags.Read, FileAccess.CompressionMode.Zstd);
+                    if (file != null)
+                    {
+                        byte[] bytes = file.GetBuffer((long)file.GetLength());
+                        string json = System.Text.Encoding.UTF8.GetString(bytes);
+                        return JsonSerializer.Deserialize<T>(json);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[FileIOManager] LoadBinary failed: {ex.Message}");
+            }
+            return default;
+        }
+
+        /// <summary>
         /// 将安卓 SAF 返回的 content:// URI 转换为真实文件系统路径
         /// 支持 /tree/ 和 /document/ 格式
         /// </summary>
