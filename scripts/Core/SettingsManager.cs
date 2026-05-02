@@ -68,6 +68,19 @@ public partial class SettingsManager : Node
         }
     }
 
+    public string LastSavePath
+    {
+        get => _currentSettings.LastSavePath;
+        set
+        {
+            if (_currentSettings.LastSavePath != value)
+            {
+                _currentSettings.LastSavePath = value;
+                SaveSettings();
+            }
+        }
+    }
+
     public override void _Ready()
     {
         Instance = this;

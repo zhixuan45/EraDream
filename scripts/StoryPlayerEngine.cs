@@ -31,6 +31,7 @@ public partial class StoryPlayerEngine : Control
     public static List<BaseNodeData> PreviewNodes = null;
     public static string StartNodeId = null;
     public static bool EnableVisualEditing = false;
+    public static string ReturnScenePath = "res://scenes/MainMenuScreen.tscn";
     public bool IsPreviewMode { get; set; } = false;
 
     private CharacterSprite _draggedSprite = null;
@@ -189,6 +190,10 @@ public partial class StoryPlayerEngine : Control
             case ChoiceNodeData choiceNode: 
                 ShowChoiceButtons(choiceNode); 
                 break;
+            case ValueNodeData valueNode:
+                HandleValueNode(valueNode);
+                GoToNextNode(valueNode.NextNodeId);
+                break;
             case BranchNodeData branch: 
                 if (shouldPauseForEdit) return;
                 HandleBranchNode(branch); 
@@ -205,6 +210,74 @@ public partial class StoryPlayerEngine : Control
             tween.SetParallel(true);
             tween.TweenMethod(Callable.From((float v) => mat.SetShaderParameter("blur_amount", v)), (float)mat.GetShaderParameter("blur_amount"), blur, 0.5f);
             tween.TweenMethod(Callable.From((float v) => mat.SetShaderParameter("mix_amount", v)), (float)mat.GetShaderParameter("mix_amount"), darkness, 0.5f);
+        }
+    }
+
+    private void HandleValueNode(ValueNodeData data)
+    {
+        var manager = umaEraArchive.Game.GameManager.Instance;
+        var errorNotifier = GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
+        string storyId = System.IO.Path.GetFileNameWithoutExtension(CurrentStoryPath);
+        string valueId = data.TargetAttribute == "Custom" ? data.CustomId : data.TargetAttribute;
+
+        if (manager == null || manager.CurrentState == null)
+        {
+            errorNotifier?.ShowToast($"{storyId} 访问了一个意外的数值 {valueId}!");
+            return;
+        }
+
+        var state = manager.CurrentState;
+        bool success = true;
+
+        try
+        {
+            switch (data.TargetAttribute)
+            {
+                case "Money": state.Player.Money += data.ChangeValue; break;
+                case "Stamina": state.Player.AddStamina(data.ChangeValue); break;
+                case "Energy": state.Player.AddEnergy(data.ChangeValue); break;
+                case "Speed": state.Uma.AddStat(umaEraArchive.Game.StatType.Speed, data.ChangeValue); break;
+                case "Endurance": state.Uma.AddStat(umaEraArchive.Game.StatType.Stamina, data.ChangeValue); break;
+                case "Power": state.Uma.AddStat(umaEraArchive.Game.StatType.Power, data.ChangeValue); break;
+                case "Guts": state.Uma.AddStat(umaEraArchive.Game.StatType.Guts, data.ChangeValue); break;
+                case "Intelligence": state.Uma.AddStat(umaEraArchive.Game.StatType.Intelligence, data.ChangeValue); break;
+                case "SkillPoint": state.Uma.SkillPoints += data.ChangeValue; break;
+                case "Custom":
+                    if (string.IsNullOrWhiteSpace(data.CustomId))
+                    {
+                        errorNotifier?.ShowToast($"{storyId} 访问了一个意外的数值 {valueId}!");
+                        success = false;
+                    }
+                    else
+                    {
+                        var globalState = UmaEraArchive.Core.GlobalGameState.Instance;
+                        if (globalState != null)
+                        {
+                            float current = globalState.GetVariable(data.CustomId);
+                            globalState.SetVariable(data.CustomId, current + data.ChangeValue);
+                        }
+                        else
+                        {
+                            errorNotifier?.ShowToast($"{storyId} 访问了一个意外的数值 {valueId}!");
+                            success = false;
+                        }
+                    }
+                    break;
+                default:
+                    errorNotifier?.ShowToast($"{storyId} 访问了一个意外的数值 {valueId}!");
+                    success = false;
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorNotifier?.ShowToast($"{storyId} 访问了一个意外的数值 {valueId}!");
+            success = false;
+        }
+
+        if (success)
+        {
+            GD.Print($"[Engine] Value Changed: {data.TargetAttribute} ({(data.TargetAttribute == "Custom" ? data.CustomId : "")}) by {data.ChangeValue}");
         }
     }
 
@@ -391,7 +464,7 @@ public partial class StoryPlayerEngine : Control
     private void FinishStory(string type = "Title")
     {
         if (IsPreviewMode) { EmitSignal(SignalName.StoryFinished); return; }
-        GetTree().ChangeSceneToFile("res://scenes/MainMenuScreen.tscn");
+        GetTree().ChangeSceneToFile(ReturnScenePath);
     }
 
     private string GetCharacterName(int id)

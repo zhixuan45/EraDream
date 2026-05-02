@@ -55,6 +55,9 @@ public partial class SimulationMainScreen : Control
         }
 
         UpdateUI();
+
+        // 检查并触发回合开始剧情
+        GameManager.Instance?.HandleTurnStart();
     }
 
     public override void _ExitTree()

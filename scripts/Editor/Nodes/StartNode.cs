@@ -3,12 +3,22 @@ using UmaEraArchive.Editor.Nodes;
 
 using System.Text.Json.Serialization;
 
+public enum TriggerTiming
+{
+	TurnStart,
+	TurnEnd
+}
+
 public class StartNodeData : BaseNodeData
 {
 	[JsonPropertyName("trigger_condition")]
 	public string TriggerCondition { get; set; } = "";
 
+	[JsonPropertyName("trigger_timing")]
+	public TriggerTiming Timing { get; set; } = TriggerTiming.TurnStart;
+
 	private LineEdit _conditionInput;
+	private OptionButton _timingPicker;
 
 	public override GraphNode CreateGraphNode(GraphEdit host)
 	{
@@ -22,6 +32,14 @@ public class StartNodeData : BaseNodeData
 		};
 		node.AddChild(infoLabel);
 
+		_timingPicker = new OptionButton {
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+		};
+		_timingPicker.AddItem("回合开始触发 (TurnStart)", 0);
+		_timingPicker.AddItem("回合结束触发 (TurnEnd)", 1);
+		_timingPicker.Select((int)Timing);
+		node.AddChild(_timingPicker);
+
 		_conditionInput = new LineEdit {
 			PlaceholderText = "触发条件 (例: Affection>=50)",
 			Text = TriggerCondition,
@@ -29,7 +47,7 @@ public class StartNodeData : BaseNodeData
 		};
 		node.AddChild(_conditionInput);
 		
-		node.CustomMinimumSize = new Vector2(160, 120);
+		node.CustomMinimumSize = new Vector2(160, 150);
 		node.Size = Vector2.Zero;
 		return node;
 	}
@@ -39,6 +57,10 @@ public class StartNodeData : BaseNodeData
 		if (_conditionInput != null)
 		{
 			TriggerCondition = _conditionInput.Text.Trim();
+		}
+		if (_timingPicker != null)
+		{
+			Timing = (TriggerTiming)_timingPicker.Selected;
 		}
 	}
 }

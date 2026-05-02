@@ -42,6 +42,7 @@ public partial class SaveSlotScreen : Control
 
     private void OnNewGamePressed()
     {
+        GD.Print("[SaveSlotScreen] New Game button pressed.");
         if (GameManager.Instance != null)
         {
             // 初始化新游戏状态（跳过剧本选择，由后续签约流程决定）
@@ -50,15 +51,27 @@ public partial class SaveSlotScreen : Control
             LoadingScreen.TargetScene = "res://scenes/NamingScreen.tscn";
             GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
         }
+        else
+        {
+            GD.PrintErr("[SaveSlotScreen] Cannot start new game: GameManager.Instance is NULL!");
+            GetNode<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("系统错误", "游戏核心管理器 (GameManager) 未启动，请检查项目配置。");
+        }
     }
 
     private void OnLoadGamePressed()
     {
         if (GameManager.Instance != null)
         {
-            if (FileAccess.FileExists(GameManager.AutoSavePath))
+            // 优先从 SettingsManager 获取最近存档路径，否则回退到自动存档
+            string lastPath = SettingsManager.Instance?.LastSavePath;
+            if (string.IsNullOrEmpty(lastPath) || !FileAccess.FileExists(lastPath))
             {
-                GameManager.Instance.LoadGame(GameManager.AutoSavePath);
+                lastPath = GameManager.AutoSavePath;
+            }
+
+            if (FileAccess.FileExists(lastPath))
+            {
+                GameManager.Instance.LoadGame(lastPath);
                 LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
                 GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
             }

@@ -18,6 +18,7 @@ public partial class MainMenuScreen : Control
         GetNode<Button>("VBoxContainer/SettingsButton").Pressed += OnSettingsPressed;
         GetNode<Button>("VBoxContainer/StoryButton").Pressed += OnStoryPressed;
         GetNode<Button>("VBoxContainer/EditorButton").Pressed += OnEditorPressed;
+        GetNode<Button>("VBoxContainer/ModEditorButton").Pressed += OnModEditorPressed;
         GetNode<Button>("VBoxContainer/ExitButton").Pressed += OnExitPressed;
 
         // 注册响应式布局回调
@@ -93,6 +94,12 @@ public partial class MainMenuScreen : Control
         GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }
 
+    private void OnModEditorPressed()
+    {
+        LoadingScreen.TargetScene = "res://scenes/ExtensionEditorScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+    }
+
     private void OnStartPressed()
     {
         // 跳转至存档选择/新建存档中间界面
@@ -104,16 +111,23 @@ public partial class MainMenuScreen : Control
     {
         if (GameManager.Instance != null)
         {
-            if (FileAccess.FileExists(GameManager.AutoSavePath))
+            // 优先从 SettingsManager 获取最近存档路径
+            string lastPath = SettingsManager.Instance?.LastSavePath;
+            if (string.IsNullOrEmpty(lastPath) || !FileAccess.FileExists(lastPath))
             {
-                GameManager.Instance.LoadGame(GameManager.AutoSavePath);
+                lastPath = GameManager.AutoSavePath;
+            }
+
+            if (FileAccess.FileExists(lastPath))
+            {
+                GameManager.Instance.LoadGame(lastPath);
                 LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
                 GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
             }
             else
             {
-                GD.Print("No autosave found!");
-                GetNode<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("未找到自动存档", "无法加载游戏进度");
+                GD.Print("No valid save found!");
+                GetNode<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("未找到存档", "无法加载游戏进度，请先开始新游戏。");
             }
         }
     }

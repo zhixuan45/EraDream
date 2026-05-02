@@ -34,8 +34,9 @@ public partial class NamingScreen : Control
             // 立即保存一次
             GameManager.Instance.AutoSave();
             
-            // 跳转至养成主界面
-            LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
+            // 跳转至剧本/马娘选择界面进行初始化
+            StorySelectorScreen.IsForSimulation = true;
+            LoadingScreen.TargetScene = "res://scenes/StorySelectorScreen.tscn";
             GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
         }
         else

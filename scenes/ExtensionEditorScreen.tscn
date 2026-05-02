@@ -1,0 +1,260 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/Editor/ExtensionEditorScreen.cs" id="1_ext_editor"]
+[ext_resource type="Theme" uid="uid://c6r8q0n0x7m3b" path="res://resources/theme_main.tres" id="2_theme"]
+
+[node name="ExtensionEditorScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_ext_editor")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.12, 0.12, 0.15, 1)
+
+[node name="SafeArea" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 30
+
+[node name="HSplit" type="HSplitContainer" parent="SafeArea"]
+layout_mode = 2
+split_offset = 300
+
+[node name="SidePanel" type="PanelContainer" parent="SafeArea/HSplit"]
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/HSplit/SidePanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Label" type="Label" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+text = "KEY_MOD_EDITOR_TITLE"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+
+[node name="BtnNewProject" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+text = "KEY_BTN_NEW_PROJECT"
+
+[node name="BtnOpenProject" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+text = "KEY_BTN_OPEN_PROJECT"
+
+[node name="HSeparator2" type="HSeparator" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+
+[node name="FileTree" type="Tree" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+hide_root = true
+
+[node name="BtnExport" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+text = "KEY_BTN_EXPORT_PACKAGE"
+
+[node name="BtnBack" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+text = "KEY_RETURN_TO_MENU"
+
+[node name="MainArea" type="ScrollContainer" parent="SafeArea/HSplit"]
+layout_mode = 2
+
+[node name="ContentRoot" type="VBoxContainer" parent="SafeArea/HSplit/MainArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+
+[node name="ManifestVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainArea/ContentRoot"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 20
+
+[node name="SectionTitle" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "项目清单 (manifest.json)"
+
+[node name="Grid" type="GridContainer" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 15
+columns = 2
+
+[node name="IdLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+text = "包唯一ID:"
+
+[node name="IdEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "com.author.modname"
+
+[node name="NameLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+text = "显示名称:"
+
+[node name="NameEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AuthorLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+text = "作者:"
+
+[node name="AuthorEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VersionLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+text = "版本:"
+
+[node name="VersionEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "1.0.0"
+
+[node name="TypeLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+text = "包类型:"
+
+[node name="TypeOption" type="OptionButton" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+item_count = 2
+selected = 0
+popup/item_0/text = "character (资源包)"
+popup/item_0/id = 0
+popup/item_1/text = "gameplay (玩法包)"
+popup/item_1/id = 1
+
+[node name="DescLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+text = "描述:"
+
+[node name="DescEdit" type="TextEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MinVerLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+text = "最低游戏版本:"
+
+[node name="MinVerEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0.5.0"
+
+[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+layout_mode = 2
+
+[node name="ResourceTitle" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "资源管理"
+
+[node name="ResHBox" type="HBoxContainer" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="BtnImportSprite" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "导入立绘 (Sprites)"
+
+[node name="BtnImportBG" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "导入背景 (Backgrounds)"
+
+[node name="BtnImportAudio" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "导入音频 (Audio)"
+
+[node name="BtnImportDLL" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "导入DLL (Logic)"
+
+[node name="FileEditorVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainArea/ContentRoot"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 15
+
+[node name="FileHeader" type="HBoxContainer" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox"]
+layout_mode = 2
+
+[node name="FileNameLabel" type="Label" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox/FileHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "文件名"
+
+[node name="BtnSaveFile" type="Button" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox/FileHeader"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "保存文件"
+
+[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox"]
+layout_mode = 2
+
+[node name="FileContentEdit" type="TextEdit" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox"]
+custom_minimum_size = Vector2(0, 500)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="FileContextMenu" type="PopupMenu" parent="."]
+size = Vector2i(100, 70)
+item_count = 2
+item_0/text = "重命名"
+item_0/id = 0
+item_1/text = "删除"
+item_1/id = 1
+
+[node name="DeleteConfirmDialog" type="ConfirmationDialog" parent="."]
+title = "确认删除"
+initial_position = 2
+size = Vector2i(300, 100)
+dialog_text = "确定要删除此文件吗？此操作不可撤销。"
+
+[node name="RenameDialog" type="AcceptDialog" parent="."]
+title = "重命名"
+initial_position = 2
+size = Vector2i(300, 100)
+
+[node name="VBox" type="VBoxContainer" parent="RenameDialog"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 292.0
+offset_bottom = 51.0
+
+[node name="Label" type="Label" parent="RenameDialog/VBox"]
+layout_mode = 2
+text = "输入新名称："
+
+[node name="RenameEdit" type="LineEdit" parent="RenameDialog/VBox"]
+layout_mode = 2

@@ -16,4 +16,7 @@ public class AppSettings
 
     // 是否显示鼠标光标 (某些移动端设备可能需要隐藏或显示)
     public bool ShowMouseCursor { get; set; } = true;
+
+    // 最近一次存档的路径
+    public string LastSavePath { get; set; } = "";
 }

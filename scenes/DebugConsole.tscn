@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://debugconsole123"]
+[gd_scene format=3 uid="uid://dp77v14v7xcte"]
 
 [ext_resource type="Script" path="res://scripts/Game/UI/DebugConsole.cs" id="1_script"]
 

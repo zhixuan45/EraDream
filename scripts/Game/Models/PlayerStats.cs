@@ -6,7 +6,7 @@ namespace umaEraArchive.Game;
 /// <summary>
 /// 用于管理训练员（玩家）的资源属性
 /// </summary>
-public partial class PlayerStats : RefCounted
+public class PlayerStats
 {
     [JsonPropertyName("player_name")]
     public string PlayerName { get; set; } = "训练员";

@@ -53,6 +53,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "KEY_EDITOR"
 
+[node name="ModEditorButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "KEY_MOD_EDITOR"
+
 [node name="ExitButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
