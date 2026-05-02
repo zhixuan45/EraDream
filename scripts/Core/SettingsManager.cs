@@ -97,36 +97,15 @@ public partial class SettingsManager : Node
 
     private void LoadSettings()
     {
-        try
+        var loaded = UmaEraArchive.Core.FileIOManager.LoadJson<AppSettings>(SettingsFilePath);
+        if (loaded != null)
         {
-            if (FileAccess.FileExists(SettingsFilePath))
-            {
-                using var file = FileAccess.Open(SettingsFilePath, FileAccess.ModeFlags.Read);
-                string json = file.GetAsText();
-                var loaded = JsonSerializer.Deserialize<AppSettings>(json);
-                if (loaded != null)
-                {
-                    _currentSettings = loaded;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            GD.PrintErr($"Failed to load settings: {ex.Message}");
+            _currentSettings = loaded;
         }
     }
 
     public void SaveSettings()
     {
-        try
-        {
-            string json = JsonSerializer.Serialize(_currentSettings, new JsonSerializerOptions { WriteIndented = true });
-            using var file = FileAccess.Open(SettingsFilePath, FileAccess.ModeFlags.Write);
-            file.StoreString(json);
-        }
-        catch (Exception ex)
-        {
-            GD.PrintErr($"Failed to save settings: {ex.Message}");
-        }
+        UmaEraArchive.Core.FileIOManager.SaveJson(SettingsFilePath, _currentSettings);
     }
 }

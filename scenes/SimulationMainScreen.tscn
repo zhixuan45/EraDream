@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://testsim123abc"]
+[gd_scene load_steps=3 format=3 uid="uid://testsim123abc"]
 
 [ext_resource type="Script" path="res://scripts/Game/SimulationMainScreen.cs" id="1_testsim123"]
+[ext_resource type="Theme" uid="uid://c6r8q0n0x7m3b" path="res://resources/theme_main.tres" id="2_theme"]
 
 [node name="SimulationMainScreen" type="Control"]
 layout_mode = 3
@@ -9,43 +10,132 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2_theme")
 script = ExtResource("1_testsim123")
 
-[node name="ColorRect" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.12, 0.12, 0.15, 1)
+color = Color(0.121569, 0.121569, 0.14902, 1)
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="SafeArea" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="MainVBox" type="VBoxContainer" parent="SafeArea"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TopSection" type="BoxContainer" parent="SafeArea/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 30
+
+[node name="PortraitContainer" type="Control" parent="SafeArea/MainVBox/TopSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Placeholder" type="ColorRect" parent="SafeArea/MainVBox/TopSection/PortraitContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.2, 0.2, 0.25, 1)
+
+[node name="Label" type="Label" parent="SafeArea/MainVBox/TopSection/PortraitContainer/Placeholder"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -100.0
-offset_right = 150.0
-offset_bottom = 100.0
+offset_left = -20.0
+offset_top = -11.5
+offset_right = 20.0
+offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
+text = "马娘立绘占位"
+
+[node name="StatsVBox" type="VBoxContainer" parent="SafeArea/MainVBox/TopSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 15
+
+[node name="TurnInfo" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "当前回合: 1 / 72"
+
+[node name="PlayerInfo" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "训练员体力: 100 | 金钱: 0"
+
+[node name="HSeparator" type="HSeparator" parent="SafeArea/MainVBox/TopSection/StatsVBox"]
+layout_mode = 2
+
+[node name="UmaStatsGrid" type="GridContainer" parent="SafeArea/MainVBox/TopSection/StatsVBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 10
+columns = 2
+
+[node name="SpeedLabel" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid"]
+layout_mode = 2
+text = "速度: 1"
+
+[node name="StaminaLabel" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid"]
+layout_mode = 2
+text = "耐力: 1"
+
+[node name="PowerLabel" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid"]
+layout_mode = 2
+text = "力量: 1"
+
+[node name="GutsLabel" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid"]
+layout_mode = 2
+text = "根性: 1"
+
+[node name="IntLabel" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid"]
+layout_mode = 2
+text = "智力: 1"
+
+[node name="AffectionLabel" type="Label" parent="SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid"]
+layout_mode = 2
+text = "好感度: 0"
+
+[node name="BottomActions" type="HBoxContainer" parent="SafeArea/MainVBox"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
 theme_override_constants/separation = 20
+alignment = 1
 
-[node name="InfoLabel" type="Label" parent="VBoxContainer"]
+[node name="BtnTrain" type="Button" parent="SafeArea/MainVBox/BottomActions"]
 layout_mode = 2
-text = "当前回合: 1
-体力: 100
-金钱: 0"
-horizontal_alignment = 1
+size_flags_horizontal = 3
+text = "训练"
 
-[node name="NextTurnBtn" type="Button" parent="VBoxContainer"]
+[node name="BtnRest" type="Button" parent="SafeArea/MainVBox/BottomActions"]
 layout_mode = 2
-text = "休整并推进回合 (自动保存)"
+size_flags_horizontal = 3
+text = "休息"
 
-[node name="BackBtn" type="Button" parent="VBoxContainer"]
+[node name="BtnSystem" type="Button" parent="SafeArea/MainVBox/BottomActions"]
 layout_mode = 2
-text = "返回主菜单"
+size_flags_horizontal = 3
+text = "系统"
