@@ -35,8 +35,9 @@ public partial class SimulationMainScreen : Control
     private UI.InventoryUI _inventoryUI;
 
     // 弹出菜单
-    private PopupMenu _trainingMenu;
     private PopupMenu _shopMenu;
+
+    private PackedScene _trainingMenuScene = GD.Load<PackedScene>("res://scenes/TrainingMenuUI.tscn");
 
     public override void _Ready()
     {
@@ -88,16 +89,6 @@ public partial class SimulationMainScreen : Control
         _btnRest.Pressed += OnRestPressed;
         _btnNextWeek.Pressed += OnNextWeekPressed;
         _btnSystem.Pressed += OnSystemPressed;
-
-        // 初始化弹出菜单
-        _trainingMenu = new PopupMenu();
-        _trainingMenu.AddItem("速度训练", (int)TrainingType.Speed);
-        _trainingMenu.AddItem("耐力训练", (int)TrainingType.Stamina);
-        _trainingMenu.AddItem("力量训练", (int)TrainingType.Power);
-        _trainingMenu.AddItem("根性训练", (int)TrainingType.Guts);
-        _trainingMenu.AddItem("智力训练", (int)TrainingType.Intelligence);
-        _trainingMenu.IdPressed += OnTrainingMenuSelected;
-        AddChild(_trainingMenu);
 
         _shopMenu = new PopupMenu();
         _shopMenu.AddItem("体力药水 (500)", 0);
@@ -206,11 +197,13 @@ public partial class SimulationMainScreen : Control
 
     private void OnTrainPressed()
     {
-        _trainingMenu.Position = (Vector2I)_btnTrain.GetGlobalRect().Position + new Vector2I(0, -150);
-        _trainingMenu.Popup();
+        var menu = _trainingMenuScene.Instantiate<UmaEraArchive.Game.UI.TrainingMenuUI>();
+        AddChild(menu);
+        menu.TrainingSelected += (type) => OnTrainingSelected((long)type);
+        menu.CloseRequested += () => menu.Close();
     }
 
-    private void OnTrainingMenuSelected(long id)
+    private void OnTrainingSelected(long id)
     {
         TrainingType type = (TrainingType)id;
         if (GameManager.Instance != null && !GameManager.Instance.CurrentState.IsGameOver)
@@ -261,8 +254,7 @@ public partial class SimulationMainScreen : Control
 
     private void OnShopPressed()
     {
-        _shopMenu.Position = (Vector2I)_btnShop.GetGlobalRect().Position + new Vector2I(0, -100);
-        _shopMenu.Popup();
+        UIUtils.ShowMenuAtControl(_shopMenu, _btnShop, new Vector2I(0, -100));
     }
 
     private void OnShopMenuSelected(long id)

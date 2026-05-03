@@ -27,6 +27,9 @@ public partial class InventoryUI : Control
 
     public override void _Ready()
     {
+        // 强制设置全屏锚点，防止动态加载时失效
+        SetAnchorsPreset(LayoutPreset.FullRect);
+        
         // 绑定 UI 组件
         _itemGrid = GetNode<GridContainer>("%ItemGrid");
         _detailModal = GetNode<Control>("%DetailModal");
@@ -37,18 +40,28 @@ public partial class InventoryUI : Control
         _useButton = GetNode<Button>("%UseButton");
         _cancelButton = GetNode<Button>("%CancelButton");
         _closeInventoryButton = GetNode<Button>("%CloseInventoryButton");
-        _mainPanel = GetNode<PanelContainer>("SafeArea/MainPanel");
+        _mainPanel = GetNode<PanelContainer>("SafeArea/CenterContainer/MainPanel");
 
         // 绑定事件
         _useButton.Pressed += OnUseButtonPressed;
         _cancelButton.Pressed += () => _detailModal.Visible = false;
         _closeInventoryButton.Pressed += OnCloseInventoryPressed;
+        
+        // 背景遮罩点击关闭 (如果是 ColorRect 可以通过 GuiInput 监听)
+        var mask = GetNode<Control>("Mask");
+        mask.GuiInput += (ev) => {
+            if (ev is InputEventMouseButton btn && btn.Pressed && btn.ButtonIndex == MouseButton.Left)
+            {
+                OnCloseInventoryPressed();
+            }
+        };
 
         // 监听响应式布局变化
         if (ResponsiveManager.Instance != null)
         {
             ResponsiveManager.Instance.OnOrientationChanged += UpdateLayout;
-            UpdateLayout(ResponsiveManager.Instance.CurrentOrientation == ScreenOrientation.Landscape);
+            // 延迟调用以确保视口尺寸已刷新
+            CallDeferred(nameof(UpdateLayout), ResponsiveManager.Instance.CurrentOrientation == ScreenOrientation.Landscape);
         }
 
         // 初始化
@@ -69,14 +82,16 @@ public partial class InventoryUI : Control
     /// </summary>
     private void UpdateLayout(bool isLandscape)
     {
+        Vector2 screenSize = GetViewportRect().Size;
+        
         if (isLandscape)
         {
-            _mainPanel.CustomMinimumSize = new Vector2(800, 600);
+            _mainPanel.CustomMinimumSize = new Vector2(Math.Min(800, screenSize.X * 0.8f), Math.Min(600, screenSize.Y * 0.8f));
             _itemGrid.Columns = 6;
         }
         else
         {
-            _mainPanel.CustomMinimumSize = new Vector2(CurrentScreenSize.X * 0.9f, CurrentScreenSize.Y * 0.8f);
+            _mainPanel.CustomMinimumSize = new Vector2(screenSize.X * 0.9f, screenSize.Y * 0.7f);
             _itemGrid.Columns = 3;
         }
     }
@@ -220,6 +235,14 @@ public partial class InventoryUI : Control
 
     private void OnCloseInventoryPressed()
     {
+        GD.Print("[InventoryUI] Closing inventory...");
+        _detailModal.Visible = false;
         Visible = false;
+        
+        // 触发一个刷新信号或确保状态同步
+        if (GameManager.Instance != null)
+        {
+            // 如果养成界面需要感应背包关闭（例如刷新金钱），可以在这里处理
+        }
     }
 }

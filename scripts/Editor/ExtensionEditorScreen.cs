@@ -374,8 +374,7 @@ public partial class ExtensionEditorScreen : Control
             {
                 _contextTargetItem = item;
                 item.Select(0);
-                _fileContextMenu.Position = (Vector2I)GetGlobalMousePosition();
-                _fileContextMenu.Popup();
+                UIUtils.ShowContextMenu(_fileContextMenu, this);
             }
         }
     }
