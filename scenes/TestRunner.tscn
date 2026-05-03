@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3 uid="uid://testrunner123"]
+
+[ext_resource type="Script" path="res://scripts/Tests/SimulationTest.cs" id="1_test"]
+[ext_resource type="Script" path="res://scripts/Tests/SimulationTurnTest.cs" id="2_turn_test"]
+[ext_resource type="Script" path="res://scripts/Tests/InventoryTest.cs" id="3_inv_test"]
+
+[node name="TestRunner" type="Node"]
+
+[node name="SimulationTest" type="Node" parent="."]
+script = ExtResource("1_test")
+
+[node name="SimulationTurnTest" type="Node" parent="."]
+script = ExtResource("2_turn_test")
+
+[node name="InventoryTest" type="Node" parent="."]
+script = ExtResource("3_inv_test")

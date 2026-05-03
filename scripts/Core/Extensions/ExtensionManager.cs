@@ -80,9 +80,9 @@ namespace UmaEraArchive.Core.Extensions
         /// <summary>
         /// 激活特定的扩展包（按需解压）
         /// </summary>
-        public async Task<bool> ActivateExtension(string id)
+        public Task<bool> ActivateExtension(string id)
         {
-            if (!_loadedManifests.ContainsKey(id)) return false;
+            if (!_loadedManifests.ContainsKey(id)) return Task.FromResult(false);
             var manifest = _loadedManifests[id];
 
             GD.Print($"[ExtensionManager] Activating {id}...");
@@ -102,10 +102,18 @@ namespace UmaEraArchive.Core.Extensions
             {
                 // TODO: 调用 ModLoader 加载 Logic/ModEntry.dll
                 GD.Print($"[ExtensionManager] {id} is a Gameplay pack. Logic injection pending...");
+
+                // 加载行为包
+                string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
+                if (File.Exists(behaviorPath))
+                {
+                    BehaviorRegistry.Instance?.LoadBehaviorPack(behaviorPath);
+                    GD.Print($"[ExtensionManager] Behavior pack loaded for {id}");
+                }
             }
 
             _activeExtensionIds.Add(id);
-            return true;
+            return Task.FromResult(true);
         }
 
         public IEnumerable<ExtensionManifest> GetAvailableExtensions() => _loadedManifests.Values;

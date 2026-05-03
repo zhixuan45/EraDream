@@ -20,7 +20,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.12, 0.12, 0.15, 1)
+color = Color(0.1, 0.1, 0.12, 1)
 
 [node name="SafeArea" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -29,37 +29,64 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 30
-theme_override_constants/margin_top = 30
-theme_override_constants/margin_right = 30
-theme_override_constants/margin_bottom = 30
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
 
 [node name="HSplit" type="HSplitContainer" parent="SafeArea"]
 layout_mode = 2
-split_offset = 300
+split_offset = 280
 
 [node name="SidePanel" type="PanelContainer" parent="SafeArea/HSplit"]
+custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
 
 [node name="VBox" type="VBoxContainer" parent="SafeArea/HSplit/SidePanel"]
 layout_mode = 2
-theme_override_constants/separation = 15
+theme_override_constants/separation = 10
 
-[node name="Label" type="Label" parent="SafeArea/HSplit/SidePanel/VBox"]
+[node name="Margin" type="MarginContainer" parent="SafeArea/HSplit/SidePanel/VBox"]
 layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 5
+
+[node name="Label" type="Label" parent="SafeArea/HSplit/SidePanel/VBox/Margin"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
 text = "KEY_MOD_EDITOR_TITLE"
 horizontal_alignment = 1
 
 [node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/SidePanel/VBox"]
 layout_mode = 2
 
-[node name="BtnNewProject" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+[node name="ProjBtns" type="VBoxContainer" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BtnNewProject" type="Button" parent="SafeArea/HSplit/SidePanel/VBox/ProjBtns"]
 layout_mode = 2
 text = "KEY_BTN_NEW_PROJECT"
 
-[node name="BtnOpenProject" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+[node name="BtnOpenProject" type="Button" parent="SafeArea/HSplit/SidePanel/VBox/ProjBtns"]
 layout_mode = 2
 text = "KEY_BTN_OPEN_PROJECT"
+
+[node name="BtnCreateJSON" type="MenuButton" parent="SafeArea/HSplit/SidePanel/VBox/ProjBtns"]
+layout_mode = 2
+text = "KEY_BTN_CREATE_CHARACTERS"
+flat = false
+item_count = 4
+popup/item_0/text = "养成配置 (simulation.json)"
+popup/item_0/id = 0
+popup/item_1/text = "表现配置 (actor_config.json)"
+popup/item_1/id = 1
+popup/item_2/text = "剧本客串 (characters.json)"
+popup/item_2/id = 2
+popup/item_3/text = "行为包 (behavior.json)"
+popup/item_3/id = 3
 
 [node name="HSeparator2" type="HSeparator" parent="SafeArea/HSplit/SidePanel/VBox"]
 layout_mode = 2
@@ -68,79 +95,100 @@ layout_mode = 2
 layout_mode = 2
 size_flags_vertical = 3
 hide_root = true
+allow_rmb_select = true
 
-[node name="BtnExport" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+[node name="FooterBtns" type="VBoxContainer" parent="SafeArea/HSplit/SidePanel/VBox"]
+layout_mode = 2
+theme_override_constants/margin_bottom = 10
+
+[node name="BtnExport" type="Button" parent="SafeArea/HSplit/SidePanel/VBox/FooterBtns"]
 layout_mode = 2
 text = "KEY_BTN_EXPORT_PACKAGE"
 
-[node name="BtnBack" type="Button" parent="SafeArea/HSplit/SidePanel/VBox"]
+[node name="BtnBack" type="Button" parent="SafeArea/HSplit/SidePanel/VBox/FooterBtns"]
 layout_mode = 2
 text = "KEY_RETURN_TO_MENU"
 
-[node name="MainArea" type="ScrollContainer" parent="SafeArea/HSplit"]
-layout_mode = 2
-
-[node name="ContentRoot" type="VBoxContainer" parent="SafeArea/HSplit/MainArea"]
+[node name="MainPanel" type="PanelContainer" parent="SafeArea/HSplit"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 0
 
-[node name="ManifestVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainArea/ContentRoot"]
+[node name="MainArea" type="ScrollContainer" parent="SafeArea/HSplit/MainPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Margin" type="MarginContainer" parent="SafeArea/HSplit/MainPanel/MainArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="ContentRoot" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ManifestVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 20
 
-[node name="SectionTitle" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+[node name="SectionTitle" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "项目清单 (manifest.json)"
 
-[node name="Grid" type="GridContainer" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+[node name="Grid" type="GridContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/h_separation = 20
 theme_override_constants/v_separation = 15
 columns = 2
 
-[node name="IdLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="IdLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 text = "包唯一ID:"
 
-[node name="IdEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="IdEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "com.author.modname"
 
-[node name="NameLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="NameLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 text = "显示名称:"
 
-[node name="NameEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="NameEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="AuthorLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="AuthorLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 text = "作者:"
 
-[node name="AuthorEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="AuthorEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="VersionLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="VersionLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 text = "版本:"
 
-[node name="VersionEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="VersionEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "1.0.0"
 
-[node name="TypeLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="TypeLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 text = "包类型:"
 
-[node name="TypeOption" type="OptionButton" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="TypeOption" type="OptionButton" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
+size_flags_horizontal = 3
 item_count = 2
 selected = 0
 popup/item_0/text = "character (资源包)"
@@ -148,84 +196,256 @@ popup/item_0/id = 0
 popup/item_1/text = "gameplay (玩法包)"
 popup/item_1/id = 1
 
-[node name="DescLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="DescLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 text = "描述:"
 
-[node name="DescEdit" type="TextEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="DescEdit" type="TextEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MinVerLabel" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="MinVerLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 text = "最低游戏版本:"
 
-[node name="MinVerEdit" type="LineEdit" parent="SafeArea/HSplit/MainArea/ManifestVBox/Grid"]
+[node name="MinVerEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/Grid"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "0.5.0"
 
-[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox"]
 layout_mode = 2
 
-[node name="ResourceTitle" type="Label" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+[node name="ResourceTitle" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "资源管理"
 
-[node name="ResHBox" type="HBoxContainer" parent="SafeArea/HSplit/MainArea/ManifestVBox"]
+[node name="ResHBox" type="HBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 15
 
-[node name="BtnImportSprite" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "导入立绘 (Sprites)"
-
-[node name="BtnImportBG" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
+[node name="BtnImportSprite" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/ResHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "导入背景 (Backgrounds)"
+text = "导入立绘"
 
-[node name="BtnImportAudio" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
+[node name="BtnImportBG" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/ResHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "导入音频 (Audio)"
+text = "导入背景"
 
-[node name="BtnImportDLL" type="Button" parent="SafeArea/HSplit/MainArea/ManifestVBox/ResHBox"]
+[node name="BtnImportAudio" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/ResHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "导入DLL (Logic)"
+text = "导入音频"
 
-[node name="FileEditorVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainArea/ContentRoot"]
+[node name="BtnImportDLL" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ManifestVBox/ResHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "导入DLL"
+
+[node name="FileEditorVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot"]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 15
 
-[node name="FileHeader" type="HBoxContainer" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox"]
+[node name="FileHeader" type="HBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/FileEditorVBox"]
 layout_mode = 2
 
-[node name="FileNameLabel" type="Label" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox/FileHeader"]
+[node name="FileNameLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/FileEditorVBox/FileHeader"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 20
 text = "文件名"
 
-[node name="BtnSaveFile" type="Button" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox/FileHeader"]
+[node name="BtnSaveFile" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/FileEditorVBox/FileHeader"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "保存文件"
 
-[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox"]
+[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/FileEditorVBox"]
 layout_mode = 2
 
-[node name="FileContentEdit" type="TextEdit" parent="SafeArea/HSplit/MainArea/ContentRoot/FileEditorVBox"]
-custom_minimum_size = Vector2(0, 500)
+[node name="FileContentEdit" type="TextEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/FileEditorVBox"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="ImagePreviewVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+alignment = 1
+
+[node name="Label" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ImagePreviewVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "图片预览"
+horizontal_alignment = 1
+
+[node name="TextureRect" type="TextureRect" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ImagePreviewVBox"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+expand_mode = 3
+stretch_mode = 5
+
+[node name="FileInfoLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/ImagePreviewVBox"]
+layout_mode = 2
+text = "1024 x 1024"
+horizontal_alignment = 1
+
+[node name="CharacterEditorRoot" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 15
+
+[node name="Header" type="HBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "角色配置 (Template)"
+
+[node name="BtnSaveCombined" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/Header"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "保存修改"
+
+[node name="TabContainer" type="TabContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Visuals" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="Grid" type="GridContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Visuals"]
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 15
+columns = 2
+
+[node name="IdLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Visuals/Grid"]
+layout_mode = 2
+text = "角色ID (actor_id):"
+
+[node name="CharIdEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Visuals/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NameLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Visuals/Grid"]
+layout_mode = 2
+text = "显示名称:"
+
+[node name="CharNameEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Visuals/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SpriteLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Visuals/Grid"]
+layout_mode = 2
+text = "默认立绘:"
+
+[node name="CharSpriteEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Visuals/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Simulation" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="IdentityTitle" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation"]
+layout_mode = 2
+text = "身份标识"
+
+[node name="Grid" type="GridContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation"]
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 15
+columns = 2
+
+[node name="InternalIdLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+text = "内部ID (internal_id):"
+
+[node name="SimInternalIdEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="FullNameLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+text = "全名 (full_name):"
+
+[node name="SimFullNameEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ShortNameLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+text = "简写 (short_name):"
+
+[node name="SimShortNameEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PersonalityLabel" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+text = "性格 (personality):"
+
+[node name="SimPersonalityEdit" type="LineEdit" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/CharacterEditorRoot/TabContainer/Simulation/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BehaviorEditorRoot" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 15
+
+[node name="Header" type="HBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/BehaviorEditorRoot"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/BehaviorEditorRoot/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "KEY_BEHAVIOR_EDITOR_TITLE"
+
+[node name="BtnAddRule" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/BehaviorEditorRoot/Header"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "KEY_BTN_ADD_RULE"
+
+[node name="BtnSaveBehavior" type="Button" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/BehaviorEditorRoot/Header"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "KEY_BTN_SAVE_BEHAVIOR"
+
+[node name="HSeparator" type="HSeparator" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/BehaviorEditorRoot"]
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/BehaviorEditorRoot"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="RulesVBox" type="VBoxContainer" parent="SafeArea/HSplit/MainPanel/MainArea/Margin/ContentRoot/BehaviorEditorRoot/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
 
 [node name="FileContextMenu" type="PopupMenu" parent="."]
 size = Vector2i(100, 70)

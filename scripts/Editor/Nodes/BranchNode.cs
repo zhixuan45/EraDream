@@ -41,6 +41,9 @@ public class BranchNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+
 		VariableId = view.GetChild<LineEdit>(1).Text;
 		ComparisonValue = view.GetChild<LineEdit>(2).Text;
 

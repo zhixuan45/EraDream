@@ -43,6 +43,9 @@ public class BackgroundNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+
 		// 同步背景文件
 		if (_bgSelector.Selected > 0)
 			BackgroundFile = _bgSelector.GetItemText(_bgSelector.Selected);

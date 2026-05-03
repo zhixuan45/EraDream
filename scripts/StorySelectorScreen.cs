@@ -139,6 +139,14 @@ public partial class StorySelectorScreen : Control
             if (umaEraArchive.Game.GameManager.Instance != null)
             {
                 umaEraArchive.Game.GameManager.Instance.StartNewGame(_selectedScenarios, _selectedCharacters, _selectedMods);
+                
+                // 自动将第一个马娘包的 ID 设为当前活跃马娘 (需从包名或 manifest 解析，暂时简化为路径 ID)
+                if (_selectedCharacters.Count > 0)
+                {
+                    string charId = System.IO.Path.GetFileNameWithoutExtension(_selectedCharacters[0]);
+                    umaEraArchive.Game.GameManager.Instance.CurrentState.ActiveUmaId = charId;
+                }
+
                 umaEraArchive.Game.GameManager.Instance.AutoSave();
             }
             IsForSimulation = false;

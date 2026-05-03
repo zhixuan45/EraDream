@@ -138,18 +138,27 @@ public partial class EventModule : Node
 
     private float GetPropertyValue(string prop, GameState state)
     {
+        if (prop.StartsWith("custom:"))
+        {
+            string customId = prop.Substring(7);
+            return state.Uma.GetCustomStat(customId);
+        }
+
         return prop switch
         {
             "money" => state.Player.Money,
-            "stamina" => state.Player.Stamina,
+            "vitality" => state.Player.Stamina, // Matches Editor's Trainer Stamina
+            "stamina" => state.Player.Stamina,  // Legacy/Alias for Trainer Stamina
             "energy" => state.Player.Energy,
             "speed" => state.Uma.Speed,
-            "endurance" => state.Uma.Stamina,
+            "endurance" => state.Uma.Stamina,   // Legacy Alias
+            "uma_stamina" => state.Uma.Stamina, // Explicit Horse Girl Stamina
             "power" => state.Uma.Power,
             "guts" => state.Uma.Guts,
             "intelligence" => state.Uma.Intelligence,
-            "turn" => state.CurrentTurn,
+            "skill_points" => state.Uma.SkillPoints,
             "affection" => state.Uma.Affection,
+            "turn" => state.CurrentTurn,
             _ => 0
         };
     }

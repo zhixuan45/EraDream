@@ -101,6 +101,10 @@ public class ChoiceNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+		IsExpanded = _detailPanel.Visible;
+
 		BlurValue = (float)_blurSlider.Value;
 		Darkness = (float)_darkSlider.Value;
 

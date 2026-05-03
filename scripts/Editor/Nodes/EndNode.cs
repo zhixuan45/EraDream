@@ -44,6 +44,9 @@ public class EndNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+
 		var container = view.GetChild<VBoxContainer>(1);
 		var selector = container.GetChild<OptionButton>(0);
 		var input = container.GetChild<LineEdit>(1);

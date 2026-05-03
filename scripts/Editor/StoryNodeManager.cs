@@ -8,8 +8,6 @@ using FileAccess = Godot.FileAccess;
 
 public class StoryNodeManager
 {
-	private static string _savePath = "user://story_project.json";
-
 	public static void SaveProject(GraphEdit graph, List<BaseNodeData> nodes, string path)
 	{
 		// 1. 同步连接和坐标

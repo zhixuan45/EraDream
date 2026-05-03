@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class SpriteNodeData : BaseNodeData
 {
-	public int CharacterId { get; set; } = 0;
+	public string CharacterId { get; set; } = "";
 	public string ActionType { get; set; } = "Show"; // Show, Change, Hide
 	public string Expression { get; set; } = "Neutral";
 	public string Position { get; set; } = "Center"; // Left, Center, Right
@@ -33,15 +33,17 @@ public class SpriteNodeData : BaseNodeData
 
 		// 角色选择
 		_charSelector = new OptionButton { CustomMinimumSize = new Vector2(180, 0) };
-		foreach (var c in CharacterManager.Characters) {
-			_charSelector.AddItem(c.Name, c.Id);
-			if (c.Id == CharacterId) _charSelector.Selected = _charSelector.GetItemCount() - 1;
+		var allActors = CharacterManager.Characters;
+		foreach (var c in allActors) {
+			_charSelector.AddItem(c.DisplayName);
+			if (c.ActorId == CharacterId) _charSelector.Selected = _charSelector.GetItemCount() - 1;
 		}
 		container.AddChild(new Label { Text = Tr("KEY_LABEL_CHAR_SELECT") });
 		container.AddChild(_charSelector);
 		
 		_charSelector.ItemSelected += (idx) => {
-			CharacterId = _charSelector.GetSelectedId();
+			var actor = CharacterManager.GetActorByIndex((int)idx);
+			CharacterId = actor?.ActorId ?? "";
 			UpdateExpressionSelector();
 		};
 
@@ -99,10 +101,10 @@ public class SpriteNodeData : BaseNodeData
 	{
 		_exprSelector.Clear();
 		_exprSelector.AddItem("默认 (Default)");
-		var charData = CharacterManager.Characters.Find(c => c.Id == CharacterId);
-		if (charData != null)
+		var actor = CharacterManager.GetActor(CharacterId);
+		if (actor != null)
 		{
-			foreach (var expr in charData.Expressions.Keys)
+			foreach (var expr in actor.Visuals.Expressions.Keys)
 			{
 				_exprSelector.AddItem(expr);
 				if (expr == Expression) _exprSelector.Selected = _exprSelector.GetItemCount() - 1;
@@ -112,7 +114,12 @@ public class SpriteNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
-		CharacterId = _charSelector.GetSelectedId();
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+
+		var actor = CharacterManager.GetActorByIndex(_charSelector.Selected);
+		CharacterId = actor?.ActorId ?? "";
+
 		ActionType = _actionSelector.Selected switch { 1 => "Change", 2 => "Hide", _ => "Show" };
 		Expression = _exprSelector.Selected > 0 ? _exprSelector.GetItemText(_exprSelector.Selected) : "Neutral";
 		Position = _posSelector.Selected switch { 0 => "Left", 2 => "Right", _ => "Center" };

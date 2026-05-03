@@ -54,6 +54,9 @@ public class StartNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+
 		if (_conditionInput != null)
 		{
 			TriggerCondition = _conditionInput.Text.Trim();

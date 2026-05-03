@@ -1,0 +1,164 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/Game/UI/InventoryUI.cs" id="1_invui"]
+[ext_resource type="Theme" uid="uid://c6r8q0n0x7m3b" path="res://resources/theme_main.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/Core/SafeAreaAdapter.cs" id="3_safearea"]
+
+[node name="InventoryUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_invui")
+
+[node name="Mask" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.588235)
+
+[node name="SafeArea" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_safearea")
+
+[node name="MainPanel" type="PanelContainer" parent="SafeArea"]
+custom_minimum_size = Vector2(400, 300)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="MainPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="ListSection" type="VBoxContainer" parent="MainPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Header" type="HBoxContainer" parent="MainPanel/MarginContainer/ListSection"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MainPanel/MarginContainer/ListSection/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "训练员背包"
+
+[node name="CloseInventoryButton" type="Button" parent="MainPanel/MarginContainer/ListSection/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+text = "×"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MainPanel/MarginContainer/ListSection"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ItemGrid" type="GridContainer" parent="MainPanel/MarginContainer/ListSection/ScrollContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 15
+theme_override_constants/v_separation = 15
+columns = 4
+
+[node name="DetailModal" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ModalMask" type="ColorRect" parent="DetailModal"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.392157)
+
+[node name="CenterContainer" type="CenterContainer" parent="DetailModal"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DetailPanel" type="PanelContainer" parent="DetailModal/CenterContainer"]
+custom_minimum_size = Vector2(350, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="DetailModal/CenterContainer/DetailPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 25
+theme_override_constants/margin_top = 25
+theme_override_constants/margin_right = 25
+theme_override_constants/margin_bottom = 25
+
+[node name="DetailContent" type="VBoxContainer" parent="DetailModal/CenterContainer/DetailPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="DetailIcon" type="TextureRect" parent="DetailModal/CenterContainer/DetailPanel/Margin/DetailContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 128)
+layout_mode = 2
+size_flags_horizontal = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DetailName" type="Label" parent="DetailModal/CenterContainer/DetailPanel/Margin/DetailContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "物品名称"
+horizontal_alignment = 1
+
+[node name="DetailDesc" type="Label" parent="DetailModal/CenterContainer/DetailPanel/Margin/DetailContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "物品描述信息..."
+autowrap_mode = 3
+
+[node name="DetailStats" type="Label" parent="DetailModal/CenterContainer/DetailPanel/Margin/DetailContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+text = "持有量: 0"
+
+[node name="Actions" type="HBoxContainer" parent="DetailModal/CenterContainer/DetailPanel/Margin/DetailContent"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="UseButton" type="Button" parent="DetailModal/CenterContainer/DetailPanel/Margin/DetailContent/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "使用"
+
+[node name="CancelButton" type="Button" parent="DetailModal/CenterContainer/DetailPanel/Margin/DetailContent/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "取消"

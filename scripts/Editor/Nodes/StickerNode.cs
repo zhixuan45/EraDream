@@ -66,6 +66,9 @@ public class StickerNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+
 		StickerId = _stickerSelector.GetSelectedId();
 		ActionType = _actionSelector.Selected == 1 ? "Hide" : "Show";
 	}

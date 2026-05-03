@@ -35,12 +35,37 @@ public class PlayerStats
     {
         Energy = Mathf.Clamp(Energy + amount, 0, MaxEnergy);
     }
+
+    public void AddMoney(int amount)
+    {
+        Money += amount;
+    }
+
+    public bool ConsumeMoney(int amount)
+    {
+        if (Money >= amount)
+        {
+            Money -= amount;
+            return true;
+        }
+        return false;
+    }
     
     public bool ConsumeStamina(int amount)
     {
         if (Stamina >= amount)
         {
             Stamina -= amount;
+            return true;
+        }
+        return false;
+    }
+
+    public bool ConsumeEnergy(int amount)
+    {
+        if (Energy >= amount)
+        {
+            Energy -= amount;
             return true;
         }
         return false;

@@ -1,8 +1,10 @@
 {
   "mcpServers": {
     "repo-manager": {
-      "type": "sse",
-      "url": "http://localhost:5000/sse"
+      "command": "C:\\Users\\JuziD\\proj\\mutiAgent\\RepoManager.exe",
+      "args": [
+        "--stdio-bridge"
+      ]
     }
   }
 }

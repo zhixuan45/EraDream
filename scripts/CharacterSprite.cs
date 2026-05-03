@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public partial class CharacterSprite : Control
 {
     private TextureRect _textureRect;
-    public int CurrentCharacterId { get; private set; } = -1;
+    public string CurrentCharacterId { get; private set; } = "";
     public SpriteNodeData SourceData { get; set; } // 供预览回写数据
 
     public override void _Ready()
@@ -53,19 +53,19 @@ public partial class CharacterSprite : Control
         _textureRect.FlipH = SourceData.FlipH;
     }
 
-    public void UpdateCharacter(int charId, string emotion = "Neutral", bool silhouette = false)
+    public void UpdateCharacter(string actorId, string emotion = "Neutral", bool silhouette = false)
     {
-        CurrentCharacterId = charId;
-        var charData = CharacterManager.Characters.Find(c => c.Id == charId);
-        if (charData == null) {
+        CurrentCharacterId = actorId;
+        var actor = CharacterManager.GetActor(actorId);
+        if (actor == null) {
             _textureRect.Texture = null;
             return;
         }
 
-        string fileName = charData.DefaultSprite;
-        if (!string.IsNullOrEmpty(emotion) && charData.Expressions.ContainsKey(emotion))
+        string fileName = actor.Visuals.DefaultSprite;
+        if (!string.IsNullOrEmpty(emotion) && actor.Visuals.Expressions.ContainsKey(emotion))
         {
-            fileName = charData.Expressions[emotion];
+            fileName = actor.Visuals.Expressions[emotion];
         }
 
         if (string.IsNullOrEmpty(fileName)) {
@@ -80,12 +80,12 @@ public partial class CharacterSprite : Control
         {
             _textureRect.Texture = texture;
             _textureRect.SelfModulate = silhouette ? new Color(0, 0, 0, 1) : new Color(1, 1, 1, 1);
-            GD.Print($"[Sprite] Loaded character {charId} successfully");
+            GD.Print($"[Sprite] Loaded actor {actorId} successfully");
             ApplyTransform();
         }
         else
         {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Sprite] Failed to load/find sprite: {fileName}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"[Sprite] Failed to load/find sprite: {fileName}");
         }
     }
 

@@ -1,5 +1,6 @@
 using Godot;
 using System.Text.Json.Serialization;
+using umaEraArchive.Game.Models;
 
 namespace umaEraArchive.Game;
 
@@ -23,11 +24,17 @@ public class GameState
     [JsonPropertyName("mod_paths")]
     public System.Collections.Generic.List<string> ModPaths { get; set; } = new System.Collections.Generic.List<string>();
 
+    [JsonPropertyName("active_uma_id")]
+    public string ActiveUmaId { get; set; } = "";
+
     [JsonPropertyName("player_stats")]
     public PlayerStats Player { get; set; } = new PlayerStats();
 
     [JsonPropertyName("uma_stats")]
     public UmaStats Uma { get; set; } = new UmaStats();
+
+    [JsonPropertyName("inventory_state")]
+    public InventoryState Inventory { get; set; } = new InventoryState();
 
     public bool IsGameOver => CurrentTurn > MaxTurns;
 

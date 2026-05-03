@@ -1,0 +1,63 @@
+{
+  "rules": [
+    {
+      "id": "use_stamina_potion",
+      "hook": "OnItemUsed_stamina_potion",
+      "action": {
+        "type": "ChangeStat",
+        "target_property": "Player.Stamina",
+        "value_change": "50"
+      }
+    },
+    {
+      "id": "use_cupcake",
+      "hook": "OnItemUsed_cupcake",
+      "action": {
+        "type": "ChangeStat",
+        "target_property": "Uma.Mood",
+        "value_change": "20"
+      }
+    },
+    {
+      "id": "tick_luck_charm",
+      "hook": "OnItemTick_luck_charm",
+      "action": {
+        "type": "BriefStory",
+        "path": "护身符在发光，感觉运气变好了。"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "stamina_potion",
+      "name": "体力药水",
+      "description": "恢复50点体力",
+      "type": "Consumable",
+      "max_stack": 99,
+      "price": 500
+    },
+    {
+      "id": "luck_charm",
+      "name": "幸运护身符",
+      "description": "只要携带在身上就能提升运气",
+      "type": "Permanent",
+      "max_stack": 1
+    },
+    {
+      "id": "cupcake",
+      "name": "杯子蛋糕",
+      "description": "恢复20点心情",
+      "type": "Consumable",
+      "max_stack": 99,
+      "price": 300
+    },
+    {
+      "id": "training_guide",
+      "name": "训练指南",
+      "description": "接下来3个回合训练效果提升",
+      "type": "Duration",
+      "duration_turns": 3,
+      "max_stack": 5
+    }
+  ]
+}

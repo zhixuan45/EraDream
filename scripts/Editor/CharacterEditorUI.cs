@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using UmaEraArchive.Core.Models;
 
 public partial class CharacterEditorUI : Node
 {
@@ -34,7 +35,7 @@ public partial class CharacterEditorUI : Node
 
         // 顶部操作区
         HBoxContainer topBar = new HBoxContainer();
-        LineEdit nameInput = new LineEdit { PlaceholderText = "新角色名称", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        LineEdit nameInput = new LineEdit { PlaceholderText = "新角色 ID", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         Button addBtn = new Button { Text = " 添加新角色 " };
         topBar.AddChild(nameInput);
         topBar.AddChild(addBtn);
@@ -57,7 +58,8 @@ public partial class CharacterEditorUI : Node
 
         addBtn.Pressed += () => {
             if (!string.IsNullOrEmpty(nameInput.Text)) {
-                CharacterManager.AddCharacter(nameInput.Text);
+                // 暂时不通过 CharacterManager.AddCharacter 增加，因为其 API 已变
+                CharacterManager.GuestActors[nameInput.Text] = new ActorConfigData { ActorId = nameInput.Text, DisplayName = "新角色" };
                 nameInput.Text = "";
                 refreshList();
             }
@@ -65,7 +67,7 @@ public partial class CharacterEditorUI : Node
 
         refreshList();
         
-        AddChild(window); // 关键修复：将窗口添加到场景树
+        AddChild(window);
 
         window.CloseRequested += () => {
             window.QueueFree();
@@ -74,13 +76,13 @@ public partial class CharacterEditorUI : Node
         window.Popup();
     }
 
-    private Control CreateCharacterItemUI(CharacterData charData)
+    private Control CreateCharacterItemUI(ActorConfigData charData)
     {
         VBoxContainer itemRoot = new VBoxContainer();
         
         // --- 头部 (Header) ---
         Button header = new Button { 
-            Text = $" >  [{charData.Id}] {charData.Name}", 
+            Text = $" >  [{charData.ActorId}] {charData.DisplayName}", 
             Alignment = HorizontalAlignment.Left,
             CustomMinimumSize = new Vector2(0, 35)
         };
@@ -95,8 +97,8 @@ public partial class CharacterEditorUI : Node
         
         // 名称编辑
         HBoxContainer nameRow = new HBoxContainer();
-        nameRow.AddChild(new Label { Text = "名称:", CustomMinimumSize = new Vector2(80, 0) });
-        LineEdit nameEdit = new LineEdit { Text = charData.Name, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        nameRow.AddChild(new Label { Text = "显示名称:", CustomMinimumSize = new Vector2(80, 0) });
+        LineEdit nameEdit = new LineEdit { Text = charData.DisplayName, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         nameRow.AddChild(nameEdit);
         detail.AddChild(nameRow);
 
@@ -104,7 +106,7 @@ public partial class CharacterEditorUI : Node
         HBoxContainer spriteRow = new HBoxContainer();
         spriteRow.AddChild(new Label { Text = "默认立绘:", CustomMinimumSize = new Vector2(80, 0) });
         OptionButton spriteSelect = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        SpriteLibrary.PopulateOptionButton(spriteSelect, charData.DefaultSprite);
+        SpriteLibrary.PopulateOptionButton(spriteSelect, charData.Visuals.DefaultSprite);
         spriteRow.AddChild(spriteSelect);
         detail.AddChild(spriteRow);
 
@@ -112,7 +114,7 @@ public partial class CharacterEditorUI : Node
         detail.AddChild(new HSeparator());
         detail.AddChild(new Label { Text = "表情/状态映射:" });
         VBoxContainer exprList = new VBoxContainer();
-        foreach (var pair in charData.Expressions)
+        foreach (var pair in charData.Visuals.Expressions)
         {
             exprList.AddChild(CreateExpressionRow(charData, pair.Key, pair.Value));
         }
@@ -120,7 +122,7 @@ public partial class CharacterEditorUI : Node
 
         Button addExprBtn = new Button { Text = "+ 添加新表情", Flat = true };
         addExprBtn.Pressed += () => {
-            charData.Expressions["新状态"] = "";
+            charData.Visuals.Expressions["新状态"] = "";
             exprList.AddChild(CreateExpressionRow(charData, "新状态", ""));
         };
         detail.AddChild(addExprBtn);
@@ -128,7 +130,7 @@ public partial class CharacterEditorUI : Node
         // 删除角色
         Button delBtn = new Button { Text = "删除此角色", Modulate = new Color(1, 0.4f, 0.4f) };
         delBtn.Pressed += () => {
-            CharacterManager.RemoveCharacter(charData.Id);
+            CharacterManager.GuestActors.Remove(charData.ActorId);
             itemRoot.QueueFree();
         };
         detail.AddChild(delBtn);
@@ -138,22 +140,22 @@ public partial class CharacterEditorUI : Node
         // 展开/收起逻辑
         header.Pressed += () => {
             detail.Visible = !detail.Visible;
-            header.Text = (detail.Visible ? " v  " : " >  ") + $"[{charData.Id}] {charData.Name}";
+            header.Text = (detail.Visible ? " v  " : " >  ") + $"[{charData.ActorId}] {charData.DisplayName}";
         };
 
         // 实时同步
         nameEdit.TextChanged += (txt) => {
-            charData.Name = txt;
-            header.Text = (detail.Visible ? " v  " : " >  ") + $"[{charData.Id}] {txt}";
+            charData.DisplayName = txt;
+            header.Text = (detail.Visible ? " v  " : " >  ") + $"[{charData.ActorId}] {txt}";
         };
         spriteSelect.ItemSelected += (idx) => {
-            charData.DefaultSprite = spriteSelect.GetItemText((int)idx);
+            charData.Visuals.DefaultSprite = spriteSelect.GetItemText((int)idx);
         };
 
         return itemRoot;
     }
 
-    private Control CreateExpressionRow(CharacterData charData, string key, string val)
+    private Control CreateExpressionRow(ActorConfigData charData, string key, string val)
     {
         HBoxContainer row = new HBoxContainer();
         LineEdit keyEdit = new LineEdit { Text = key, CustomMinimumSize = new Vector2(120, 0) };
@@ -166,14 +168,14 @@ public partial class CharacterEditorUI : Node
         row.AddChild(delBtn);
 
         keyEdit.TextChanged += (newKey) => {
-            charData.Expressions.Remove(key);
-            charData.Expressions[newKey] = valSelect.GetItemText(valSelect.Selected);
+            charData.Visuals.Expressions.Remove(key);
+            charData.Visuals.Expressions[newKey] = valSelect.GetItemText(valSelect.Selected);
         };
         valSelect.ItemSelected += (idx) => {
-            charData.Expressions[keyEdit.Text] = valSelect.GetItemText((int)idx);
+            charData.Visuals.Expressions[keyEdit.Text] = valSelect.GetItemText((int)idx);
         };
         delBtn.Pressed += () => {
-            charData.Expressions.Remove(keyEdit.Text);
+            charData.Visuals.Expressions.Remove(keyEdit.Text);
             row.QueueFree();
         };
 

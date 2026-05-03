@@ -17,7 +17,7 @@ public partial class StoryPlayerEngine : Control
     private AudioStreamPlayer _bgmPlayer;
     private Control _characterContainer;
     private Control _overlay;
-    private Dictionary<int, CharacterSprite> _activeSprites = new Dictionary<int, CharacterSprite>();
+    private Dictionary<string, CharacterSprite> _activeSprites = new Dictionary<string, CharacterSprite>();
     // 贴纸精灵：用 stickerId 的负数偏移作为 key，与角色 ID 区分
     private Dictionary<int, CharacterSprite> _activeStickerSprites = new Dictionary<int, CharacterSprite>();
 
@@ -234,14 +234,15 @@ public partial class StoryPlayerEngine : Control
             switch (data.TargetAttribute)
             {
                 case "Money": state.Player.Money += data.ChangeValue; break;
-                case "Stamina": state.Player.AddStamina(data.ChangeValue); break;
+                case "Vitality": state.Player.AddStamina(data.ChangeValue); break;
                 case "Energy": state.Player.AddEnergy(data.ChangeValue); break;
                 case "Speed": state.Uma.AddStat(umaEraArchive.Game.StatType.Speed, data.ChangeValue); break;
-                case "Endurance": state.Uma.AddStat(umaEraArchive.Game.StatType.Stamina, data.ChangeValue); break;
+                case "Stamina": state.Uma.AddStat(umaEraArchive.Game.StatType.Stamina, data.ChangeValue); break;
                 case "Power": state.Uma.AddStat(umaEraArchive.Game.StatType.Power, data.ChangeValue); break;
                 case "Guts": state.Uma.AddStat(umaEraArchive.Game.StatType.Guts, data.ChangeValue); break;
                 case "Intelligence": state.Uma.AddStat(umaEraArchive.Game.StatType.Intelligence, data.ChangeValue); break;
-                case "SkillPoint": state.Uma.SkillPoints += data.ChangeValue; break;
+                case "SkillPoints": state.Uma.SkillPoints += data.ChangeValue; break;
+                case "Affection": state.Uma.Affection += data.ChangeValue; break;
                 case "Custom":
                     if (string.IsNullOrWhiteSpace(data.CustomId))
                     {
@@ -250,16 +251,15 @@ public partial class StoryPlayerEngine : Control
                     }
                     else
                     {
+                        // 优先保存到养成系统的持久化状态中
+                        state.Uma.AddCustomStat(data.CustomId, data.ChangeValue);
+                        
+                        // 同时同步到全局状态，方便 BranchNode 等即时查询
                         var globalState = UmaEraArchive.Core.GlobalGameState.Instance;
                         if (globalState != null)
                         {
                             float current = globalState.GetVariable(data.CustomId);
                             globalState.SetVariable(data.CustomId, current + data.ChangeValue);
-                        }
-                        else
-                        {
-                            errorNotifier?.ShowToast($"{storyId} 访问了一个意外的数值 {valueId}!");
-                            success = false;
                         }
                     }
                     break;
@@ -269,7 +269,7 @@ public partial class StoryPlayerEngine : Control
                     break;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             errorNotifier?.ShowToast($"{storyId} 访问了一个意外的数值 {valueId}!");
             success = false;
@@ -467,10 +467,11 @@ public partial class StoryPlayerEngine : Control
         GetTree().ChangeSceneToFile(ReturnScenePath);
     }
 
-    private string GetCharacterName(int id)
+    private string GetCharacterName(string actorId)
     {
-        var charData = CharacterManager.Characters.Find(c => c.Id == id);
-        return charData != null ? LocalTr(charData.Name) : "...";
+        if (string.IsNullOrEmpty(actorId)) return "...";
+        var actor = CharacterManager.GetActor(actorId);
+        return actor != null ? LocalTr(actor.DisplayName) : "...";
     }
 
     private void UpdateDialogueUI(string name, string content)

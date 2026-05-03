@@ -13,6 +13,7 @@ KEY_EDITOR_TITLE,剧情编辑器,Story Editor
 KEY_MOD_EDITOR_TITLE,扩展包编辑器,Extension Editor
 KEY_BTN_NEW_PROJECT,新建扩展项目,New Project
 KEY_BTN_OPEN_PROJECT,打开扩展项目,Open Project
+KEY_BTN_CREATE_CHARACTERS,创建角色声明 (JSON),Create Characters (JSON)
 KEY_BTN_EXPORT_PACKAGE,打包导出 (.umaext),Export Package
 KEY_ADD_DIALOGUE_NODE,添加对话节点,Add Dialogue Node
 KEY_ADD_NARRATIVE_NODE,添加叙述节点,Add Narrative Node
@@ -74,3 +75,10 @@ KEY_END_TITLE,返回标题,Back to Title
 KEY_END_NEXT,下一章节,Next Chapter
 KEY_END_CUSTOM,自定义场景,Custom Scene
 KEY_PLACEHOLDER_SCENE,res://scenes/...,res://scenes/...
+KEY_BEHAVIOR_EDITOR_TITLE,行为逻辑编辑 (behavior.json),Behavior Logic Editor (behavior.json)
+KEY_BTN_ADD_RULE,添加规则,Add Rule
+KEY_BTN_SAVE_BEHAVIOR,保存行为包,Save Behavior Pack
+KEY_LABEL_HOOK,钩子 (Hook):,Hook:
+KEY_LABEL_CONDITIONS,判定条件:,Conditions:
+KEY_BTN_DELETE_RULE,删除规则,Delete Rule
+KEY_LABEL_PATH,文件路径:,File Path:

@@ -4,7 +4,7 @@ using UmaEraArchive.Editor.Nodes;
 
 public class DialogueNodeData : BaseNodeData
 {
-	public int CharacterId { get; set; } = 0;
+	public string CharacterId { get; set; } = "";
 	public string Content { get; set; } = "";
 	public string Emotion { get; set; } = "Neutral";
 	public string VoiceFile { get; set; } = "";
@@ -19,16 +19,19 @@ public class DialogueNodeData : BaseNodeData
 		node.SetSlot(0, true, 0, new Color(1,1,1), true, 0, new Color(1,1,1));
 		
 		OptionButton charSelector = new OptionButton();
-		if (CharacterManager.Characters.Count == 0)
+		var allActors = CharacterManager.Characters;
+		
+		if (allActors.Count == 0)
 		{
 			charSelector.AddItem(Tr("KEY_CHAR_NARRATOR"));
 		}
 		else
 		{
-			foreach (var c in CharacterManager.Characters)
+			foreach (var c in allActors)
 			{
-				charSelector.AddItem(Tr(c.Name), c.Id);
-				if (c.Id == CharacterId)
+				charSelector.AddItem(Tr(c.DisplayName));
+				// 使用元数据或简单的索引映射存储 ActorId
+				if (c.ActorId == CharacterId)
 					charSelector.Selected = charSelector.GetItemCount() - 1;
 			}
 		}
@@ -80,7 +83,14 @@ public class DialogueNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
-		CharacterId = view.GetChild<OptionButton>(1).GetSelectedId();
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+		IsExpanded = _detailPanel.Visible;
+
+		int selectedIdx = view.GetChild<OptionButton>(1).Selected;
+		var actor = CharacterManager.GetActorByIndex(selectedIdx);
+		CharacterId = actor?.ActorId ?? "";
+
 		Content = view.GetChild<TextEdit>(2).Text;
 		Emotion = _detailPanel.GetChild<LineEdit>(1).Text;
 		

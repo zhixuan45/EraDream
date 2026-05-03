@@ -119,21 +119,48 @@ text = "智力: 1"
 layout_mode = 2
 text = "好感度: 0"
 
-[node name="BottomActions" type="HBoxContainer" parent="SafeArea/MainVBox"]
-custom_minimum_size = Vector2(0, 80)
+[node name="BottomActions" type="GridContainer" parent="SafeArea/MainVBox"]
+custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
-theme_override_constants/separation = 20
-alignment = 1
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 4
 
 [node name="BtnTrain" type="Button" parent="SafeArea/MainVBox/BottomActions"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "训练"
 
+[node name="BtnWork" type="Button" parent="SafeArea/MainVBox/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "打工"
+
+[node name="BtnOuting" type="Button" parent="SafeArea/MainVBox/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "外出"
+
+[node name="BtnShop" type="Button" parent="SafeArea/MainVBox/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "商店"
+
+[node name="BtnInventory" type="Button" parent="SafeArea/MainVBox/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "背包"
+
 [node name="BtnRest" type="Button" parent="SafeArea/MainVBox/BottomActions"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "休息"
+
+[node name="BtnNextWeek" type="Button" parent="SafeArea/MainVBox/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.905882, 0.443137, 1)
+text = "下周开始"
 
 [node name="BtnSystem" type="Button" parent="SafeArea/MainVBox/BottomActions"]
 layout_mode = 2

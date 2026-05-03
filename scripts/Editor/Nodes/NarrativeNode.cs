@@ -65,6 +65,10 @@ public class NarrativeNodeData : BaseNodeData
 
     public override void SyncFromView(GraphNode view)
     {
+        PosX = view.PositionOffset.X;
+        PosY = view.PositionOffset.Y;
+        IsExpanded = _detailPanel.Visible;
+
         Content = view.GetChild<TextEdit>(1).Text;
         BackgroundTag = _detailPanel.GetChild<LineEdit>(1).Text;
         BlurValue = (float)_blurSlider.Value;

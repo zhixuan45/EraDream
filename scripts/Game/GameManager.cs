@@ -19,8 +19,16 @@ public partial class GameManager : Node
     
     // 子模块引用
     public TrainingModule Training { get; private set; }
+    public OutingModule Outing { get; private set; }
     public RestModule Rest { get; private set; }
     public EventModule Events { get; private set; }
+    public WorkModule Work { get; private set; }
+    public ShopModule Shop { get; private set; }
+    public InventoryModule Inventory { get; private set; }
+
+    // 全局扩展引用
+    public UmaEraArchive.Core.Extensions.ExtensionManager ExtensionManager { get; private set; }
+    public UmaEraArchive.Core.Extensions.BehaviorRegistry BehaviorRegistry { get; private set; }
 
     // 生命周期事件钩子
     public event Action<int> OnTurnStart;
@@ -51,11 +59,30 @@ public partial class GameManager : Node
         Training = new TrainingModule();
         AddChild(Training);
 
+        Outing = new OutingModule();
+        AddChild(Outing);
+
         Rest = new RestModule();
         AddChild(Rest);
 
         Events = new EventModule();
         AddChild(Events);
+
+        Work = new WorkModule();
+        AddChild(Work);
+
+        Shop = new ShopModule();
+        AddChild(Shop);
+
+        Inventory = new InventoryModule();
+        AddChild(Inventory);
+
+        // 初始化扩展与行为引擎
+        ExtensionManager = new UmaEraArchive.Core.Extensions.ExtensionManager();
+        AddChild(ExtensionManager);
+
+        BehaviorRegistry = new UmaEraArchive.Core.Extensions.BehaviorRegistry();
+        AddChild(BehaviorRegistry);
         
         StartNewGame(new System.Collections.Generic.List<string>());
     }
@@ -105,6 +132,7 @@ public partial class GameManager : Node
         if (loadedState != null)
         {
             CurrentState = loadedState;
+            Events.LoadEventPool(CurrentState.ScenarioPaths);
             GD.Print($"[GameManager] Game binary loaded from: {path}");
         }
         else
@@ -133,7 +161,7 @@ public partial class GameManager : Node
     }
 
     /// <summary>
-    /// 推进回合（在执行完主要指令后调用）
+    /// 推进回合（在玩家选择休息或本周结束时调用）
     /// </summary>
     public void AdvanceTurn()
     {
@@ -141,21 +169,31 @@ public partial class GameManager : Node
 
         OnTurnEnd?.Invoke(CurrentState.CurrentTurn);
 
+        // 更新物品效果 (持续物品扣减回合 & 触发 Tick)
+        Inventory.UpdateTurnEffects(CurrentState);
+
+        // 每周结束时的资源恢复逻辑
+        CurrentState.Player.AddStamina(30); // 基础恢复
+        CurrentState.Player.AddEnergy(10);
+        CurrentState.Uma.AddActionStamina(40);
+        // 心情随时间自然衰减（普通以下不衰减，绝好/好缓慢衰减）
+        if (CurrentState.Uma.Mood > 75) CurrentState.Uma.AddMood(-5);
+
         CurrentState.NextTurn();
         GD.Print($"[GameManager] Advanced to turn {CurrentState.CurrentTurn}");
 
         // 自动存档
         AutoSave();
 
-        // 检查回合结束剧情
-        CheckTurnEndStory();
+        // 检查回合开始剧情
+        CheckTurnStartStory();
 
         OnTurnStart?.Invoke(CurrentState.CurrentTurn);
     }
 
-    private void CheckTurnEndStory()
+    private void CheckTurnStartStory()
     {
         if (CurrentState == null) return;
-        Events.CheckAndTriggerStory(TriggerTiming.TurnEnd, CurrentState);
+        Events.CheckAndTriggerStory(TriggerTiming.TurnStart, CurrentState);
     }
 }

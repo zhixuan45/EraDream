@@ -109,6 +109,9 @@ public class MusicNodeData : BaseNodeData
 
 	public override void SyncFromView(GraphNode view)
 	{
+		PosX = view.PositionOffset.X;
+		PosY = view.PositionOffset.Y;
+
 		if (_musicSelector.Selected > 0)
 			AudioFile = _musicSelector.GetItemText(_musicSelector.Selected);
 		else

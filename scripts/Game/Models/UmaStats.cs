@@ -8,6 +8,36 @@ namespace umaEraArchive.Game;
 /// </summary>
 public class UmaStats
 {
+    // 心情状态 5 阶段
+    public enum MoodStage
+    {
+        Terrible = 0, // 绝差
+        Poor = 1,     // 差
+        Normal = 2,   // 普通
+        Good = 3,     // 好
+        Excellent = 4 // 绝好
+    }
+
+    // 养成用实时资源
+    [JsonPropertyName("mood")]
+    public int Mood { get; set; } = 75; // 默认普通 (75/150)
+
+    [JsonPropertyName("action_stamina")]
+    public int ActionStamina { get; set; } = 100;
+
+    [JsonPropertyName("max_action_stamina")]
+    public int MaxActionStamina { get; set; } = 100;
+
+    [JsonIgnore]
+    public MoodStage CurrentMoodStage => Mood switch
+    {
+        >= 130 => MoodStage.Excellent,
+        >= 100 => MoodStage.Good,
+        >= 50 => MoodStage.Normal,
+        >= 20 => MoodStage.Poor,
+        _ => MoodStage.Terrible
+    };
+
     // 五维属性
     [JsonPropertyName("speed")]
     public int Speed { get; set; } = 1;
@@ -43,12 +73,32 @@ public class UmaStats
     {
         switch (type)
         {
-            case StatType.Speed: Speed = Mathf.Min(Speed + amount, MaxStatValue); break;
-            case StatType.Stamina: Stamina = Mathf.Min(Stamina + amount, MaxStatValue); break;
-            case StatType.Power: Power = Mathf.Min(Power + amount, MaxStatValue); break;
-            case StatType.Guts: Guts = Mathf.Min(Guts + amount, MaxStatValue); break;
-            case StatType.Intelligence: Intelligence = Mathf.Min(Intelligence + amount, MaxStatValue); break;
+            case StatType.Speed: Speed = Mathf.Clamp(Speed + amount, 0, MaxStatValue); break;
+            case StatType.Stamina: Stamina = Mathf.Clamp(Stamina + amount, 0, MaxStatValue); break;
+            case StatType.Power: Power = Mathf.Clamp(Power + amount, 0, MaxStatValue); break;
+            case StatType.Guts: Guts = Mathf.Clamp(Guts + amount, 0, MaxStatValue); break;
+            case StatType.Intelligence: Intelligence = Mathf.Clamp(Intelligence + amount, 0, MaxStatValue); break;
         }
+    }
+
+    public void AddActionStamina(int amount)
+    {
+        ActionStamina = Mathf.Clamp(ActionStamina + amount, 0, MaxActionStamina);
+    }
+
+    public bool ConsumeActionStamina(int amount)
+    {
+        if (ActionStamina >= amount)
+        {
+            ActionStamina -= amount;
+            return true;
+        }
+        return false;
+    }
+
+    public void AddMood(int amount)
+    {
+        Mood = Mathf.Clamp(Mood + amount, 0, 150);
     }
 
     /// <summary>

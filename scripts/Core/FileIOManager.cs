@@ -189,8 +189,7 @@ namespace UmaEraArchive.Core
                     using var file = FileAccess.OpenCompressed(path, FileAccess.ModeFlags.Read, FileAccess.CompressionMode.Zstd);
                     if (file != null)
                     {
-                        byte[] bytes = file.GetBuffer((long)file.GetLength());
-                        string json = System.Text.Encoding.UTF8.GetString(bytes);
+                        string json = file.GetAsText();
                         return JsonSerializer.Deserialize<T>(json);
                     }
                 }

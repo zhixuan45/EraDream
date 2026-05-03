@@ -42,6 +42,7 @@ namespace UmaEraArchive.Editor.Nodes
 			_attrPicker.AddItem(Tr("根性"), 6);
 			_attrPicker.AddItem(Tr("智力"), 7);
 			_attrPicker.AddItem(Tr("技能点"), 8);
+			_attrPicker.AddItem(Tr("好感度"), 10);
 			_attrPicker.AddItem(Tr("自定义 (MOD/变量)"), 9);
 
 			_attrPicker.Select(GetAttrIndex(TargetAttribute));
@@ -86,17 +87,19 @@ namespace UmaEraArchive.Editor.Nodes
 		}
 
 		private int GetAttrIndex(string key) => key switch {
-			"Money" => 0, "Stamina" => 1, "Energy" => 2,
-			"Speed" => 3, "Endurance" => 4, "Power" => 5,
-			"Guts" => 6, "Intelligence" => 7, "SkillPoint" => 8,
+			"Money" => 0, "Vitality" => 1, "Energy" => 2,
+			"Speed" => 3, "Stamina" => 4, "Power" => 5,
+			"Guts" => 6, "Intelligence" => 7, "SkillPoints" => 8,
+			"Affection" => 10,
 			"Custom" => 9,
 			_ => 0
 		};
 
 		private string GetAttrKey(int index) => index switch {
-			0 => "Money", 1 => "Stamina", 2 => "Energy",
-			3 => "Speed", 4 => "Endurance", 5 => "Power",
-			6 => "Guts", 7 => "Intelligence", 8 => "SkillPoint",
+			0 => "Money", 1 => "Vitality", 2 => "Energy",
+			3 => "Speed", 4 => "Stamina", 5 => "Power",
+			6 => "Guts", 7 => "Intelligence", 8 => "SkillPoints",
+			10 => "Affection",
 			9 => "Custom",
 			_ => "Money"
 		};
