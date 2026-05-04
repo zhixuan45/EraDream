@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using umaEraArchive.Game;
+using UmaEraArchive.Editor.Nodes;
 
 namespace umaEraArchive.Tests;
 
@@ -30,6 +31,7 @@ public partial class SimulationTest : Node
             VerifyOutingModule();
             VerifyShopModule();
             VerifyBehaviorRegistry();
+            VerifyTurnStartStoryTrigger();
 
             GD.Print("\n[Test] === All Tests Passed Successfully! ===\n");
         }
@@ -252,5 +254,61 @@ public partial class SimulationTest : Node
         registry.TriggerHook("OnTestHook", state);
 
         GD.Print("[Test] BehaviorRegistry OK (Visual check of logs/toast required for full verification).");
+    }
+
+    private void VerifyTurnStartStoryTrigger()
+    {
+        GD.Print("[Test] Verifying Turn Start Story Trigger...");
+
+        var gm = GameManager.Instance;
+
+        // Setup a test scenario
+        string testScenarioPath = "user://test_turn_start.json";
+        var nodes = new List<BaseNodeData>();
+
+        var startNode = new StartNodeData
+        {
+            Id = "start_turn_1",
+            TriggerCondition = "Affection >= 80",
+            Timing = TriggerTiming.TurnStart
+        };
+        nodes.Add(startNode);
+
+        string json = System.Text.Json.JsonSerializer.Serialize(nodes, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        using (var file = FileAccess.Open(testScenarioPath, FileAccess.ModeFlags.Write))
+        {
+            file.StoreString(json);
+        }
+
+        // Start game with the test scenario
+        gm.StartNewGame(new List<string> { testScenarioPath });
+        var state = gm.CurrentState;
+
+        // 1. Condition not met
+        state.Uma.Affection = 50;
+
+        // Reset CurrentStoryPath to verify if HandleTurnStart triggers a story
+        StoryPlayerEngine.CurrentStoryPath = "";
+
+        gm.HandleTurnStart();
+
+        if (!string.IsNullOrEmpty(StoryPlayerEngine.CurrentStoryPath))
+            throw new Exception("Story should not be triggered when Affection is 50");
+
+        // 2. Condition met
+        state.Uma.Affection = 90;
+
+        // Call HandleTurnStart
+        gm.HandleTurnStart();
+
+        // Since CheckAndTriggerStory sets CurrentStoryPath, checking if CurrentStoryPath was set
+        // is a safe way to check if TriggerStory was called.
+        if (StoryPlayerEngine.CurrentStoryPath != testScenarioPath)
+            throw new Exception("Story should be triggered when Affection is 90");
+
+        // Clean up
+        StoryPlayerEngine.CurrentStoryPath = "";
+
+        GD.Print("[Test] Turn Start Story Trigger OK.");
     }
 }
