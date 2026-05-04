@@ -393,9 +393,10 @@ public partial class ExtensionEditorScreen : Control
     private void OnDeleteConfirmed()
     {
         string path = _contextTargetItem.GetMetadata(0).AsString();
+        string globalPath = ProjectSettings.GlobalizePath(path);
         try {
-            if (System.IO.Directory.Exists(path)) System.IO.Directory.Delete(path, true);
-            else if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+            if (System.IO.Directory.Exists(globalPath)) System.IO.Directory.Delete(globalPath, true);
+            else if (System.IO.File.Exists(globalPath)) System.IO.File.Delete(globalPath);
 
             if (_currentEditingFilePath == path) {
                 _currentEditingFilePath = "";
@@ -414,10 +415,16 @@ public partial class ExtensionEditorScreen : Control
         string newName = _renameEdit.Text.Trim();
         if (string.IsNullOrEmpty(newName)) return;
 
+        // Sanitize newName to prevent directory traversal
+        newName = System.IO.Path.GetFileName(newName);
+        if (string.IsNullOrEmpty(newName) || newName == "." || newName == "..") return;
+
         string newPath = oldPath.GetBaseDir().PathJoin(newName);
+        string globalOldPath = ProjectSettings.GlobalizePath(oldPath);
+        string globalNewPath = ProjectSettings.GlobalizePath(newPath);
         try {
-            if (System.IO.Directory.Exists(oldPath)) System.IO.Directory.Move(oldPath, newPath);
-            else if (System.IO.File.Exists(oldPath)) System.IO.File.Move(oldPath, newPath);
+            if (System.IO.Directory.Exists(globalOldPath)) System.IO.Directory.Move(globalOldPath, globalNewPath);
+            else if (System.IO.File.Exists(globalOldPath)) System.IO.File.Move(globalOldPath, globalNewPath);
             if (_currentEditingFilePath == oldPath) _currentEditingFilePath = newPath;
             RefreshFileTree();
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名成功！");
@@ -530,8 +537,9 @@ public partial class ExtensionEditorScreen : Control
         SaveManifest();
         string exportName = $"{_manifest.Id}_{_manifest.Version}.umaext";
         FileIOManager.OpenSaveDialog("导出扩展包", exportName, "*.umaext", (path) => {
+            string globalPath = ProjectSettings.GlobalizePath(path);
             try {
-                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                if (System.IO.File.Exists(globalPath)) System.IO.File.Delete(globalPath);
                 ZipFile.CreateFromDirectory(ProjectSettings.GlobalizePath(_projectPath), ProjectSettings.GlobalizePath(path), CompressionLevel.Optimal, false);
                 GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("导出成功！");
             } catch (Exception ex) {
@@ -551,10 +559,13 @@ public partial class ExtensionEditorScreen : Control
     {
         if (string.IsNullOrEmpty(_projectPath)) { GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先新建或打开一个项目！"); return; }
         FileIOManager.OpenLoadDialog("选择资源文件", "*.*", (sourcePath) => {
-            string destPath = _projectPath.PathJoin(subDir).PathJoin(sourcePath.GetFile());
+            string fileName = System.IO.Path.GetFileName(sourcePath);
+            if (string.IsNullOrEmpty(fileName) || fileName == "." || fileName == "..") return;
+
+            string destPath = _projectPath.PathJoin(subDir).PathJoin(fileName);
             if (Godot.DirAccess.CopyAbsolute(sourcePath, destPath) == Godot.Error.Ok) {
                 RefreshFileTree();
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"导入成功: {sourcePath.GetFile()}");
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"导入成功: {fileName}");
             }
         });
     }
