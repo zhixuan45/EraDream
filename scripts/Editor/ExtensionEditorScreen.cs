@@ -14,6 +14,22 @@ using ExtensionManifest = UmaEraArchive.Editor.Models.ExtensionManifest;
 public partial class ExtensionEditorScreen : Control
 {
     private string _projectPath = "";
+    private string _cachedNormalizedProjectBase = "";
+    private string _cachedNormalizedProjectWithSlash = "";
+
+    private void SetProjectPath(string path)
+    {
+        _projectPath = path;
+        if (!string.IsNullOrEmpty(_projectPath)) {
+            string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
+            _cachedNormalizedProjectBase = absoluteProjectPath.Replace('\\', '/').TrimEnd('/');
+            _cachedNormalizedProjectWithSlash = _cachedNormalizedProjectBase + "/";
+        } else {
+            _cachedNormalizedProjectBase = "";
+            _cachedNormalizedProjectWithSlash = "";
+        }
+    }
+
     private UmaEraArchive.Editor.Models.ExtensionManifest _manifest = new();
     private ActorConfigData _currentActorConfig = null;
     private SimulationData _currentSimData = null;
@@ -293,6 +309,12 @@ public partial class ExtensionEditorScreen : Control
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath)) return;
 
+        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
+        if (!IsPathWithinProject(absolutePath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            return;
+        }
+
         try {
             var options = new JsonSerializerOptions { WriteIndented = true };
             
@@ -354,6 +376,13 @@ public partial class ExtensionEditorScreen : Control
     private void OnSaveFilePressed()
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath)) return;
+
+        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
+        if (!IsPathWithinProject(absolutePath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            return;
+        }
+
         try {
             using var file = Godot.FileAccess.Open(_currentEditingFilePath, Godot.FileAccess.ModeFlags.Write);
             if (file != null) {
@@ -390,12 +419,43 @@ public partial class ExtensionEditorScreen : Control
         }
     }
 
+    private bool IsPathWithinProject(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(_cachedNormalizedProjectBase)) return false;
+
+        var normalizedPath = absolutePath.Replace('\\', '/').TrimEnd('/');
+
+        // Use OS-aware string comparison to prevent bypasses on case-insensitive systems (Windows)
+        // while remaining secure on case-sensitive ones (Linux/macOS).
+        var comparison = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        return normalizedPath.Equals(_cachedNormalizedProjectBase, comparison) ||
+               normalizedPath.StartsWith(_cachedNormalizedProjectWithSlash, comparison);
+    }
+
     private void OnDeleteConfirmed()
     {
         string path = _contextTargetItem.GetMetadata(0).AsString();
+<<<<<<< fix/extension-editor-path-traversal-4202405694376757116
+        string globalPath = ProjectSettings.GlobalizePath(path);
+
+        try {
+            string absolutePath = System.IO.Path.GetFullPath(globalPath);
+
+            if (!IsPathWithinProject(absolutePath)) {
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("删除失败: 不能删除项目外的文件！");
+                return;
+            }
+
+            if (System.IO.Directory.Exists(absolutePath)) System.IO.Directory.Delete(absolutePath, true);
+            else if (System.IO.File.Exists(absolutePath)) System.IO.File.Delete(absolutePath);
+=======
         try {
             if (System.IO.Directory.Exists(path)) System.IO.Directory.Delete(path, true);
             else if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+>>>>>>> main
 
             if (_currentEditingFilePath == path) {
                 _currentEditingFilePath = "";
@@ -416,8 +476,21 @@ public partial class ExtensionEditorScreen : Control
 
         string newPath = oldPath.GetBaseDir().PathJoin(newName);
         try {
+<<<<<<< fix/extension-editor-path-traversal-4202405694376757116
+            string absoluteOldPath = System.IO.Path.GetFullPath(globalOldPath);
+            string absoluteNewPath = System.IO.Path.GetFullPath(globalNewPath);
+
+            if (!IsPathWithinProject(absoluteOldPath) || !IsPathWithinProject(absoluteNewPath)) {
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名失败: 目标文件必须在项目内！");
+                return;
+            }
+
+            if (System.IO.Directory.Exists(absoluteOldPath)) System.IO.Directory.Move(absoluteOldPath, absoluteNewPath);
+            else if (System.IO.File.Exists(absoluteOldPath)) System.IO.File.Move(absoluteOldPath, absoluteNewPath);
+=======
             if (System.IO.Directory.Exists(oldPath)) System.IO.Directory.Move(oldPath, newPath);
             else if (System.IO.File.Exists(oldPath)) System.IO.File.Move(oldPath, newPath);
+>>>>>>> main
             if (_currentEditingFilePath == oldPath) _currentEditingFilePath = newPath;
             RefreshFileTree();
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名成功！");
@@ -429,7 +502,7 @@ public partial class ExtensionEditorScreen : Control
     private void OnNewPressed()
     {
         FileIOManager.OpenFolderDialog("选择新扩展包保存文件夹", (path) => {
-            _projectPath = path;
+            SetProjectPath(path);
             InitializeFolderStructure();
             SaveManifest();
             RefreshFileTree();
@@ -440,7 +513,7 @@ public partial class ExtensionEditorScreen : Control
     private void OnOpenPressed()
     {
         FileIOManager.OpenLoadDialog("选择扩展包清单 (manifest.json)", "manifest.json", (path) => {
-            _projectPath = path.GetBaseDir();
+            SetProjectPath(path.GetBaseDir());
             LoadManifest();
             UpdateUIFromManifest();
             RefreshFileTree();
@@ -729,6 +802,12 @@ public partial class ExtensionEditorScreen : Control
     private void OnSaveBehaviorPressed()
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath) || _currentBehaviorPack == null) return;
+
+        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
+        if (!IsPathWithinProject(absolutePath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            return;
+        }
 
         try {
             var options = new JsonSerializerOptions { WriteIndented = true };
