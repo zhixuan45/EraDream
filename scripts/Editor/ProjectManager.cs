@@ -107,13 +107,6 @@ public static class ProjectManager
         if (sourcePath.StartsWith("content://"))
         {
             fileName = System.Uri.UnescapeDataString(fileName).Replace(":", "_");
-            fileName = fileName.GetFile();
-        }
-
-        if (string.IsNullOrEmpty(fileName) || fileName == "." || fileName == "..")
-        {
-            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast("Import failed: Invalid file name.");
-            return "";
         }
         
         // 尝试使用 Godot.FileAccess 读取文件内容 (原生支持 content:// 读取)
