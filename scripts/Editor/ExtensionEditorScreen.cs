@@ -390,11 +390,34 @@ public partial class ExtensionEditorScreen : Control
         }
     }
 
+    private bool IsPathWithinProject(string fullPath, string projectPath)
+    {
+        var normalizedPath = fullPath.Replace('\\', '/').TrimEnd('/');
+        var normalizedProject = projectPath.Replace('\\', '/').TrimEnd('/');
+
+        // Add a trailing slash for the boundary check, to prevent prefix attacks
+        // like /path/to/project_malicious tricking /path/to/project
+        normalizedProject += "/";
+
+        // Allow exact matches or children
+        return normalizedPath.Equals(normalizedProject.TrimEnd('/'), StringComparison.OrdinalIgnoreCase) ||
+               normalizedPath.StartsWith(normalizedProject, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void OnDeleteConfirmed()
     {
         string path = _contextTargetItem.GetMetadata(0).AsString();
         string globalPath = ProjectSettings.GlobalizePath(path);
+
         try {
+            string absolutePath = System.IO.Path.GetFullPath(globalPath);
+            string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
+
+            if (!IsPathWithinProject(absolutePath, absoluteProjectPath)) {
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("删除失败: 不能删除项目外的文件！");
+                return;
+            }
+
             if (System.IO.Directory.Exists(globalPath)) System.IO.Directory.Delete(globalPath, true);
             else if (System.IO.File.Exists(globalPath)) System.IO.File.Delete(globalPath);
 
@@ -423,6 +446,15 @@ public partial class ExtensionEditorScreen : Control
         string globalOldPath = ProjectSettings.GlobalizePath(oldPath);
         string globalNewPath = ProjectSettings.GlobalizePath(newPath);
         try {
+            string absoluteOldPath = System.IO.Path.GetFullPath(globalOldPath);
+            string absoluteNewPath = System.IO.Path.GetFullPath(globalNewPath);
+            string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
+
+            if (!IsPathWithinProject(absoluteOldPath, absoluteProjectPath) || !IsPathWithinProject(absoluteNewPath, absoluteProjectPath)) {
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名失败: 目标文件必须在项目内！");
+                return;
+            }
+
             if (System.IO.Directory.Exists(globalOldPath)) System.IO.Directory.Move(globalOldPath, globalNewPath);
             else if (System.IO.File.Exists(globalOldPath)) System.IO.File.Move(globalOldPath, globalNewPath);
             if (_currentEditingFilePath == oldPath) _currentEditingFilePath = newPath;
