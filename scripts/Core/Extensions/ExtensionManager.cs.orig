@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-using UmaEraArchive.Core.Mods;
 
 namespace UmaEraArchive.Core.Extensions
 {
@@ -69,7 +68,7 @@ namespace UmaEraArchive.Core.Extensions
             {
                 // TODO: 实现从压缩包头部流式读取 manifest.json
                 // 目前先占位返回 null，稍后实现具体解压逻辑
-                return null; 
+                return null;
             }
             catch (Exception ex)
             {
@@ -90,7 +89,7 @@ namespace UmaEraArchive.Core.Extensions
 
             // 1. 准备解压目录
             string targetCache = Path.Combine(ProjectSettings.GlobalizePath(CacheDir), id);
-            
+
             // 2. 解压逻辑 (Phase 1 实现)
             // ExtractArchive(id, targetCache);
 
@@ -101,26 +100,8 @@ namespace UmaEraArchive.Core.Extensions
             }
             else
             {
+                // TODO: 调用 ModLoader 加载 Logic/ModEntry.dll
                 GD.Print($"[ExtensionManager] {id} is a Gameplay pack. Logic injection pending...");
-
-                string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
-                if (File.Exists(dllPath))
-                {
-                    bool success = ModLoader.Instance.LoadMod(id, dllPath);
-                    if (success)
-                    {
-                        GD.Print($"[ExtensionManager] Logic mod loaded for {id}");
-                    }
-                    else
-                    {
-                        var notifier = GetTree().Root.GetNodeOrNull<ErrorNotifier>("ErrorNotifier")
-                                    ?? GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
-                        if (notifier != null)
-                        {
-                            notifier.ShowToast($"模组包错误: 无法加载 {id} 的 Logic/ModEntry.dll");
-                        }
-                    }
-                }
 
                 // 加载行为包
                 string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
