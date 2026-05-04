@@ -64,6 +64,5 @@ dotnet build
 ## Key Files
 - `project.godot`: Main engine configuration.
 - `scripts/Core/AppSettings.cs`: Definitions for application-wide configuration.
-- `scripts/Editor/EditorScreen.cs`: Main logic for the node-based story editor.
-- `剧情引擎框架开发路线图(多平台适配版).md`: Detailed development roadmap and architectural vision.
+- `scripts/Editor/EditorScreen.cs`: Main logic for the node-based story editor
 - `CODING_STANDARDS.md`: Official coding style and implementation rules.
