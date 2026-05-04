@@ -107,6 +107,7 @@ public static class ProjectManager
         if (sourcePath.StartsWith("content://"))
         {
             fileName = System.Uri.UnescapeDataString(fileName).Replace(":", "_");
+            fileName = fileName.GetFile();
         }
         
         // 尝试使用 Godot.FileAccess 读取文件内容 (原生支持 content:// 读取)
