@@ -109,8 +109,9 @@ public static class ProjectManager
             fileName = System.Uri.UnescapeDataString(fileName).Replace(":", "_");
         }
         
-        // 再次确保 fileName 不包含路径分隔符
+        // 再次确保 fileName 不包含路径分隔符，并处理特殊路径
         fileName = System.IO.Path.GetFileName(fileName);
+        if (string.IsNullOrEmpty(fileName) || fileName == "." || fileName == "..") return "";
 
         // 尝试使用 Godot.FileAccess 读取文件内容 (原生支持 content:// 读取)
         byte[] fileData = FileAccess.GetFileAsBytes(sourcePath);
