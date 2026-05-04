@@ -14,6 +14,22 @@ using ExtensionManifest = UmaEraArchive.Editor.Models.ExtensionManifest;
 public partial class ExtensionEditorScreen : Control
 {
     private string _projectPath = "";
+    private string _cachedNormalizedProjectBase = "";
+    private string _cachedNormalizedProjectWithSlash = "";
+
+    private void SetProjectPath(string path)
+    {
+        _projectPath = path;
+        if (!string.IsNullOrEmpty(_projectPath)) {
+            string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
+            _cachedNormalizedProjectBase = absoluteProjectPath.Replace('\\', '/').TrimEnd('/');
+            _cachedNormalizedProjectWithSlash = _cachedNormalizedProjectBase + "/";
+        } else {
+            _cachedNormalizedProjectBase = "";
+            _cachedNormalizedProjectWithSlash = "";
+        }
+    }
+
     private UmaEraArchive.Editor.Models.ExtensionManifest _manifest = new();
     private ActorConfigData _currentActorConfig = null;
     private SimulationData _currentSimData = null;
@@ -293,7 +309,8 @@ public partial class ExtensionEditorScreen : Control
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath)) return;
 
-        if (!IsPathWithinProject(_currentEditingFilePath)) {
+        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
+        if (!IsPathWithinProject(absolutePath)) {
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
             return;
         }
@@ -360,7 +377,8 @@ public partial class ExtensionEditorScreen : Control
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath)) return;
 
-        if (!IsPathWithinProject(_currentEditingFilePath)) {
+        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
+        if (!IsPathWithinProject(absolutePath)) {
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
             return;
         }
@@ -401,22 +419,20 @@ public partial class ExtensionEditorScreen : Control
         }
     }
 
-    private bool IsPathWithinProject(string path)
+    private bool IsPathWithinProject(string absolutePath)
     {
-        if (string.IsNullOrEmpty(_projectPath)) return false;
-
-        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(path));
-        string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
+        if (string.IsNullOrEmpty(_cachedNormalizedProjectBase)) return false;
 
         var normalizedPath = absolutePath.Replace('\\', '/').TrimEnd('/');
-        var normalizedProjectBase = absoluteProjectPath.Replace('\\', '/').TrimEnd('/');
 
-        // Add a trailing slash for the boundary check, to prevent prefix attacks
-        var normalizedProjectWithSlash = normalizedProjectBase + "/";
+        // Use OS-aware string comparison to prevent bypasses on case-insensitive systems (Windows)
+        // while remaining secure on case-sensitive ones (Linux/macOS).
+        var comparison = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
-        // Use Ordinal instead of OrdinalIgnoreCase to respect case-sensitive filesystems like Linux
-        return normalizedPath.Equals(normalizedProjectBase, StringComparison.Ordinal) ||
-               normalizedPath.StartsWith(normalizedProjectWithSlash, StringComparison.Ordinal);
+        return normalizedPath.Equals(_cachedNormalizedProjectBase, comparison) ||
+               normalizedPath.StartsWith(_cachedNormalizedProjectWithSlash, comparison);
     }
 
     private void OnDeleteConfirmed()
@@ -481,7 +497,7 @@ public partial class ExtensionEditorScreen : Control
     private void OnNewPressed()
     {
         FileIOManager.OpenFolderDialog("选择新扩展包保存文件夹", (path) => {
-            _projectPath = path;
+            SetProjectPath(path);
             InitializeFolderStructure();
             SaveManifest();
             RefreshFileTree();
@@ -492,7 +508,7 @@ public partial class ExtensionEditorScreen : Control
     private void OnOpenPressed()
     {
         FileIOManager.OpenLoadDialog("选择扩展包清单 (manifest.json)", "manifest.json", (path) => {
-            _projectPath = path.GetBaseDir();
+            SetProjectPath(path.GetBaseDir());
             LoadManifest();
             UpdateUIFromManifest();
             RefreshFileTree();
@@ -786,7 +802,8 @@ public partial class ExtensionEditorScreen : Control
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath) || _currentBehaviorPack == null) return;
 
-        if (!IsPathWithinProject(_currentEditingFilePath)) {
+        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
+        if (!IsPathWithinProject(absolutePath)) {
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
             return;
         }
