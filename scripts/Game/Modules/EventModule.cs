@@ -12,6 +12,8 @@ namespace umaEraArchive.Game;
 /// </summary>
 public partial class EventModule : Node
 {
+    private static readonly char[] OperatorChars = { '>', '<', '=' };
+
     private class RegisteredEvent
     {
         public string ProjectPath;
@@ -107,25 +109,44 @@ public partial class EventModule : Node
 
         try
         {
-            string[] operators = { ">=", "<=", ">", "<", "==" };
-            string op = operators.FirstOrDefault(o => condition.Contains(o));
-            if (op == null) return false;
+            ReadOnlySpan<char> span = condition.AsSpan();
+            int opIndex = span.IndexOfAny(OperatorChars);
+            if (opIndex < 0) return false;
 
-            var parts = condition.Split(new[] { op }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) return false;
+            char firstChar = span[opIndex];
+            int opLength = 1;
+            int opType = 0; // 0: None, 1: >=, 2: <=, 3: >, 4: <, 5: ==
 
-            string property = parts[0].Trim().ToLower();
-            if (!float.TryParse(parts[1].Trim(), out float targetVal)) return false;
+            if (opIndex + 1 < span.Length && span[opIndex + 1] == '=')
+            {
+                opLength = 2;
+                if (firstChar == '>') opType = 1; // >=
+                else if (firstChar == '<') opType = 2; // <=
+                else if (firstChar == '=') opType = 5; // ==
+            }
+            else
+            {
+                if (firstChar == '>') opType = 3; // >
+                else if (firstChar == '<') opType = 4; // <
+            }
 
+            if (opType == 0) return false;
+
+            ReadOnlySpan<char> propSpan = span.Slice(0, opIndex).Trim();
+            ReadOnlySpan<char> valSpan = span.Slice(opIndex + opLength).Trim();
+
+            if (!float.TryParse(valSpan, out float targetVal)) return false;
+
+            string property = propSpan.ToString().ToLower();
             float currentVal = GetPropertyValue(property, state);
 
-            return op switch
+            return opType switch
             {
-                ">=" => currentVal >= targetVal,
-                "<=" => currentVal <= targetVal,
-                ">" => currentVal > targetVal,
-                "<" => currentVal < targetVal,
-                "==" => Math.Abs(currentVal - targetVal) < 0.001f,
+                1 => currentVal >= targetVal,
+                2 => currentVal <= targetVal,
+                3 => currentVal > targetVal,
+                4 => currentVal < targetVal,
+                5 => Math.Abs(currentVal - targetVal) < 0.001f,
                 _ => false
             };
         }
