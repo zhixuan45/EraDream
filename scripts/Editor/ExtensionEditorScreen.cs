@@ -390,9 +390,30 @@ public partial class ExtensionEditorScreen : Control
         }
     }
 
+    private bool IsSafePath(string path, string basePath)
+    {
+        try {
+            string normalizedPath = System.IO.Path.GetFullPath(path).Replace('\\', '/');
+            string normalizedBasePath = System.IO.Path.GetFullPath(basePath).Replace('\\', '/');
+
+            if (!normalizedBasePath.EndsWith("/"))
+                normalizedBasePath += "/";
+
+            return normalizedPath.StartsWith(normalizedBasePath);
+        } catch {
+            return false;
+        }
+    }
+
     private void OnDeleteConfirmed()
     {
         string path = _contextTargetItem.GetMetadata(0).AsString();
+
+        if (string.IsNullOrEmpty(_projectPath) || !IsSafePath(path, _projectPath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("删除失败: 无效或不安全的路径！");
+            return;
+        }
+
         try {
             if (System.IO.Directory.Exists(path)) System.IO.Directory.Delete(path, true);
             else if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
@@ -411,10 +432,22 @@ public partial class ExtensionEditorScreen : Control
     private void OnRenameConfirmed()
     {
         string oldPath = _contextTargetItem.GetMetadata(0).AsString();
+
+        if (string.IsNullOrEmpty(_projectPath) || !IsSafePath(oldPath, _projectPath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名失败: 无效或不安全的路径！");
+            return;
+        }
+
         string newName = _renameEdit.Text.Trim();
         if (string.IsNullOrEmpty(newName)) return;
 
         string newPath = oldPath.GetBaseDir().PathJoin(newName);
+
+        if (!IsSafePath(newPath, _projectPath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名失败: 目标路径不安全！");
+            return;
+        }
+
         try {
             if (System.IO.Directory.Exists(oldPath)) System.IO.Directory.Move(oldPath, newPath);
             else if (System.IO.File.Exists(oldPath)) System.IO.File.Move(oldPath, newPath);
