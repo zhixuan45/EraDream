@@ -201,5 +201,14 @@ public partial class BehaviorRegistry : Node
     public void Clear()
     {
         _rulesByHook.Clear();
+        _itemDefinitions.Clear();
+    }
+
+    public List<string> GetPermanentItemIds()
+    {
+        return _itemDefinitions.Values
+            .Where(item => item.Type == ItemType.Permanent)
+            .Select(item => item.Id)
+            .ToList();
     }
 }
