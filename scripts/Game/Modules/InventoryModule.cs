@@ -129,10 +129,10 @@ public partial class InventoryModule : Node
 
         // 2. 处理长期持有物品 (Permanent)
         // 只要在背包里就触发 Tick
-        foreach (var itemId in state.Inventory.Items.Keys)
+        var permanentItemIds = BehaviorRegistry.Instance.GetPermanentItemIds();
+        foreach (var itemId in permanentItemIds)
         {
-            var def = BehaviorRegistry.Instance.GetItemDefinition(itemId);
-            if (def?.Type == ItemType.Permanent)
+            if (state.Inventory.Items.ContainsKey(itemId))
             {
                 BehaviorRegistry.Instance.TriggerHook($"OnItemTick_{itemId}", state);
             }

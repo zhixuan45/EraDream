@@ -18,6 +18,7 @@ public partial class BehaviorRegistry : Node
 
     private Dictionary<string, List<BehaviorRule>> _rulesByHook = new();
     private Dictionary<string, ItemDefinition> _itemDefinitions = new();
+    private HashSet<string> _permanentItemIds = new();
     private RandomNumberGenerator _rng = new();
 
     public override void _EnterTree()
@@ -56,6 +57,14 @@ public partial class BehaviorRegistry : Node
                 foreach (var item in pack.Items)
                 {
                     _itemDefinitions[item.Id] = item;
+                    if (item.Type == ItemType.Permanent)
+                    {
+                        _permanentItemIds.Add(item.Id);
+                    }
+                    else
+                    {
+                        _permanentItemIds.Remove(item.Id);
+                    }
                     GD.Print($"[BehaviorRegistry] Registered item {item.Id}: {item.Name}");
                 }
             }
@@ -74,6 +83,11 @@ public partial class BehaviorRegistry : Node
     public List<ItemDefinition> GetAllItemDefinitions()
     {
         return _itemDefinitions.Values.ToList();
+    }
+
+    public IEnumerable<string> GetPermanentItemIds()
+    {
+        return _permanentItemIds;
     }
 
     /// <summary>
@@ -201,5 +215,6 @@ public partial class BehaviorRegistry : Node
     public void Clear()
     {
         _rulesByHook.Clear();
+        _permanentItemIds.Clear();
     }
 }
