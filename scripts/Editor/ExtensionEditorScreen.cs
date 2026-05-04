@@ -414,6 +414,10 @@ public partial class ExtensionEditorScreen : Control
         string newName = _renameEdit.Text.Trim();
         if (string.IsNullOrEmpty(newName)) return;
 
+        // Sanitize newName to prevent directory traversal
+        newName = System.IO.Path.GetFileName(newName);
+        if (string.IsNullOrEmpty(newName)) return;
+
         string newPath = oldPath.GetBaseDir().PathJoin(newName);
         try {
             if (System.IO.Directory.Exists(oldPath)) System.IO.Directory.Move(oldPath, newPath);
@@ -551,10 +555,11 @@ public partial class ExtensionEditorScreen : Control
     {
         if (string.IsNullOrEmpty(_projectPath)) { GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先新建或打开一个项目！"); return; }
         FileIOManager.OpenLoadDialog("选择资源文件", "*.*", (sourcePath) => {
-            string destPath = _projectPath.PathJoin(subDir).PathJoin(sourcePath.GetFile());
+            string fileName = System.IO.Path.GetFileName(sourcePath);
+            string destPath = _projectPath.PathJoin(subDir).PathJoin(fileName);
             if (Godot.DirAccess.CopyAbsolute(sourcePath, destPath) == Godot.Error.Ok) {
                 RefreshFileTree();
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"导入成功: {sourcePath.GetFile()}");
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"导入成功: {fileName}");
             }
         });
     }

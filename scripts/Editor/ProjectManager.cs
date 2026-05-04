@@ -103,12 +103,15 @@ public static class ProjectManager
         EnsureDir(targetSubDir);
         string targetDir = CurrentProjectRoot.PathJoin(targetSubDir);
         
-        string fileName = sourcePath.GetFile();
+        string fileName = System.IO.Path.GetFileName(sourcePath);
         if (sourcePath.StartsWith("content://"))
         {
             fileName = System.Uri.UnescapeDataString(fileName).Replace(":", "_");
         }
         
+        // 再次确保 fileName 不包含路径分隔符
+        fileName = System.IO.Path.GetFileName(fileName);
+
         // 尝试使用 Godot.FileAccess 读取文件内容 (原生支持 content:// 读取)
         byte[] fileData = FileAccess.GetFileAsBytes(sourcePath);
         if (fileData != null && fileData.Length > 0)
