@@ -34,12 +34,7 @@ namespace UmaEraArchive.Game.UI
         private void SetupTrainingButtons()
         {
             // 清理旧项
-            int count = _listContainer.GetChildCount();
-            for (int i = count - 1; i >= 0; i--)
-            {
-                var child = _listContainer.GetChild(i);
-                child.QueueFree();
-            }
+            foreach (Node child in _listContainer.GetChildren()) child.QueueFree();
 
             AddTrainingItem("速度训练", "提升速度与力量", (int)TrainingType.Speed, "res://icon.svg");
             AddTrainingItem("耐力训练", "提升耐力与根性", (int)TrainingType.Stamina, "res://icon.svg");
