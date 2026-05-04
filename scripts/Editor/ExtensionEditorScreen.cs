@@ -392,19 +392,19 @@ public partial class ExtensionEditorScreen : Control
 
     private bool IsSafePath(string path, string basePath)
     {
+        if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(basePath)) return false;
         try {
-            string normalizedPath = System.IO.Path.GetFullPath(path).Replace('\\', '/');
-            string normalizedBasePath = System.IO.Path.GetFullPath(basePath).Replace('\\', '/');
+            string fullPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(path));
+            string fullBase = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(basePath));
+            string relative = System.IO.Path.GetRelativePath(fullBase, fullPath);
 
-            if (!normalizedBasePath.EndsWith("/"))
-                normalizedBasePath += "/";
-
-            return normalizedPath.StartsWith(normalizedBasePath);
+            // Ensure it's a subpath and not the base path itself
+            return !relative.StartsWith("..") && !System.IO.Path.IsPathRooted(relative) && relative != ".";
         } catch {
             return false;
         }
     }
-
+    
     private void OnDeleteConfirmed()
     {
         string path = _contextTargetItem.GetMetadata(0).AsString();
