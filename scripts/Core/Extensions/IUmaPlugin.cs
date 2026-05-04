@@ -12,6 +12,11 @@ namespace UmaEraArchive.Core.Extensions
         void OnLoad();
 
         /// <summary>
+        /// 插件卸载时调用，用于清理资源、断开信号等
+        /// </summary>
+        void OnUnload();
+
+        /// <summary>
         /// 剧本开始时调用
         /// </summary>
         void OnScenarioStart();

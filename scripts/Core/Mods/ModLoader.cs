@@ -137,6 +137,15 @@ namespace UmaEraArchive.Core.Mods
         {
             if (_loadedMods.TryGetValue(modId, out var modInfo))
             {
+                try
+                {
+                    modInfo.ModInstance.OnUnload();
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[ModLoader] Error unloading mod '{modId}': {ex.Message}");
+                }
+
                 modInfo.LoadContext.Unload();
                 _loadedMods.Remove(modId);
                 GD.Print($"[ModLoader] Successfully unloaded mod '{modId}'.");
