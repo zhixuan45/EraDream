@@ -410,6 +410,8 @@ public partial class EditorScreen : Control
 	}
 
 	private void DeleteNode(string nodeName) { if (_graphEdit.HasNode(nodeName)) { var node = _graphEdit.GetNode<GraphNode>(nodeName); _nodeDataMap.Remove(nodeName); node.QueueFree(); } }
+	private void ShowCreateProjectDialog() { }
+	private void ShowOpenProjectDialog() { }
 
 	/// <summary>
 	/// 项目元信息编辑弹窗
