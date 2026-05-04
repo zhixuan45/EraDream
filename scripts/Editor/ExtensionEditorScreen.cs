@@ -293,6 +293,11 @@ public partial class ExtensionEditorScreen : Control
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath)) return;
 
+        if (!IsPathWithinProject(_currentEditingFilePath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            return;
+        }
+
         try {
             var options = new JsonSerializerOptions { WriteIndented = true };
             
@@ -354,6 +359,12 @@ public partial class ExtensionEditorScreen : Control
     private void OnSaveFilePressed()
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath)) return;
+
+        if (!IsPathWithinProject(_currentEditingFilePath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            return;
+        }
+
         try {
             using var file = Godot.FileAccess.Open(_currentEditingFilePath, Godot.FileAccess.ModeFlags.Write);
             if (file != null) {
@@ -390,18 +401,22 @@ public partial class ExtensionEditorScreen : Control
         }
     }
 
-    private bool IsPathWithinProject(string fullPath, string projectPath)
+    private bool IsPathWithinProject(string path)
     {
-        var normalizedPath = fullPath.Replace('\\', '/').TrimEnd('/');
-        var normalizedProject = projectPath.Replace('\\', '/').TrimEnd('/');
+        if (string.IsNullOrEmpty(_projectPath)) return false;
+
+        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(path));
+        string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
+
+        var normalizedPath = absolutePath.Replace('\\', '/').TrimEnd('/');
+        var normalizedProjectBase = absoluteProjectPath.Replace('\\', '/').TrimEnd('/');
 
         // Add a trailing slash for the boundary check, to prevent prefix attacks
-        // like /path/to/project_malicious tricking /path/to/project
-        normalizedProject += "/";
+        var normalizedProjectWithSlash = normalizedProjectBase + "/";
 
-        // Allow exact matches or children
-        return normalizedPath.Equals(normalizedProject.TrimEnd('/'), StringComparison.OrdinalIgnoreCase) ||
-               normalizedPath.StartsWith(normalizedProject, StringComparison.OrdinalIgnoreCase);
+        // Use Ordinal instead of OrdinalIgnoreCase to respect case-sensitive filesystems like Linux
+        return normalizedPath.Equals(normalizedProjectBase, StringComparison.Ordinal) ||
+               normalizedPath.StartsWith(normalizedProjectWithSlash, StringComparison.Ordinal);
     }
 
     private void OnDeleteConfirmed()
@@ -411,15 +426,14 @@ public partial class ExtensionEditorScreen : Control
 
         try {
             string absolutePath = System.IO.Path.GetFullPath(globalPath);
-            string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
 
-            if (!IsPathWithinProject(absolutePath, absoluteProjectPath)) {
+            if (!IsPathWithinProject(absolutePath)) {
                 GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("删除失败: 不能删除项目外的文件！");
                 return;
             }
 
-            if (System.IO.Directory.Exists(globalPath)) System.IO.Directory.Delete(globalPath, true);
-            else if (System.IO.File.Exists(globalPath)) System.IO.File.Delete(globalPath);
+            if (System.IO.Directory.Exists(absolutePath)) System.IO.Directory.Delete(absolutePath, true);
+            else if (System.IO.File.Exists(absolutePath)) System.IO.File.Delete(absolutePath);
 
             if (_currentEditingFilePath == path) {
                 _currentEditingFilePath = "";
@@ -448,15 +462,14 @@ public partial class ExtensionEditorScreen : Control
         try {
             string absoluteOldPath = System.IO.Path.GetFullPath(globalOldPath);
             string absoluteNewPath = System.IO.Path.GetFullPath(globalNewPath);
-            string absoluteProjectPath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_projectPath));
 
-            if (!IsPathWithinProject(absoluteOldPath, absoluteProjectPath) || !IsPathWithinProject(absoluteNewPath, absoluteProjectPath)) {
+            if (!IsPathWithinProject(absoluteOldPath) || !IsPathWithinProject(absoluteNewPath)) {
                 GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名失败: 目标文件必须在项目内！");
                 return;
             }
 
-            if (System.IO.Directory.Exists(globalOldPath)) System.IO.Directory.Move(globalOldPath, globalNewPath);
-            else if (System.IO.File.Exists(globalOldPath)) System.IO.File.Move(globalOldPath, globalNewPath);
+            if (System.IO.Directory.Exists(absoluteOldPath)) System.IO.Directory.Move(absoluteOldPath, absoluteNewPath);
+            else if (System.IO.File.Exists(absoluteOldPath)) System.IO.File.Move(absoluteOldPath, absoluteNewPath);
             if (_currentEditingFilePath == oldPath) _currentEditingFilePath = newPath;
             RefreshFileTree();
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名成功！");
@@ -772,6 +785,11 @@ public partial class ExtensionEditorScreen : Control
     private void OnSaveBehaviorPressed()
     {
         if (string.IsNullOrEmpty(_currentEditingFilePath) || _currentBehaviorPack == null) return;
+
+        if (!IsPathWithinProject(_currentEditingFilePath)) {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            return;
+        }
 
         try {
             var options = new JsonSerializerOptions { WriteIndented = true };
