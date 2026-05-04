@@ -438,7 +438,6 @@ public partial class ExtensionEditorScreen : Control
     private void OnDeleteConfirmed()
     {
         string path = _contextTargetItem.GetMetadata(0).AsString();
-<<<<<<< fix/extension-editor-path-traversal-4202405694376757116
         string globalPath = ProjectSettings.GlobalizePath(path);
 
         try {
@@ -451,11 +450,6 @@ public partial class ExtensionEditorScreen : Control
 
             if (System.IO.Directory.Exists(absolutePath)) System.IO.Directory.Delete(absolutePath, true);
             else if (System.IO.File.Exists(absolutePath)) System.IO.File.Delete(absolutePath);
-=======
-        try {
-            if (System.IO.Directory.Exists(path)) System.IO.Directory.Delete(path, true);
-            else if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
->>>>>>> main
 
             if (_currentEditingFilePath == path) {
                 _currentEditingFilePath = "";
@@ -475,8 +469,11 @@ public partial class ExtensionEditorScreen : Control
         if (string.IsNullOrEmpty(newName)) return;
 
         string newPath = oldPath.GetBaseDir().PathJoin(newName);
+        
+        string globalOldPath = ProjectSettings.GlobalizePath(oldPath);
+        string globalNewPath = ProjectSettings.GlobalizePath(newPath);
+
         try {
-<<<<<<< fix/extension-editor-path-traversal-4202405694376757116
             string absoluteOldPath = System.IO.Path.GetFullPath(globalOldPath);
             string absoluteNewPath = System.IO.Path.GetFullPath(globalNewPath);
 
@@ -487,10 +484,6 @@ public partial class ExtensionEditorScreen : Control
 
             if (System.IO.Directory.Exists(absoluteOldPath)) System.IO.Directory.Move(absoluteOldPath, absoluteNewPath);
             else if (System.IO.File.Exists(absoluteOldPath)) System.IO.File.Move(absoluteOldPath, absoluteNewPath);
-=======
-            if (System.IO.Directory.Exists(oldPath)) System.IO.Directory.Move(oldPath, newPath);
-            else if (System.IO.File.Exists(oldPath)) System.IO.File.Move(oldPath, newPath);
->>>>>>> main
             if (_currentEditingFilePath == oldPath) _currentEditingFilePath = newPath;
             RefreshFileTree();
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名成功！");
