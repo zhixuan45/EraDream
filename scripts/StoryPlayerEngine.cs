@@ -555,6 +555,6 @@ public partial class StoryPlayerEngine : Control
         }
     }
 
-    private void LoadLocalTranslations(string storyPath) { } 
+    private void LoadLocalTranslations(string storyPath) { }
     private string LocalTr(string key) => string.IsNullOrEmpty(key) ? key : Tr(key);
 }

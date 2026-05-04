@@ -67,7 +67,7 @@ public partial class SettingsOverlay
 
         // 标题
         var titleLabel = new Label();
-        titleLabel.Text = "设置"; 
+        titleLabel.Text = "设置";
         titleLabel.HorizontalAlignment = HorizontalAlignment.Center;
         titleLabel.AddThemeFontSizeOverride("font_size", 24);
         titleLabel.AddThemeColorOverride("font_color", new Color(1, 1, 1));
