@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using UmaEraArchive.Core.Mods;
 
 namespace UmaEraArchive.Core.Extensions
 {
@@ -100,8 +101,26 @@ namespace UmaEraArchive.Core.Extensions
             }
             else
             {
-                // TODO: 调用 ModLoader 加载 Logic/ModEntry.dll
                 GD.Print($"[ExtensionManager] {id} is a Gameplay pack. Logic injection pending...");
+
+                string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
+                if (File.Exists(dllPath))
+                {
+                    bool success = ModLoader.Instance.LoadMod(id, dllPath);
+                    if (success)
+                    {
+                        GD.Print($"[ExtensionManager] Logic mod loaded for {id}");
+                    }
+                    else
+                    {
+                        var notifier = GetTree().Root.GetNodeOrNull<ErrorNotifier>("ErrorNotifier")
+                                    ?? GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
+                        if (notifier != null)
+                        {
+                            notifier.ShowToast($"模组包错误: 无法加载 {id} 的 Logic/ModEntry.dll");
+                        }
+                    }
+                }
 
                 // 加载行为包
                 string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");

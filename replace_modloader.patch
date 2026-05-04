@@ -1,0 +1,112 @@
+--- scripts/Core/Mods/ModLoader.cs
++++ scripts/Core/Mods/ModLoader.cs
+@@ -7,6 +7,7 @@
+ using System.Reflection;
+ using System.Runtime.Loader;
+ using Godot;
++using UmaEraArchive.Core.Extensions;
+
+ namespace UmaEraArchive.Core.Mods
+ {
+@@ -37,8 +38,7 @@
+     /// </summary>
+     public class ModLoader
+     {
+-        private static ModLoader _instance;
+-        public static ModLoader Instance => _instance ??= new ModLoader();
++        public static ModLoader Instance { get; } = new ModLoader();
+
+         private readonly Dictionary<string, ModInfo> _loadedMods = new();
+
+@@ -46,8 +46,7 @@
+         {
+             public string ModId { get; set; }
+             public ModAssemblyLoadContext LoadContext { get; set; }
+-            public IMod ModInstance { get; set; }
+-            public ModContentDeclaration Content { get; set; }
++            public IUmaPlugin ModInstance { get; set; }
+         }
+
+         /// <summary>
+@@ -67,13 +66,13 @@
+                 return false;
+             }
+
++            ModAssemblyLoadContext loadContext = null;
+             try
+             {
+                 string modDirectory = Path.GetDirectoryName(dllPath);
+
+                 // 创建一个独立的 LoadContext 以便后续可以卸载或热重载
+-                var loadContext = new ModAssemblyLoadContext($"ModContext_{modId}", modDirectory);
++                loadContext = new ModAssemblyLoadContext($"ModContext_{modId}", modDirectory);
+
+                 // 加载主 DLL
+                 Assembly modAssembly = loadContext.LoadFromAssemblyPath(dllPath);
+
+-                // 寻找实现了 IMod 接口的类
+-                var modType = modAssembly.GetTypes().FirstOrDefault(t => typeof(IMod).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
++                // 寻找实现了 IUmaPlugin 接口的类
++                var modType = modAssembly.GetTypes().FirstOrDefault(t => typeof(IUmaPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
+
+                 if (modType == null)
+                 {
+-                    GD.PrintErr($"[ModLoader] Could not find any class implementing IMod in {dllPath}.");
++                    GD.PrintErr($"[ModLoader] Could not find any class implementing IUmaPlugin in {dllPath}.");
+                     loadContext.Unload();
+                     return false;
+                 }
+
+                 // 实例化
+-                var modInstance = (IMod)Activator.CreateInstance(modType);
+-
+-                // 获取内容声明
+-                var declaration = modInstance.GetContentDeclaration();
++                var modInstance = (IUmaPlugin)Activator.CreateInstance(modType);
+
+                 // 初始化
+-                modInstance.Initialize();
++                modInstance.OnLoad();
+
+                 var modInfo = new ModInfo
+                 {
+                     ModId = modId,
+                     LoadContext = loadContext,
+-                    ModInstance = modInstance,
+-                    Content = declaration
++                    ModInstance = modInstance
+                 };
+
+                 _loadedMods[modId] = modInfo;
+-                GD.Print($"[ModLoader] Successfully loaded mod '{modId}'. Added {declaration?.Components?.Count ?? 0} components, {declaration?.Stats?.Count ?? 0} stats, {declaration?.Scenarios?.Count ?? 0} scenarios.");
++                GD.Print($"[ModLoader] Successfully loaded mod '{modId}'.");
+
+                 return true;
+             }
++            catch (ReflectionTypeLoadException ex)
++            {
++                loadContext?.Unload();
++                string loaderExceptions = string.Join("\n", ex.LoaderExceptions.Select(e => e.Message));
++                GD.PrintErr($"[ModLoader] Failed to load mod '{modId}' from {dllPath}. ReflectionTypeLoadException: {ex.Message}\nLoaderExceptions:\n{loaderExceptions}\n{ex.StackTrace}");
++                return false;
++            }
+             catch (Exception ex)
+             {
++                loadContext?.Unload();
+                 GD.PrintErr($"[ModLoader] Failed to load mod '{modId}' from {dllPath}: {ex.Message}\n{ex.StackTrace}");
+                 return false;
+             }
+@@ -104,11 +104,12 @@
+             if (_loadedMods.TryGetValue(modId, out var modInfo))
+             {
+-                try
+-                {
+-                    modInfo.ModInstance.Unload();
+-                }
+-                catch (Exception ex)
+-                {
+-                    GD.PrintErr($"[ModLoader] Error unloading mod '{modId}': {ex.Message}");
+-                }
+-
+                 modInfo.LoadContext.Unload();
+                 _loadedMods.Remove(modId);

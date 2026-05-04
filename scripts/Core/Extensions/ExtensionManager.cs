@@ -113,8 +113,7 @@ namespace UmaEraArchive.Core.Extensions
                     }
                     else
                     {
-                        var notifier = GetTree().Root.GetNodeOrNull<ErrorNotifier>("ErrorNotifier")
-                                    ?? GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
+                        var notifier = GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
                         if (notifier != null)
                         {
                             notifier.ShowToast($"模组包错误: 无法加载 {id} 的 Logic/ModEntry.dll");
