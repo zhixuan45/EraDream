@@ -2,7 +2,7 @@ using Godot;
 using System;
 using UmaEraArchive.Core;
 
-namespace umaEraArchive.Tests;
+namespace UmaEraArchive.Tests;
 
 /// <summary>
 /// CommandHistory 撤销/重做系统自动化测试
