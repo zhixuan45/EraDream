@@ -31,6 +31,7 @@ public partial class SimulationMainScreen : Control
     private Button _btnRest;
     private Button _btnNextWeek;
     private Button _btnSystem;
+    private Button _btnScout;
 
     private UI.InventoryUI _inventoryUI;
 
@@ -182,16 +183,60 @@ public partial class SimulationMainScreen : Control
         if (GameManager.Instance?.CurrentState != null)
         {
             var state = GameManager.Instance.CurrentState;
-            _turnInfo.Text = $"当前回合: {state.CurrentTurn} / {state.MaxTurns} (本周剩余操作: {state.Uma.ActionStamina}/{state.Uma.MaxActionStamina})";
-            _playerInfo.Text = $"{state.Player.PlayerName} 体力: {state.Player.Stamina}/{state.Player.MaxStamina} | 精力: {state.Player.Energy} | 金钱: {state.Player.Money}";
+            bool hasUma = !string.IsNullOrEmpty(state.ActiveUmaId);
 
-            var uma = state.Uma;
-            _speedLabel.Text = $"速度: {uma.Speed}";
-            _staminaLabel.Text = $"耐力: {uma.Stamina}";
-            _powerLabel.Text = $"力量: {uma.Power}";
-            _gutsLabel.Text = $"根性: {uma.Guts}";
-            _intLabel.Text = $"智力: {uma.Intelligence}";
-            _affectionLabel.Text = $"好感度: {uma.Affection} | 心情: {uma.CurrentMoodStage}";
+            // 无马娘状态处理
+            if (!hasUma)
+            {
+                _btnTrain.Visible = false;
+                _btnOuting.Visible = false;
+                _btnShop.Visible = false;
+                _btnInventory.Visible = false;
+
+                _turnInfo.Text = $"当前回合: {state.CurrentTurn} / {state.MaxTurns}";
+                _playerInfo.Text = $"{state.Player.PlayerName} 体力: {state.Player.Stamina}/{state.Player.MaxStamina} | 精力: {state.Player.Energy} | 金钱: {state.Player.Money}";
+
+                _speedLabel.Text = $"速度: -";
+                _staminaLabel.Text = $"耐力: -";
+                _powerLabel.Text = $"力量: -";
+                _gutsLabel.Text = $"根性: -";
+                _intLabel.Text = $"智力: -";
+                _affectionLabel.Text = $"好感度: - | 心情: -";
+
+                if (_btnScout == null)
+                {
+                    _btnScout = new Button { Text = "去运动场看看", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                    _btnScout.Pressed += () => GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("运动场系统正在实装中...");
+                    _portraitContainer.AddChild(_btnScout);
+
+                    // 居中
+                    _btnScout.SetAnchorsPreset(Control.LayoutPreset.Center);
+                }
+                _btnScout.Visible = true;
+            }
+            else
+            {
+                _btnTrain.Visible = true;
+                _btnOuting.Visible = true;
+                _btnShop.Visible = true;
+                _btnInventory.Visible = true;
+
+                if (_btnScout != null)
+                {
+                    _btnScout.Visible = false;
+                }
+
+                _turnInfo.Text = $"当前回合: {state.CurrentTurn} / {state.MaxTurns} (本周剩余操作: {state.Uma.ActionStamina}/{state.Uma.MaxActionStamina})";
+                _playerInfo.Text = $"{state.Player.PlayerName} 体力: {state.Player.Stamina}/{state.Player.MaxStamina} | 精力: {state.Player.Energy} | 金钱: {state.Player.Money}";
+
+                var uma = state.Uma;
+                _speedLabel.Text = $"速度: {uma.Speed}";
+                _staminaLabel.Text = $"耐力: {uma.Stamina}";
+                _powerLabel.Text = $"力量: {uma.Power}";
+                _gutsLabel.Text = $"根性: {uma.Guts}";
+                _intLabel.Text = $"智力: {uma.Intelligence}";
+                _affectionLabel.Text = $"好感度: {uma.Affection} | 心情: {uma.CurrentMoodStage}";
+            }
         }
     }
 
@@ -300,9 +345,24 @@ public partial class SimulationMainScreen : Control
     {
         if (GameManager.Instance != null && !GameManager.Instance.CurrentState.IsGameOver)
         {
-            GameManager.Instance.Rest.ExecuteRest(GameManager.Instance.CurrentState);
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("进行了休息，体力已恢复。");
-            UpdateUI();
+            var state = GameManager.Instance.CurrentState;
+            bool success = GameManager.Instance.Rest.ExecuteRest(state);
+            if (success)
+            {
+                if (string.IsNullOrEmpty(state.ActiveUmaId))
+                {
+                    GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("进行了休息，训练员体力已恢复。");
+                }
+                else
+                {
+                    GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("进行了休息，马娘体力已恢复。");
+                }
+                UpdateUI();
+            }
+            else
+            {
+                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("训练员精力不足，无法进行休息！");
+            }
         }
     }
 
