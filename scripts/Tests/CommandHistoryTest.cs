@@ -63,6 +63,7 @@ public partial class CommandHistoryTest : Node
 
         history.Execute(() => value = 2, () => value = 1);
         if (history.CanRedo) throw new Exception("Redo stack should be cleared after new Execute.");
+        if (value != 2) throw new Exception("Value should be 2 after second Execute."); // Use 'value' to fix CS0219
 
         GD.Print("[Test] Redo Stack Clearing OK.");
     }

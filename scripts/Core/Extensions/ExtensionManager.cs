@@ -95,8 +95,18 @@ namespace UmaEraArchive.Core.Extensions
                 return Task.FromResult(false);
             }
 
-            string baseCacheDir = Path.GetFullPath(ProjectSettings.GlobalizePath(CacheDir));
-            string targetCache = Path.GetFullPath(Path.Combine(baseCacheDir, id));
+            string baseCacheDir;
+            string targetCache;
+            try
+            {
+                baseCacheDir = Path.GetFullPath(ProjectSettings.GlobalizePath(CacheDir));
+                targetCache = Path.GetFullPath(Path.Combine(baseCacheDir, id));
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[ExtensionManager] Invalid characters in extension id {id}: {ex.Message}");
+                return Task.FromResult(false);
+            }
 
             // 验证 targetCache 必须在 baseCacheDir 内，防止路径穿越攻击
             if (!targetCache.StartsWith(baseCacheDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
@@ -120,12 +130,6 @@ namespace UmaEraArchive.Core.Extensions
 
                 string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
 
-                // 检查模块依赖是否可用
-                if (ModLoader.Instance == null)
-                {
-                    GD.PrintErr($"[ExtensionManager] ModLoader instance is not available. Cannot load DLL for {id}.");
-                }
-                else
                 if (File.Exists(dllPath))
                 {
                     bool success = ModLoader.Instance.LoadMod(id, dllPath);
