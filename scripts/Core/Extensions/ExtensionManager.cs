@@ -88,8 +88,23 @@ namespace UmaEraArchive.Core.Extensions
 
             GD.Print($"[ExtensionManager] Activating {id}...");
 
-            // 1. 准备解压目录
-            string targetCache = Path.Combine(ProjectSettings.GlobalizePath(CacheDir), id);
+            // 1. 准备解压目录及安全检查
+            if (string.IsNullOrEmpty(id) || id.Contains("..") || id.Contains("/") || id.Contains("\\"))
+            {
+                GD.PrintErr($"[ExtensionManager] Invalid extension id for activation: {id}");
+                return Task.FromResult(false);
+            }
+
+            string baseCacheDir = Path.GetFullPath(ProjectSettings.GlobalizePath(CacheDir));
+            string targetCache = Path.GetFullPath(Path.Combine(baseCacheDir, id));
+
+            // 验证 targetCache 必须在 baseCacheDir 内，防止路径穿越攻击
+            if (!targetCache.StartsWith(baseCacheDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                !targetCache.Equals(baseCacheDir, StringComparison.OrdinalIgnoreCase))
+            {
+                GD.PrintErr($"[ExtensionManager] Security violation: target cache path {targetCache} escapes base cache directory.");
+                return Task.FromResult(false);
+            }
             
             // 2. 解压逻辑 (Phase 1 实现)
             // ExtractArchive(id, targetCache);
@@ -104,6 +119,13 @@ namespace UmaEraArchive.Core.Extensions
                 GD.Print($"[ExtensionManager] {id} is a Gameplay pack. Logic injection pending...");
 
                 string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
+
+                // 检查模块依赖是否可用
+                if (ModLoader.Instance == null)
+                {
+                    GD.PrintErr($"[ExtensionManager] ModLoader instance is not available. Cannot load DLL for {id}.");
+                }
+                else
                 if (File.Exists(dllPath))
                 {
                     bool success = ModLoader.Instance.LoadMod(id, dllPath);
@@ -123,9 +145,13 @@ namespace UmaEraArchive.Core.Extensions
 
                 // 加载行为包
                 string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
-                if (File.Exists(behaviorPath))
+                if (BehaviorRegistry.Instance == null)
                 {
-                    BehaviorRegistry.Instance?.LoadBehaviorPack(behaviorPath);
+                    GD.PrintErr($"[ExtensionManager] BehaviorRegistry instance is not available. Cannot load behavior.json for {id}.");
+                }
+                else if (File.Exists(behaviorPath))
+                {
+                    BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath);
                     GD.Print($"[ExtensionManager] Behavior pack loaded for {id}");
                 }
             }

@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/app/scripts/Tests/CommandHistoryTest.cs(58,13): warning CS0219: The variable 'value' is assigned but its value is never used [/app/umaEraArchive.csproj]
+  umaEraArchive -> /app/.godot/mono/temp/bin/Debug/umaEraArchive.dll
+
+Build succeeded.
+
+/app/scripts/Tests/CommandHistoryTest.cs(58,13): warning CS0219: The variable 'value' is assigned but its value is never used [/app/umaEraArchive.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:11.92
