@@ -47,8 +47,8 @@ public partial class StorySelectorScreen : Control
         _searchEdit.TextChanged += OnSearchTextChanged;
         GetNode<Button>("SafeAreaAdapter/VBoxContainer/Footer/BtnBack").Pressed += () => {
             IsForSimulation = false; 
-            LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
-            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            LoadingScreen.TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
         };
         _btnPlay.Pressed += LaunchStory;
 
@@ -150,8 +150,8 @@ public partial class StorySelectorScreen : Control
                 umaEraArchive.Game.GameManager.Instance.AutoSave();
             }
             IsForSimulation = false;
-            LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
-            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            LoadingScreen.TargetScene = "res://scenes/Game/SimulationMainScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
             return;
         }
 
@@ -180,8 +180,8 @@ public partial class StorySelectorScreen : Control
             if (FileAccess.FileExists(charFile)) CharacterManager.LoadCharacters(charFile);
         }
 
-        LoadingScreen.TargetScene = "res://scenes/StoryPlayerScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/Game/StoryPlayerScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
     }
 }
 

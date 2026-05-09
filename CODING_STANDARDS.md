@@ -35,3 +35,8 @@
   - 当类或文件超过此限制时，必须进行重构和拆分。
   - 优先考虑将逻辑拆分为更小的、逻辑独立的组件（Components）、分部类（Partial Classes）或辅助工具类（Helper Utilities）。
   - 每个文件应遵循单一职责原则（SRP）；文件长度过大通常意味着职责过于分散。
+
+## 6. 性能优化 (Performance Optimization)
+
+- **避免 O(N) 集合查找**: 禁止在循环体或高频调用的方法（如 `_Process`、事件循环或递归查询）中使用 `List<T>.FirstOrDefault()`、`List<T>.Find()` 或 LINQ 方法进行属性匹配。
+- **使用哈希表缓存**: 对于需要高频查找的集合（如按 ID 查找节点、物品等），必须将其转换并缓存为 `Dictionary<TKey, TValue>` 等哈希表结构，以确保达到 O(1) 的查找复杂度。

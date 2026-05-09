@@ -148,8 +148,8 @@ public partial class ExtensionEditorScreen : Control
         _btnCreateJSON.GetPopup().IdPressed += OnCreateJsonIdPressed;
         _btnExport.Pressed += OnExportPressed;
         _btnBack.Pressed += () => {
-            LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
-            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            LoadingScreen.TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
         };
 
         _fileTree.ItemSelected += OnFileItemSelected;

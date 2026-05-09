@@ -31,7 +31,7 @@ public partial class StoryPreviewUI : Node
         StoryPlayerEngine.EnableVisualEditing = isEditMode;
 
         // 实例化播放场景
-        var playerScene = GD.Load<PackedScene>("res://scenes/StoryPlayerScreen.tscn");
+        var playerScene = GD.Load<PackedScene>("res://scenes/Game/StoryPlayerScreen.tscn");
         var playerInstance = playerScene.Instantiate();
         
         // 确保实例拉伸填充窗口

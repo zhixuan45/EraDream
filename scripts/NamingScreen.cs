@@ -36,8 +36,8 @@ public partial class NamingScreen : Control
             
             // 跳转至剧本/马娘选择界面进行初始化
             StorySelectorScreen.IsForSimulation = true;
-            LoadingScreen.TargetScene = "res://scenes/StorySelectorScreen.tscn";
-            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            LoadingScreen.TargetScene = "res://scenes/UI/StorySelectorScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
         }
         else
         {

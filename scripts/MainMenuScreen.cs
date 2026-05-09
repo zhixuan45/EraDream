@@ -84,27 +84,27 @@ public partial class MainMenuScreen : Control
 
     private void OnStoryPressed()
     {
-        LoadingScreen.TargetScene = "res://scenes/StorySelectorScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/UI/StorySelectorScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
     }
 
     private void OnEditorPressed()
     {
-        LoadingScreen.TargetScene = "res://scenes/EditorScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/Editor/EditorScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
     }
 
     private void OnModEditorPressed()
     {
-        LoadingScreen.TargetScene = "res://scenes/ExtensionEditorScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/Editor/ExtensionEditorScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
     }
 
     private void OnStartPressed()
     {
         // 跳转至存档选择/新建存档中间界面
-        LoadingScreen.TargetScene = "res://scenes/SaveSlotScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/UI/SaveSlotScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
     }
 
     private void OnLoadPressed()
@@ -121,8 +121,8 @@ public partial class MainMenuScreen : Control
             if (FileAccess.FileExists(lastPath))
             {
                 GameManager.Instance.LoadGame(lastPath);
-                LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
-                GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+                LoadingScreen.TargetScene = "res://scenes/Game/SimulationMainScreen.tscn";
+                GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
             }
             else
             {

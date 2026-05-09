@@ -36,7 +36,7 @@ public partial class LoadingScreen : Control
     private float _minLoadTime = 0.5f; // 给一个最小加载时间，防止画面一闪而过
 
     // 静态变量，用于控制加载后的跳转目标
-    public static string TargetScene = "res://scenes/MainMenuScreen.tscn";
+    public static string TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
 
     private bool _isDarkMode => SettingsManager.Instance?.IsDarkMode ?? true;
 

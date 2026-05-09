@@ -37,7 +37,7 @@ public partial class SimulationMainScreen : Control
     // 弹出菜单
     private PopupMenu _shopMenu;
 
-    private PackedScene _trainingMenuScene = GD.Load<PackedScene>("res://scenes/TrainingMenuUI.tscn");
+    private PackedScene _trainingMenuScene = GD.Load<PackedScene>("res://scenes/Game/TrainingMenuUI.tscn");
 
     public override void _Ready()
     {
@@ -287,7 +287,7 @@ public partial class SimulationMainScreen : Control
     {
         if (_inventoryUI == null)
         {
-            var scene = GD.Load<PackedScene>("res://scenes/InventoryUI.tscn");
+            var scene = GD.Load<PackedScene>("res://scenes/Game/InventoryUI.tscn");
             _inventoryUI = scene.Instantiate<UI.InventoryUI>();
             AddChild(_inventoryUI);
         }
@@ -320,7 +320,7 @@ public partial class SimulationMainScreen : Control
     private void OnSystemPressed()
     {
         GameManager.Instance?.AutoSave();
-        LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
     }
 }

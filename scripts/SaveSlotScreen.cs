@@ -48,8 +48,8 @@ public partial class SaveSlotScreen : Control
             // 初始化新游戏状态（跳过剧本选择，由后续签约流程决定）
             GameManager.Instance.StartNewGame(null);
             
-            LoadingScreen.TargetScene = "res://scenes/NamingScreen.tscn";
-            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            LoadingScreen.TargetScene = "res://scenes/UI/NamingScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
         }
         else
         {
@@ -72,8 +72,8 @@ public partial class SaveSlotScreen : Control
             if (FileAccess.FileExists(lastPath))
             {
                 GameManager.Instance.LoadGame(lastPath);
-                LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
-                GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+                LoadingScreen.TargetScene = "res://scenes/Game/SimulationMainScreen.tscn";
+                GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
             }
             else
             {
@@ -84,8 +84,8 @@ public partial class SaveSlotScreen : Control
 
     private void OnBackPressed()
     {
-        LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        LoadingScreen.TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
     }
 
     public override void _ExitTree()

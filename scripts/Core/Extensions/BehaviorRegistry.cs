@@ -153,7 +153,7 @@ public partial class BehaviorRegistry : Node
             // 切换到剧情引擎
             StoryPlayerEngine.CurrentStoryPath = action.Path;
             // TODO: 这里需要一个全局导航方法，暂时使用 ChangeScene
-            GetTree().ChangeSceneToFile("res://scenes/StoryPlayerScreen.tscn");
+            GetTree().ChangeSceneToFile("res://scenes/Game/StoryPlayerScreen.tscn");
         }
         else if (action.Type == "BriefStory")
         {

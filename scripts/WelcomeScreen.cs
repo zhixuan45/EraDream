@@ -18,13 +18,13 @@ public partial class WelcomeScreen : Control
     {
         if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
         {
-            LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
-            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            LoadingScreen.TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
         }
         else if (@event is InputEventScreenTouch touchEvent && touchEvent.Pressed)
         {
-            LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
-            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+            LoadingScreen.TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
         }
     }
 }

@@ -22,6 +22,7 @@ public partial class StoryPlayerEngine : Control
     private Dictionary<int, CharacterSprite> _activeStickerSprites = new Dictionary<int, CharacterSprite>();
 
     private List<BaseNodeData> _storyNodes = new List<BaseNodeData>();
+    private Dictionary<string, BaseNodeData> _nodeCache = new Dictionary<string, BaseNodeData>();
     private BaseNodeData _currentNode;
     private bool _isTextAnimating = false;
     private float _textSpeed = 0.05f;
@@ -31,7 +32,7 @@ public partial class StoryPlayerEngine : Control
     public static List<BaseNodeData> PreviewNodes = null;
     public static string StartNodeId = null;
     public static bool EnableVisualEditing = false;
-    public static string ReturnScenePath = "res://scenes/MainMenuScreen.tscn";
+    public static string ReturnScenePath = "res://scenes/UI/MainMenuScreen.tscn";
     public bool IsPreviewMode { get; set; } = false;
 
     private CharacterSprite _draggedSprite = null;
@@ -91,9 +92,10 @@ public partial class StoryPlayerEngine : Control
             GD.Print("[Engine] Entering Preview Mode...");
             IsPreviewMode = true;
             _storyNodes = PreviewNodes;
+            _nodeCache = _storyNodes.Where(n => !string.IsNullOrEmpty(n.Id)).ToDictionary(n => n.Id);
             
             if (!string.IsNullOrEmpty(StartNodeId)) {
-                _currentNode = _storyNodes.FirstOrDefault(n => n.Id == StartNodeId);
+                _nodeCache.TryGetValue(StartNodeId, out _currentNode);
             } else {
                 _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
             }
@@ -112,7 +114,7 @@ public partial class StoryPlayerEngine : Control
         if (string.IsNullOrEmpty(CurrentStoryPath))
         {
             GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowErrorDialog("加载失败", "[Engine] Story path is empty!");
-            GetTree().ChangeSceneToFile("res://scenes/MainMenuScreen.tscn");
+            GetTree().ChangeSceneToFile("res://scenes/UI/MainMenuScreen.tscn");
             return;
         }
 
@@ -127,6 +129,7 @@ public partial class StoryPlayerEngine : Control
     {
         _storyNodes = StoryNodeManager.LoadProject(path);
         if (_storyNodes.Count == 0) return;
+        _nodeCache = _storyNodes.Where(n => !string.IsNullOrEmpty(n.Id)).ToDictionary(n => n.Id);
         _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
         ProcessCurrentNode();
     }
@@ -516,7 +519,7 @@ public partial class StoryPlayerEngine : Control
 
     private void GoToNextNode(string nextId)
     {
-        _currentNode = string.IsNullOrEmpty(nextId) ? null : _storyNodes.FirstOrDefault(n => n.Id == nextId);
+        _currentNode = string.IsNullOrEmpty(nextId) ? null : (_nodeCache.TryGetValue(nextId, out var node) ? node : null);
         ProcessCurrentNode();
     }
 
@@ -525,7 +528,7 @@ public partial class StoryPlayerEngine : Control
         string currentCheckId = nextId;
         while (!string.IsNullOrEmpty(currentCheckId))
         {
-            var node = _storyNodes.FirstOrDefault(n => n.Id == currentCheckId);
+            _nodeCache.TryGetValue(currentCheckId, out var node);
             if (node == null) break;
 
             if (node is SpriteNodeData sprite)

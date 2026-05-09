@@ -165,8 +165,8 @@ public partial class EditorScreen : Control
 
 		_btnReturn = new Button { Text = "返回主菜单", CustomMinimumSize = new Vector2(0, 40) };
 		_btnReturn.Pressed += () => {
-			LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
-			GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+			LoadingScreen.TargetScene = "res://scenes/UI/MainMenuScreen.tscn";
+			GetTree().ChangeSceneToFile("res://scenes/UI/LoadingScreen.tscn");
 		};
 		rootVBox.AddChild(_btnReturn);
 	}

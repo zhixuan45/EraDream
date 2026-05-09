@@ -94,10 +94,10 @@ public partial class EventModule : Node
     {
         StoryPlayerEngine.CurrentStoryPath = path;
         StoryPlayerEngine.StartNodeId = startNodeId;
-        StoryPlayerEngine.ReturnScenePath = "res://scenes/SimulationMainScreen.tscn";
+        StoryPlayerEngine.ReturnScenePath = "res://scenes/Game/SimulationMainScreen.tscn";
         
         // 切换到剧情引擎场景
-        GetTree().ChangeSceneToFile("res://scenes/StoryPlayerEngine.tscn");
+        GetTree().ChangeSceneToFile("res://scenes/Game/StoryPlayerScreen.tscn");
     }
 
     /// <summary>
