@@ -119,6 +119,70 @@ text = "智力: 1"
 layout_mode = 2
 text = "好感度: 0"
 
+[node name="UmaResourcesVBox" type="VBoxContainer" parent="SafeArea/MainVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="StaminaHBox" type="HBoxContainer" parent="SafeArea/MainVBox/UmaResourcesVBox"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Label" type="Label" parent="SafeArea/MainVBox/UmaResourcesVBox/StaminaHBox"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "马娘体力"
+
+[node name="StaminaBar" type="ProgressBar" parent="SafeArea/MainVBox/UmaResourcesVBox/StaminaHBox"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+value = 100.0
+show_percentage = false
+
+[node name="StaminaText" type="Label" parent="SafeArea/MainVBox/UmaResourcesVBox/StaminaHBox/StaminaBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 14
+text = "100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EnergyHBox" type="HBoxContainer" parent="SafeArea/MainVBox/UmaResourcesVBox"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Label" type="Label" parent="SafeArea/MainVBox/UmaResourcesVBox/EnergyHBox"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "马娘精力"
+
+[node name="EnergyBar" type="ProgressBar" parent="SafeArea/MainVBox/UmaResourcesVBox/EnergyHBox"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+value = 100.0
+show_percentage = false
+
+[node name="EnergyText" type="Label" parent="SafeArea/MainVBox/UmaResourcesVBox/EnergyHBox/EnergyBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 14
+text = "100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="BottomActions" type="GridContainer" parent="SafeArea/MainVBox"]
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2

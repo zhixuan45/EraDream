@@ -19,6 +19,7 @@ public partial class MainMenuScreen : Control
         GetNode<Button>("VBoxContainer/StoryButton").Pressed += OnStoryPressed;
         GetNode<Button>("VBoxContainer/EditorButton").Pressed += OnEditorPressed;
         GetNode<Button>("VBoxContainer/ModEditorButton").Pressed += OnModEditorPressed;
+        GetNode<Button>("VBoxContainer/ExtensionsButton").Pressed += OnExtensionsPressed;
         GetNode<Button>("VBoxContainer/ExitButton").Pressed += OnExitPressed;
 
         // 注册响应式布局回调
@@ -98,6 +99,14 @@ public partial class MainMenuScreen : Control
     {
         LoadingScreen.TargetScene = "res://scenes/ExtensionEditorScreen.tscn";
         GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+    }
+
+    private void OnExtensionsPressed()
+    {
+        if (UmaEraArchive.Core.Extensions.ExtensionManagerUI.Instance != null)
+        {
+            UmaEraArchive.Core.Extensions.ExtensionManagerUI.Instance.ShowUI();
+        }
     }
 
     private void OnStartPressed()

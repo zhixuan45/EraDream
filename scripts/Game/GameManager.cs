@@ -176,6 +176,7 @@ public partial class GameManager : Node
         CurrentState.Player.AddStamina(30); // 基础恢复
         CurrentState.Player.AddEnergy(10);
         CurrentState.Uma.AddActionStamina(40);
+        CurrentState.Uma.AddEnergy(20);
         // 心情随时间自然衰减（普通以下不衰减，绝好/好缓慢衰减）
         if (CurrentState.Uma.Mood > 75) CurrentState.Uma.AddMood(-5);
 

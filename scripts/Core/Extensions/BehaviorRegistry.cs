@@ -18,6 +18,7 @@ public partial class BehaviorRegistry : Node
 
     private Dictionary<string, List<BehaviorRule>> _rulesByHook = new();
     private Dictionary<string, ItemDefinition> _itemDefinitions = new();
+    private Dictionary<string, List<UIOption>> _menus = new();
     private RandomNumberGenerator _rng = new();
 
     public override void _EnterTree()
@@ -34,6 +35,21 @@ public partial class BehaviorRegistry : Node
         try
         {
             string jsonContent = File.ReadAllText(ProjectSettings.GlobalizePath(jsonPath));
+            LoadBehaviorPackFromContent(jsonContent);
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[BehaviorRegistry] Failed to load behavior pack {jsonPath}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 从 JSON 字符串直接加载行为包
+    /// </summary>
+    public void LoadBehaviorPackFromContent(string jsonContent)
+    {
+        try
+        {
             var pack = JsonSerializer.Deserialize<BehaviorPack>(jsonContent);
             if (pack == null) return;
 
@@ -45,8 +61,25 @@ public partial class BehaviorRegistry : Node
                     if (!_rulesByHook.ContainsKey(rule.Hook))
                         _rulesByHook[rule.Hook] = new List<BehaviorRule>();
                     
-                    _rulesByHook[rule.Hook].Add(rule);
-                    GD.Print($"[BehaviorRegistry] Registered rule {rule.Id} for hook {rule.Hook}");
+                    if (rule.Override)
+                    {
+                        var existing = _rulesByHook[rule.Hook].FirstOrDefault(r => r.Id == rule.Id);
+                        if (existing != null)
+                        {
+                            int index = _rulesByHook[rule.Hook].IndexOf(existing);
+                            _rulesByHook[rule.Hook][index] = rule;
+                            GD.Print($"[BehaviorRegistry] Overridden rule {rule.Id} for hook {rule.Hook}");
+                        }
+                        else
+                        {
+                            _rulesByHook[rule.Hook].Add(rule);
+                        }
+                    }
+                    else
+                    {
+                        _rulesByHook[rule.Hook].Add(rule);
+                        GD.Print($"[BehaviorRegistry] Registered rule {rule.Id} for hook {rule.Hook}");
+                    }
                 }
             }
 
@@ -55,14 +88,64 @@ public partial class BehaviorRegistry : Node
             {
                 foreach (var item in pack.Items)
                 {
-                    _itemDefinitions[item.Id] = item;
-                    GD.Print($"[BehaviorRegistry] Registered item {item.Id}: {item.Name}");
+                    if (item.Override && _itemDefinitions.ContainsKey(item.Id))
+                    {
+                        _itemDefinitions[item.Id] = item;
+                        GD.Print($"[BehaviorRegistry] Overridden item {item.Id}: {item.Name}");
+                    }
+                    else
+                    {
+                        _itemDefinitions[item.Id] = item;
+                        GD.Print($"[BehaviorRegistry] Registered item {item.Id}: {item.Name}");
+                    }
+                }
+            }
+
+            // 加载 UI 菜单
+            if (pack.Menus != null)
+            {
+                foreach (var menu in pack.Menus)
+                {
+                    if (!_menus.ContainsKey(menu.MenuId))
+                        _menus[menu.MenuId] = new List<UIOption>();
+
+                    foreach (var option in menu.Options)
+                    {
+                        var existing = _menus[menu.MenuId].FirstOrDefault(o => o.Id == option.Id);
+                        if (option.Override && existing != null)
+                        {
+                            int index = _menus[menu.MenuId].IndexOf(existing);
+                            _menus[menu.MenuId][index] = option;
+                            GD.Print($"[BehaviorRegistry] Overridden UI option {option.Id} in menu {menu.MenuId}");
+                        }
+                        else
+                        {
+                            _menus[menu.MenuId].Add(option);
+                            GD.Print($"[BehaviorRegistry] Registered UI option {option.Id} in menu {menu.MenuId}");
+                        }
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            GD.PrintErr($"[BehaviorRegistry] Failed to load behavior pack {jsonPath}: {ex.Message}");
+            GD.PrintErr($"[BehaviorRegistry] Failed to parse behavior pack content: {ex.Message}");
+        }
+    }
+
+    public List<UIOption> GetValidOptions(string menuId, GameState state)
+    {
+        if (!_menus.TryGetValue(menuId, out var options)) return new List<UIOption>();
+        return options.Where(o => EvaluateConditions(o.Conditions, state)).ToList();
+    }
+
+    public void ExecuteOptionAction(string menuId, string optionId, GameState state)
+    {
+        if (!_menus.TryGetValue(menuId, out var options)) return;
+        var option = options.FirstOrDefault(o => o.Id == optionId);
+        if (option != null)
+        {
+            ExecuteAction(option.Action, state);
         }
     }
 
@@ -84,7 +167,7 @@ public partial class BehaviorRegistry : Node
         if (!_rulesByHook.TryGetValue(hookName, out var rules)) return;
 
         // 筛选满足条件的规则
-        var validRules = rules.Where(r => EvaluateConditions(r, state)).ToList();
+        var validRules = rules.Where(r => EvaluateConditions(r.Conditions, state)).ToList();
         if (validRules.Count == 0) return;
 
         // 概率判定并选择一个执行
@@ -98,9 +181,10 @@ public partial class BehaviorRegistry : Node
         }
     }
 
-    private bool EvaluateConditions(BehaviorRule rule, GameState state)
+    private bool EvaluateConditions(List<BehaviorCondition> conditions, GameState state)
     {
-        foreach (var cond in rule.Conditions)
+        if (conditions == null) return true;
+        foreach (var cond in conditions)
         {
             float currentVal = GetPropertyValue(cond.Property, state);
             if (!float.TryParse(cond.Value, out float targetVal)) continue;

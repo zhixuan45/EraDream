@@ -77,6 +77,17 @@ public partial class StorySelectorScreen : Control
     private void RefreshAllLists()
     {
         RefreshList("user://stories/", _scenarioList, _selectedScenarios);
+        
+        // 动态加载来自已激活扩展的剧本
+        if (UmaEraArchive.Core.Extensions.ExtensionManager.Instance != null)
+        {
+            var extStories = UmaEraArchive.Core.Extensions.ExtensionManager.Instance.GetActiveStoryPaths();
+            foreach (var storyPath in extStories)
+            {
+                AddStoryItem(storyPath, _scenarioList, _selectedScenarios);
+            }
+        }
+
         RefreshList("user://characters/", _characterList, _selectedCharacters);
         RefreshList("user://mods/", _modList, _selectedMods);
     }
@@ -95,20 +106,27 @@ public partial class StorySelectorScreen : Control
             if (!dir.CurrentIsDir() && (fileName.EndsWith(".json") || fileName.EndsWith(".era") || fileName.EndsWith(".zip")))
             {
                 string fullPath = path + fileName;
-                CheckBox cb = new CheckBox {
-                    Text = fileName,
-                    CustomMinimumSize = new Vector2(0, 40),
-                    ButtonPressed = selection.Contains(fullPath)
-                };
-                cb.Toggled += (bool pressed) => {
-                    if (pressed) { if (!selection.Contains(fullPath)) selection.Add(fullPath); }
-                    else selection.Remove(fullPath);
-                    _btnPlay.Disabled = _selectedScenarios.Count == 0;
-                };
-                container.AddChild(cb);
+                AddStoryItem(fullPath, container, selection);
             }
             fileName = dir.GetNext();
         }
+    }
+
+    private void AddStoryItem(string fullPath, VBoxContainer container, List<string> selection)
+    {
+        string fileName = System.IO.Path.GetFileName(fullPath);
+        CheckBox cb = new CheckBox {
+            Text = fileName,
+            TooltipText = fullPath,
+            CustomMinimumSize = new Vector2(0, 40),
+            ButtonPressed = selection.Contains(fullPath)
+        };
+        cb.Toggled += (bool pressed) => {
+            if (pressed) { if (!selection.Contains(fullPath)) selection.Add(fullPath); }
+            else selection.Remove(fullPath);
+            _btnPlay.Disabled = _selectedScenarios.Count == 0;
+        };
+        container.AddChild(cb);
     }
 
     private void OnSearchTextChanged(string newText)

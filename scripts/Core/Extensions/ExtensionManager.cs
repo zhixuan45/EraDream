@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using UmaEraArchive.Core.Mods;
 
@@ -20,6 +21,7 @@ namespace UmaEraArchive.Core.Extensions
         private const string CacheDir = "user://cache/ext";
 
         private Dictionary<string, ExtensionManifest> _loadedManifests = new();
+        private Dictionary<string, string> _extensionPaths = new(); // ID -> Global Path
         private List<string> _activeExtensionIds = new();
 
         public override void _EnterTree()
@@ -36,104 +38,346 @@ namespace UmaEraArchive.Core.Extensions
         }
 
         /// <summary>
-        /// 扫描扩展文件夹，仅读取 manifest.json
+        /// 扫描扩展文件夹，读取 manifest.json
         /// </summary>
         public void ScanExtensions()
         {
             _loadedManifests.Clear();
-            using var dir = DirAccess.Open(ExtDir);
-            if (dir == null) return;
+            _extensionPaths.Clear();
+            string globalExtDir = ProjectSettings.GlobalizePath(ExtDir);
+            
+            if (!Directory.Exists(globalExtDir)) return;
 
-            dir.ListDirBegin();
-            string fileName = dir.GetNext();
-            while (fileName != "")
+            // 1. 扫描文件夹形式的扩展 (开发调试用)
+            foreach (var dirPath in Directory.GetDirectories(globalExtDir))
             {
-                if (fileName.EndsWith(".umaext"))
+                string manifestPath = Path.Combine(dirPath, "manifest.json");
+                if (File.Exists(manifestPath))
                 {
-                    var manifest = LoadManifestFromArchive(Path.Combine(ExtDir, fileName));
+                    var manifest = LoadManifestFromFile(manifestPath);
                     if (manifest != null)
                     {
-                        _loadedManifests[manifest.Id] = manifest;
-                        GD.Print($"[ExtensionManager] Found extension: {manifest.Name} ({manifest.Type})");
+                        _extensionPaths[manifest.Id] = dirPath;
+                        ProcessManifest(manifest, dirPath);
                     }
                 }
-                fileName = dir.GetNext();
+            }
+
+            // 2. 扫描 .umaext 压缩包
+            foreach (var filePath in Directory.GetFiles(globalExtDir, "*.umaext"))
+            {
+                var manifest = LoadManifestFromArchive(filePath);
+                if (manifest != null)
+                {
+                    _extensionPaths[manifest.Id] = filePath;
+                    ProcessManifestArchive(manifest, filePath);
+                    GD.Print($"[ExtensionManager] Found archived extension: {manifest.Name} ({manifest.Id})");
+                }
+            }
+        }
+
+        private void ProcessManifestArchive(ExtensionManifest manifest, string archivePath)
+        {
+            if (manifest.Type == PackType.Gameplay)
+            {
+                using var reader = new ZipReader();
+                if (reader.Open(archivePath) == Error.Ok)
+                {
+                    foreach (var file in reader.GetFiles())
+                    {
+                        if (file.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                        {
+                            byte[] data = reader.ReadFile(file);
+                            using var ms = new MemoryStream(data);
+                            var risks = SecurityScanner.Scan(ms);
+                            foreach (var risk in risks)
+                            {
+                                if (!manifest.DetectedPermissions.Contains(risk))
+                                    manifest.DetectedPermissions.Add(risk);
+                            }
+                        }
+                    }
+                }
+            }
+            _loadedManifests[manifest.Id] = manifest;
+        }
+
+        private void ProcessManifest(ExtensionManifest manifest, string rootPath)
+        {
+            // 如果是 Gameplay 类型，扫描 Logic 目录下的 DLL
+            if (manifest.Type == PackType.Gameplay)
+            {
+                string logicDir = Path.Combine(rootPath, "Logic");
+                if (Directory.Exists(logicDir))
+                {
+                    foreach (var dll in Directory.GetFiles(logicDir, "*.dll"))
+                    {
+                        var risks = SecurityScanner.Scan(dll);
+                        foreach (var risk in risks)
+                        {
+                            if (!manifest.DetectedPermissions.Contains(risk))
+                                manifest.DetectedPermissions.Add(risk);
+                        }
+                    }
+                }
+            }
+            _loadedManifests[manifest.Id] = manifest;
+        }
+
+        private ExtensionManifest LoadManifestFromFile(string path)
+        {
+            try
+            {
+                string json = File.ReadAllText(path);
+                return JsonSerializer.Deserialize<ExtensionManifest>(json);
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[ExtensionManager] Failed to load manifest {path}: {ex.Message}");
+                return null;
             }
         }
 
         private ExtensionManifest LoadManifestFromArchive(string path)
         {
-            // 实际上由于 .umaext 是压缩包，这里应该使用 ZipReader 或 Godot 的 FileAccess 配合流读取。
-            // 简化演示：假设目前支持文件夹或 Zstd 压缩流
+            using var reader = new ZipReader();
+            if (reader.Open(path) != Error.Ok)
+            {
+                GD.PrintErr($"[ExtensionManager] Failed to open archive: {path}");
+                return null;
+            }
+
+            if (!reader.FileExists("manifest.json"))
+            {
+                GD.PrintErr($"[ExtensionManager] Archive missing manifest.json: {path}");
+                return null;
+            }
+
+            byte[] data = reader.ReadFile("manifest.json");
             try
             {
-                // TODO: 实现从压缩包头部流式读取 manifest.json
-                // 目前先占位返回 null，稍后实现具体解压逻辑
-                return null; 
+                return JsonSerializer.Deserialize<ExtensionManifest>(data);
             }
             catch (Exception ex)
             {
-                GD.PrintErr($"[ExtensionManager] Failed to read manifest from {path}: {ex.Message}");
+                GD.PrintErr($"[ExtensionManager] Failed to parse manifest from archive {path}: {ex.Message}");
                 return null;
             }
+        }
+
+        private bool ExtractArchive(string archivePath, string targetDir)
+        {
+            using var reader = new ZipReader();
+            if (reader.Open(archivePath) != Error.Ok) return false;
+
+            if (!Directory.Exists(targetDir))
+            {
+                Directory.CreateDirectory(targetDir);
+            }
+
+            foreach (string file in reader.GetFiles())
+            {
+                string targetPath = Path.Combine(targetDir, file);
+                
+                // 处理目录
+                if (file.EndsWith("/") || file.EndsWith("\\"))
+                {
+                    if (!Directory.Exists(targetPath)) Directory.CreateDirectory(targetPath);
+                    continue;
+                }
+
+                // 确保父目录存在
+                string dirName = Path.GetDirectoryName(targetPath);
+                if (!Directory.Exists(dirName)) Directory.CreateDirectory(dirName);
+
+                byte[] data = reader.ReadFile(file);
+                File.WriteAllBytes(targetPath, data);
+            }
+
+            return true;
         }
 
         /// <summary>
         /// 激活特定的扩展包（按需解压）
         /// </summary>
-        public Task<bool> ActivateExtension(string id)
+        public async Task<bool> ActivateExtension(string id)
         {
-            if (!_loadedManifests.ContainsKey(id)) return Task.FromResult(false);
+            if (!_loadedManifests.ContainsKey(id)) return false;
+            if (_activeExtensionIds.Contains(id)) return true;
+
+            await Task.Yield(); // 确保异步性
+
             var manifest = _loadedManifests[id];
+
+            // 0. 递归激活依赖项
+            if (manifest.Dependencies != null)
+            {
+                foreach (var dep in manifest.Dependencies)
+                {
+                    if (!await ActivateExtension(dep.Id))
+                    {
+                        GD.PrintErr($"[ExtensionManager] Failed to activate dependency {dep.Id} for {id}");
+                        return false;
+                    }
+                }
+            }
+
+            // 安全性检查：如果存在风险且未授权，则拦截
+            if (manifest.IsRisky && !manifest.IsAuthorized)
+            {
+                GD.PrintErr($"[ExtensionManager] Blocked activation of {id} due to unauthorized risks: {string.Join(", ", manifest.DetectedPermissions)}");
+                return false;
+            }
 
             GD.Print($"[ExtensionManager] Activating {id}...");
 
-            // 1. 准备解压目录
-            string targetCache = Path.Combine(ProjectSettings.GlobalizePath(CacheDir), id);
-            
-            // 2. 解压逻辑 (Phase 1 实现)
-            // ExtractArchive(id, targetCache);
-
-            // 3. 安全性检查：如果是 Character 类型，严禁加载 Logic 目录下的内容
-            if (manifest.Type == PackType.Character)
+            if (!_extensionPaths.TryGetValue(id, out string sourcePath))
             {
-                GD.Print($"[ExtensionManager] {id} is a Character pack. Logic injection skipped.");
+                GD.PrintErr($"[ExtensionManager] Path for {id} not found.");
+                return false;
             }
-            else
-            {
-                GD.Print($"[ExtensionManager] {id} is a Gameplay pack. Logic injection pending...");
 
-                string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
+            string targetPath = sourcePath;
+
+            // 如果是文件（.umaext），则解压到 Cache
+            if (File.Exists(sourcePath) && sourcePath.EndsWith(".umaext"))
+            {
+                targetPath = Path.Combine(ProjectSettings.GlobalizePath(CacheDir), id);
+                if (!ExtractArchive(sourcePath, targetPath))
+                {
+                    GD.PrintErr($"[ExtensionManager] Failed to extract {id}");
+                    return false;
+                }
+                // 解压后补充扫描权限信息
+                ProcessManifest(manifest, targetPath);
+            }
+
+            // 加载逻辑...
+            if (manifest.Type == PackType.Gameplay)
+            {
+                // 1. 处理 Manifest 中的 Overrides (支持 JSON 合并/覆盖)
+                ApplyManifestOverrides(manifest, targetPath);
+
+                // 2. 加载 DLL 逻辑
+                string dllPath = Path.Combine(targetPath, "Logic", "ModEntry.dll");
                 if (File.Exists(dllPath))
                 {
                     bool success = ModLoader.Instance.LoadMod(id, dllPath);
-                    if (success)
-                    {
-                        GD.Print($"[ExtensionManager] Logic mod loaded for {id}");
-                    }
-                    else
-                    {
-                        var notifier = GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
-                        if (notifier != null)
-                        {
-                            notifier.ShowToast($"模组包错误: 无法加载 {id} 的 Logic/ModEntry.dll");
-                        }
-                    }
+                    if (!success) return false;
                 }
 
-                // 加载行为包
-                string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
+                // 3. 加载默认行为包
+                string behaviorPath = Path.Combine(targetPath, "Logic", "behavior.json");
                 if (File.Exists(behaviorPath))
                 {
                     BehaviorRegistry.Instance?.LoadBehaviorPack(behaviorPath);
-                    GD.Print($"[ExtensionManager] Behavior pack loaded for {id}");
                 }
             }
 
             _activeExtensionIds.Add(id);
-            return Task.FromResult(true);
+            return true;
         }
 
+        private void ApplyManifestOverrides(ExtensionManifest manifest, string extensionRootPath)
+        {
+            if (manifest.Overrides == null || manifest.Overrides.Count == 0) return;
+
+            foreach (var rule in manifest.Overrides)
+            {
+                if (string.IsNullOrEmpty(rule.Strategy)) continue;
+
+                switch (rule.Type)
+                {
+                    case "behavior":
+                        if (rule.Strategy == "merge")
+                        {
+                            ProcessBehaviorMerge(rule, extensionRootPath);
+                        }
+                        break;
+                    // TODO: 后续可支持 resource (文件替换) 或 variable (全局变量注入)
+                }
+            }
+        }
+
+        private void ProcessBehaviorMerge(OverrideRule rule, string extensionRootPath)
+        {
+            try
+            {
+                string patchPath = Path.Combine(extensionRootPath, rule.Path);
+                if (!File.Exists(patchPath))
+                {
+                    GD.PrintErr($"[ExtensionManager] Patch file not found: {patchPath}");
+                    return;
+                }
+
+                string targetPath = rule.Target;
+                string targetContent = "";
+
+                // 读取目标内容（支持 res://, user:// 或物理路径）
+                if (targetPath.StartsWith("res://") || targetPath.StartsWith("user://"))
+                {
+                    if (Godot.FileAccess.FileExists(targetPath))
+                    {
+                        using var file = Godot.FileAccess.Open(targetPath, Godot.FileAccess.ModeFlags.Read);
+                        targetContent = file.GetAsText();
+                    }
+                }
+                else if (File.Exists(targetPath))
+                {
+                    targetContent = File.ReadAllText(targetPath);
+                }
+
+                JsonNode targetNode = string.IsNullOrEmpty(targetContent) ? null : JsonNode.Parse(targetContent);
+                JsonNode patchNode = JsonNode.Parse(File.ReadAllText(patchPath));
+
+                // 调用合并引擎进行递归合并/覆盖
+                var mergedNode = ExtensionJsonMerger.Merge(targetNode, patchNode);
+                if (mergedNode != null)
+                {
+                    string mergedJson = mergedNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+                    BehaviorRegistry.Instance?.LoadBehaviorPackFromContent(mergedJson);
+                    GD.Print($"[ExtensionManager] Successfully merged behavior patch {rule.Path} into {rule.Target}");
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[ExtensionManager] Error merging behavior {rule.Path}: {ex.Message}");
+            }
+        }
+
+        public bool IsExtensionActive(string id) => _activeExtensionIds.Contains(id);
         public IEnumerable<ExtensionManifest> GetAvailableExtensions() => _loadedManifests.Values;
+
+        /// <summary>
+        /// 获取当前所有已激活扩展包中的剧情文件路径
+        /// </summary>
+        public List<string> GetActiveStoryPaths()
+        {
+            List<string> paths = new();
+            foreach (var id in _activeExtensionIds)
+            {
+                if (!_extensionPaths.TryGetValue(id, out string sourcePath)) continue;
+
+                string targetPath = sourcePath;
+                if (sourcePath.EndsWith(".umaext"))
+                {
+                    targetPath = Path.Combine(ProjectSettings.GlobalizePath(CacheDir), id);
+                }
+
+                string storyDir = Path.Combine(targetPath, "Story");
+                if (Directory.Exists(storyDir))
+                {
+                    foreach (var file in Directory.GetFiles(storyDir))
+                    {
+                        string ext = Path.GetExtension(file).ToLower();
+                        if (ext == ".json" || ext == ".era" || ext == ".zip")
+                        {
+                            paths.Add(file);
+                        }
+                    }
+                }
+            }
+            return paths;
+        }
     }
 }

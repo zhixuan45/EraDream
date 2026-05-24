@@ -54,6 +54,8 @@ namespace UmaEraArchive.Core.Mods
             public string ModId { get; set; }
             public ModAssemblyLoadContext LoadContext { get; set; }
             public IUmaPlugin ModInstance { get; set; }
+            public List<string> DetectedPermissions { get; set; } = new();
+            public bool IsRisky => DetectedPermissions.Count > 0;
         }
 
         /// <summary>
@@ -74,6 +76,14 @@ namespace UmaEraArchive.Core.Mods
             {
                 GD.PrintErr($"[ModLoader] DLL not found: {dllPath}");
                 return false;
+            }
+
+            // 执行安全扫描
+            var detectedPermissions = SecurityScanner.Scan(dllPath);
+            if (detectedPermissions.Count > 0)
+            {
+                GD.PrintRich($"[color=yellow][WARNING] Mod '{modId}' 请求高危权限: {string.Join(", ", detectedPermissions)}[/color]");
+                GD.PrintRich("[color=yellow][WARNING] 该模组可能存在安全风险，请确保来源可靠。[/color]");
             }
 
             ModAssemblyLoadContext loadContext = null;
@@ -107,7 +117,8 @@ namespace UmaEraArchive.Core.Mods
                 {
                     ModId = modId,
                     LoadContext = loadContext,
-                    ModInstance = modInstance
+                    ModInstance = modInstance,
+                    DetectedPermissions = detectedPermissions
                 };
 
                 _loadedMods[modId] = modInfo;

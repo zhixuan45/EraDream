@@ -24,5 +24,14 @@ namespace UmaEraArchive.Editor.Models
 
         [JsonPropertyName("min_game_version")]
         public string MinGameVersion { get; set; } = "0.5.0";
+
+        [JsonPropertyName("dependencies")]
+        public System.Collections.Generic.List<object> Dependencies { get; set; } = new();
+
+        [JsonPropertyName("overrides")]
+        public System.Collections.Generic.List<object> Overrides { get; set; } = new();
+
+        [JsonPropertyName("nested_packages")]
+        public System.Collections.Generic.List<string> NestedPackages { get; set; } = new();
     }
 }

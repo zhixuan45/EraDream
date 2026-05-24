@@ -12,6 +12,42 @@ public class BehaviorPack
 
     [JsonPropertyName("items")]
     public List<ItemDefinition> Items { get; set; } = new();
+
+    [JsonPropertyName("menus")]
+    public List<UIMenuDefinition> Menus { get; set; } = new();
+}
+
+public class UIMenuDefinition
+{
+    [JsonPropertyName("menu_id")]
+    public string MenuId { get; set; } = "";
+
+    [JsonPropertyName("options")]
+    public List<UIOption> Options { get; set; } = new();
+}
+
+public class UIOption
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("icon")]
+    public string Icon { get; set; } = "";
+
+    [JsonPropertyName("action")]
+    public BehaviorAction Action { get; set; } = new();
+
+    [JsonPropertyName("conditions")]
+    public List<BehaviorCondition> Conditions { get; set; } = new();
+
+    [JsonPropertyName("override")]
+    public bool Override { get; set; } = false;
 }
 
 public class BehaviorRule
@@ -30,6 +66,9 @@ public class BehaviorRule
 
     [JsonPropertyName("action")]
     public BehaviorAction Action { get; set; } = new();
+
+    [JsonPropertyName("override")]
+    public bool Override { get; set; } = false;
 }
 
 public class BehaviorCondition

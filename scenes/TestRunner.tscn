@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/Tests/SimulationTurnTest.cs" id="2_turn_test"]
 [ext_resource type="Script" path="res://scripts/Tests/InventoryTest.cs" id="3_inv_test"]
 [ext_resource type="Script" path="res://scripts/Tests/CommandHistoryTest.cs" id="4_cmd_test"]
+[ext_resource type="Script" path="res://scripts/Tests/JsonMergerTest.cs" id="5_json_test"]
 
 [node name="TestRunner" type="Node"]
 
@@ -18,3 +19,6 @@ script = ExtResource("3_inv_test")
 
 [node name="CommandHistoryTest" type="Node" parent="."]
 script = ExtResource("4_cmd_test")
+
+[node name="JsonMergerTest" type="Node" parent="."]
+script = ExtResource("5_json_test")

@@ -1,6 +1,8 @@
 using Godot;
 using System;
+using System.Linq;
 using UmaEraArchive.Core;
+using UmaEraArchive.Core.Extensions;
 
 namespace umaEraArchive.Game;
 
@@ -21,6 +23,12 @@ public partial class SimulationMainScreen : Control
     private Label _gutsLabel;
     private Label _intLabel;
     private Label _affectionLabel;
+
+    // 马娘资源进度条
+    private ProgressBar _umaStaminaBar;
+    private Label _umaStaminaText;
+    private ProgressBar _umaEnergyBar;
+    private Label _umaEnergyText;
 
     // 按钮
     private Button _btnTrain;
@@ -70,6 +78,11 @@ public partial class SimulationMainScreen : Control
         _gutsLabel = GetNode<Label>("SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid/GutsLabel");
         _intLabel = GetNode<Label>("SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid/IntLabel");
         _affectionLabel = GetNode<Label>("SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid/AffectionLabel");
+
+        _umaStaminaBar = GetNode<ProgressBar>("SafeArea/MainVBox/UmaResourcesVBox/StaminaHBox/StaminaBar");
+        _umaStaminaText = GetNode<Label>("SafeArea/MainVBox/UmaResourcesVBox/StaminaHBox/StaminaBar/StaminaText");
+        _umaEnergyBar = GetNode<ProgressBar>("SafeArea/MainVBox/UmaResourcesVBox/EnergyHBox/EnergyBar");
+        _umaEnergyText = GetNode<Label>("SafeArea/MainVBox/UmaResourcesVBox/EnergyHBox/EnergyBar/EnergyText");
 
         _btnTrain = GetNode<Button>("SafeArea/MainVBox/BottomActions/BtnTrain");
         _btnWork = GetNode<Button>("SafeArea/MainVBox/BottomActions/BtnWork");
@@ -182,7 +195,7 @@ public partial class SimulationMainScreen : Control
         if (GameManager.Instance?.CurrentState != null)
         {
             var state = GameManager.Instance.CurrentState;
-            _turnInfo.Text = $"当前回合: {state.CurrentTurn} / {state.MaxTurns} (本周剩余操作: {state.Uma.ActionStamina}/{state.Uma.MaxActionStamina})";
+            _turnInfo.Text = $"当前回合: {state.CurrentTurn} / {state.MaxTurns}";
             _playerInfo.Text = $"{state.Player.PlayerName} 体力: {state.Player.Stamina}/{state.Player.MaxStamina} | 精力: {state.Player.Energy} | 金钱: {state.Player.Money}";
 
             var uma = state.Uma;
@@ -192,6 +205,15 @@ public partial class SimulationMainScreen : Control
             _gutsLabel.Text = $"根性: {uma.Guts}";
             _intLabel.Text = $"智力: {uma.Intelligence}";
             _affectionLabel.Text = $"好感度: {uma.Affection} | 心情: {uma.CurrentMoodStage}";
+
+            // 更新马娘资源条
+            _umaStaminaBar.MaxValue = uma.MaxActionStamina;
+            _umaStaminaBar.Value = uma.ActionStamina;
+            _umaStaminaText.Text = $"{uma.ActionStamina} / {uma.MaxActionStamina}";
+
+            _umaEnergyBar.MaxValue = uma.MaxEnergy;
+            _umaEnergyBar.Value = uma.Energy;
+            _umaEnergyText.Text = $"{uma.Energy} / {uma.MaxEnergy}";
         }
     }
 
@@ -200,7 +222,18 @@ public partial class SimulationMainScreen : Control
         var menu = _trainingMenuScene.Instantiate<UmaEraArchive.Game.UI.TrainingMenuUI>();
         AddChild(menu);
         menu.TrainingSelected += (type) => OnTrainingSelected((long)type);
+        menu.DynamicOptionSelected += OnDynamicOptionSelected;
         menu.CloseRequested += () => menu.Close();
+    }
+
+    private void OnDynamicOptionSelected(string menuId, string optionId)
+    {
+        if (BehaviorRegistry.Instance != null && GameManager.Instance?.CurrentState != null)
+        {
+            BehaviorRegistry.Instance.ExecuteOptionAction(menuId, optionId, GameManager.Instance.CurrentState);
+            UpdateUI();
+            TriggerBark();
+        }
     }
 
     private void OnTrainingSelected(long id)
@@ -238,17 +271,37 @@ public partial class SimulationMainScreen : Control
 
     private void OnOutingPressed()
     {
-        if (GameManager.Instance != null && !GameManager.Instance.CurrentState.IsGameOver)
+        if (GameManager.Instance == null || GameManager.Instance.CurrentState.IsGameOver) return;
+
+        // 检查是否有动态的外出选项
+        var options = BehaviorRegistry.Instance?.GetValidOptions("Outing", GameManager.Instance.CurrentState);
+        if (options != null && options.Count > 0)
         {
-            if (GameManager.Instance.Outing.ExecuteOuting(GameManager.Instance.CurrentState))
-            {
-                UpdateUI();
-                TriggerBark();
-            }
-            else
-            {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("训练员体力或精力不足！");
-            }
+            // 复用 TrainingMenuUI 展现动态菜单
+            var menu = _trainingMenuScene.Instantiate<UmaEraArchive.Game.UI.TrainingMenuUI>();
+            AddChild(menu);
+            // 重新设置标题（可选，TrainingMenuUI 目前没有公开设置标题的方法，暂且由于其通用布局直接使用）
+            menu.TrainingSelected += (type) => OnOutingSelected(); // 兼容旧逻辑
+            menu.DynamicOptionSelected += OnDynamicOptionSelected;
+            menu.CloseRequested += () => menu.Close();
+        }
+        else
+        {
+            // 走默认逻辑
+            OnOutingSelected();
+        }
+    }
+
+    private void OnOutingSelected()
+    {
+        if (GameManager.Instance.Outing.ExecuteOuting(GameManager.Instance.CurrentState))
+        {
+            UpdateUI();
+            TriggerBark();
+        }
+        else
+        {
+            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("训练员体力或精力不足！");
         }
     }
 

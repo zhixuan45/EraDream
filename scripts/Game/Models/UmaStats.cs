@@ -28,6 +28,12 @@ public class UmaStats
     [JsonPropertyName("max_action_stamina")]
     public int MaxActionStamina { get; set; } = 100;
 
+    [JsonPropertyName("energy")]
+    public int Energy { get; set; } = 100;
+
+    [JsonPropertyName("max_energy")]
+    public int MaxEnergy { get; set; } = 100;
+
     [JsonIgnore]
     public MoodStage CurrentMoodStage => Mood switch
     {
@@ -86,11 +92,26 @@ public class UmaStats
         ActionStamina = Mathf.Clamp(ActionStamina + amount, 0, MaxActionStamina);
     }
 
+    public void AddEnergy(int amount)
+    {
+        Energy = Mathf.Clamp(Energy + amount, 0, MaxEnergy);
+    }
+
     public bool ConsumeActionStamina(int amount)
     {
         if (ActionStamina >= amount)
         {
             ActionStamina -= amount;
+            return true;
+        }
+        return false;
+    }
+
+    public bool ConsumeEnergy(int amount)
+    {
+        if (Energy >= amount)
+        {
+            Energy -= amount;
             return true;
         }
         return false;

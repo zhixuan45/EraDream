@@ -43,6 +43,9 @@ public class ItemDefinition
 
     [JsonPropertyName("price")]
     public int Price { get; set; } = 0; // 商店价格
+
+    [JsonPropertyName("override")]
+    public bool Override { get; set; } = false;
 }
 
 /// <summary>

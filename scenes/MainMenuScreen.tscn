@@ -58,6 +58,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "KEY_MOD_EDITOR"
 
+[node name="ExtensionsButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "KEY_EXTENSION_MANAGER"
+
 [node name="ExitButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24

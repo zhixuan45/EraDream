@@ -24,6 +24,8 @@ SettingsManager="*res://scripts/Core/SettingsManager.cs"
 SettingsOverlay="*res://scripts/Core/SettingsOverlay.cs"
 DebugConsole="*res://scenes/DebugConsole.tscn"
 GameManager="*res://scripts/Game/GameManager.cs"
+ExtensionManager="*res://scripts/Core/Extensions/ExtensionManager.cs"
+ExtensionManagerUI="*res://scripts/Core/Extensions/ExtensionManagerUI.cs"
 
 [display]
 
