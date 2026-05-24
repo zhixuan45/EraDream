@@ -231,46 +231,62 @@ namespace UmaEraArchive.Core.Extensions
 
             GD.Print($"[ExtensionManager] Activating {id}...");
 
-            if (!_extensionPaths.TryGetValue(id, out string sourcePath))
+            // 1. 准备解压目录及安全检查
+            if (string.IsNullOrEmpty(id) || id.Contains("..") || id.Contains("/") || id.Contains("\\"))
+            {
+                GD.PrintErr($"[ExtensionManager] Invalid extension id for activation: {id}");
+                return Task.FromResult(false);
+            }
+
+            string baseCacheDir;
+            string targetCache;
+            try
+            {
+                baseCacheDir = Path.GetFullPath(ProjectSettings.GlobalizePath(CacheDir));
+                targetCache = Path.GetFullPath(Path.Combine(baseCacheDir, id));
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[ExtensionManager] Invalid characters in extension id {id}: {ex.Message}");
+                return Task.FromResult(false);
+            }
+
+            // 验证 targetCache 必须在 baseCacheDir 内，防止路径穿越攻击
+            if (!targetCache.StartsWith(baseCacheDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                !targetCache.Equals(baseCacheDir, StringComparison.OrdinalIgnoreCase))
+            {
+                GD.PrintErr($"[ExtensionManager] Security violation: target cache path {targetCache} escapes base cache directory.");
+                return Task.FromResult(false);
+            }
+            
+            // 2. 解压逻辑 (Phase 1 实现)
+            // ExtractArchive(id, targetCache);
+
+            // 3. 安全性检查：如果是 Character 类型，严禁加载 Logic 目录下的内容
+            if (manifest.Type == PackType.Character)
             {
                 GD.PrintErr($"[ExtensionManager] Path for {id} not found.");
                 return false;
             }
 
-            string targetPath = sourcePath;
+                string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
 
-            // 如果是文件（.umaext），则解压到 Cache
-            if (File.Exists(sourcePath) && sourcePath.EndsWith(".umaext"))
-            {
-                targetPath = Path.Combine(ProjectSettings.GlobalizePath(CacheDir), id);
-                if (!ExtractArchive(sourcePath, targetPath))
-                {
-                    GD.PrintErr($"[ExtensionManager] Failed to extract {id}");
-                    return false;
-                }
-                // 解压后补充扫描权限信息
-                ProcessManifest(manifest, targetPath);
-            }
-
-            // 加载逻辑...
-            if (manifest.Type == PackType.Gameplay)
-            {
-                // 1. 处理 Manifest 中的 Overrides (支持 JSON 合并/覆盖)
-                ApplyManifestOverrides(manifest, targetPath);
-
-                // 2. 加载 DLL 逻辑
-                string dllPath = Path.Combine(targetPath, "Logic", "ModEntry.dll");
                 if (File.Exists(dllPath))
                 {
                     bool success = ModLoader.Instance.LoadMod(id, dllPath);
                     if (!success) return false;
                 }
 
-                // 3. 加载默认行为包
-                string behaviorPath = Path.Combine(targetPath, "Logic", "behavior.json");
-                if (File.Exists(behaviorPath))
+                // 加载行为包
+                string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
+                if (BehaviorRegistry.Instance == null)
                 {
-                    BehaviorRegistry.Instance?.LoadBehaviorPack(behaviorPath);
+                    GD.PrintErr($"[ExtensionManager] BehaviorRegistry instance is not available. Cannot load behavior.json for {id}.");
+                }
+                else if (File.Exists(behaviorPath))
+                {
+                    BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath);
+                    GD.Print($"[ExtensionManager] Behavior pack loaded for {id}");
                 }
             }
 
