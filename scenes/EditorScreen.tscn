@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://editor_screen_01"]
 
-[ext_resource type="Script" path="res://scripts/Editor/EditorScreen.cs" id="1_editor"]
+[ext_resource type="Script" path="res://scripts/StoryEditor/EditorScreen.cs" id="1_editor"]
 
 [node name="EditorScreen" type="Control"]
 layout_mode = 3

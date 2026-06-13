@@ -2,8 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EraDream.Editor.Nodes;
+using EraDream.StoryEditor.Nodes;
 using EraDream.Core;
+using EraDream.StoryEditor;
 
 namespace EraDream.Game;
 

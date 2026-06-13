@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/Editor/ExtensionEditorScreen.cs" id="1_ext_editor"]
+[ext_resource type="Script" path="res://scripts/ExtensionEditor/ExtensionEditorScreen.cs" id="1_ext_editor"]
 [ext_resource type="Theme" uid="uid://c6r8q0n0x7m3b" path="res://resources/theme_main.tres" id="2_theme"]
 
 [node name="ExtensionEditorScreen" type="Control"]

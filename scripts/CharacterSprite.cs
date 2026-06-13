@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using EraDream.StoryEditor.Nodes;
 
 public partial class CharacterSprite : Control
 {
@@ -53,12 +54,17 @@ public partial class CharacterSprite : Control
         _textureRect.FlipH = SourceData.FlipH;
     }
 
+    private string _currentEmotion = "";
+    private bool _currentSilhouette = false;
+
     public void UpdateCharacter(string actorId, string emotion = "Neutral", bool silhouette = false)
     {
-        CurrentCharacterId = actorId;
         var actor = CharacterManager.GetActor(actorId);
         if (actor == null) {
+            CurrentCharacterId = actorId;
             _textureRect.Texture = null;
+            _currentEmotion = "";
+            _currentSilhouette = false;
             return;
         }
 
@@ -67,6 +73,16 @@ public partial class CharacterSprite : Control
         {
             fileName = actor.Visuals.Expressions[emotion];
         }
+
+        // 缓存比对：如果角色、表情和剪影状态均未发生改变，则跳过重装盘
+        if (CurrentCharacterId == actorId && _currentEmotion == emotion && _currentSilhouette == silhouette)
+        {
+            return;
+        }
+
+        CurrentCharacterId = actorId;
+        _currentEmotion = emotion;
+        _currentSilhouette = silhouette;
 
         if (string.IsNullOrEmpty(fileName)) {
             _textureRect.Texture = null;
