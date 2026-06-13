@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     /// <summary>
     /// 扩展包注册 API，强制执行唯一 ID 规范。

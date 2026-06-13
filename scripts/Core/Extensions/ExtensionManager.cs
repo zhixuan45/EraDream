@@ -5,9 +5,9 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using UmaEraArchive.Core.Mods;
+using EraDream.Core.Mods;
 
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     /// <summary>
     /// 扩展包管理器，负责扫描、加载和资源挂载。

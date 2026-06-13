@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Linq;
-using UmaEraArchive.Core;
+using EraDream.Core;
 
-namespace umaEraArchive.Game.UI;
+namespace EraDream.Game.UI;
 
 /// <summary>
 /// 内置调试控制台，允许通过命令修改游戏状态 (类似命令方块)

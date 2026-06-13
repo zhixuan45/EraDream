@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "umaEraArchive", "umaEraArchive.csproj", "{65E56176-38C1-40EA-8029-D62F1C4A9DCA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EraDream", "EraDream.csproj", "{65E56176-38C1-40EA-8029-D62F1C4A9DCA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

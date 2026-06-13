@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 public partial class ErrorNotifier : CanvasLayer
 {
+    // 全局静态单例访问点
+    public static ErrorNotifier Instance { get; private set; }
+
     private AcceptDialog _errorDialog;
     private PanelContainer _toastContainer;
     private Label _toastLabel;
@@ -12,6 +15,14 @@ public partial class ErrorNotifier : CanvasLayer
     private Queue<string> _toastQueue = new Queue<string>();
     private bool _isToastShowing = false;
     private float _toastDuration = 3.0f;
+    // Toast 队列上限，防止快速连续调用时无限增长
+    private const int MaxToastQueue = 20;
+
+    public override void _EnterTree()
+    {
+        // 提前设置单例，保证其他节点可访问
+        Instance = this;
+    }
 
     public override void _Ready()
     {
@@ -72,28 +83,54 @@ public partial class ErrorNotifier : CanvasLayer
         GD.Print("[Debug] ErrorNotifier: _Ready finished.");
     }
 
+    public override void _ExitTree()
+    {
+        // 清理 Timer 与 Tween，防止退出后回调访问已释放节点
+        _toastTween?.Kill();
+        if (_toastTimer != null)
+        {
+            _toastTimer.Stop();
+            _toastTimer.Timeout -= OnToastTimeout;
+        }
+        if (Instance == this) Instance = null;
+    }
+
+    /// <summary>显示模态错误对话框，线程安全</summary>
     public void ShowErrorDialog(string title, string message)
     {
         // 打印到控制台，作为日志备份
         GD.PrintErr($"[ModalError] {title}: {message}");
-        
+        // 使用 CallDeferred 保证在主线程执行 Godot API
+        CallDeferred(nameof(ShowErrorDialogDeferred), title, message);
+    }
+
+    private void ShowErrorDialogDeferred(string title, string message)
+    {
         _errorDialog.Title = title;
         _errorDialog.DialogText = message;
         _errorDialog.PopupCentered();
     }
 
+    /// <summary>显示吐司提示，线程安全，队列上限 20 条</summary>
     public void ShowToast(string message, float duration = 3.0f)
     {
         // 打印到控制台，作为日志备份
         GD.PrintErr($"[ToastError] {message}");
-        
+        // 使用 CallDeferred 保证主线程执行
+        CallDeferred(nameof(ShowToastDeferred), message, duration);
+    }
+
+    private void ShowToastDeferred(string message, float duration)
+    {
+        // 队列超限时丢弃最旧的消息
+        if (_toastQueue.Count >= MaxToastQueue)
+            _toastQueue.Dequeue();
+
         _toastQueue.Enqueue(message);
         _toastDuration = duration;
         
         if (!_isToastShowing)
-        {
             ShowNextToast();
-        }
     }
 
     private void ShowNextToast()

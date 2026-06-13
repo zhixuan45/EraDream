@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.IO;
 
-namespace UmaEraArchive.Core
+namespace EraDream.Core
 {
     /// <summary>
     /// 统一的资源调用代理，集中处理 res:// 与用户外部文件的路径解析
@@ -51,9 +51,9 @@ namespace UmaEraArchive.Core
         {
             if (string.IsNullOrEmpty(fileName)) return null;
 
-            // 优先从当前打开的项目目录读取
+            // 使用 / 拼接 Godot 内部路径，避免 Path.Combine 在 Windows 产生反斜杠
             string path = ProjectManager.IsProjectOpened
-                ? Path.Combine(ProjectManager.AudioDir, fileName)
+                ? $"{ProjectManager.AudioDir}/{fileName}"
                 : $"res://audio/{fileName}";
 
             return LoadAudioFromAbsPath(path, fileName);
@@ -101,7 +101,7 @@ namespace UmaEraArchive.Core
             if (string.IsNullOrEmpty(fileName)) return null;
 
             string path = ProjectManager.IsProjectOpened
-                ? Path.Combine(ProjectManager.BackgroundDir, fileName)
+                ? $"{ProjectManager.BackgroundDir}/{fileName}"
                 : $"res://backgrounds/{fileName}";
 
             return LoadImageTexture(path);
@@ -160,7 +160,7 @@ namespace UmaEraArchive.Core
             if (string.IsNullOrEmpty(fileName)) return null;
 
             string path = ProjectManager.IsProjectOpened
-                ? Path.Combine(ProjectManager.SpriteDir, fileName)
+                ? $"{ProjectManager.SpriteDir}/{fileName}"
                 : $"res://sprites/{fileName}";
 
             return LoadImageTexture(path);

@@ -1,8 +1,8 @@
 using Godot;
 using System;
-using UmaEraArchive.Core;
+using EraDream.Core;
 
-namespace UmaEraArchive.Tests;
+namespace EraDream.Tests;
 
 /// <summary>
 /// CommandHistory 撤销/重做系统自动化测试

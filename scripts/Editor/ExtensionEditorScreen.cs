@@ -5,11 +5,11 @@ using System.IO.Compression;
 using System.Text.Json;
 using System.Collections.Generic;
 using System.Linq;
-using UmaEraArchive.Editor.Models;
-using UmaEraArchive.Core;
-using UmaEraArchive.Core.Models;
-using UmaEraArchive.Core.Extensions;
-using ExtensionManifest = UmaEraArchive.Editor.Models.ExtensionManifest;
+using EraDream.Editor.Models;
+using EraDream.Core;
+using EraDream.Core.Models;
+using EraDream.Core.Extensions;
+using ExtensionManifest = EraDream.Editor.Models.ExtensionManifest;
 
 public partial class ExtensionEditorScreen : Control
 {
@@ -30,7 +30,7 @@ public partial class ExtensionEditorScreen : Control
         }
     }
 
-    private UmaEraArchive.Editor.Models.ExtensionManifest _manifest = new();
+    private EraDream.Editor.Models.ExtensionManifest _manifest = new();
     private ActorConfigData _currentActorConfig = null;
     private SimulationData _currentSimData = null;
     private BehaviorPack _currentBehaviorPack = null;

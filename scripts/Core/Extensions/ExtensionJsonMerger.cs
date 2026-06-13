@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Godot;
 
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     /// <summary>
     /// 通用的 JSON 自适应合并引擎，支持递归合并、数组追加和 override 覆盖

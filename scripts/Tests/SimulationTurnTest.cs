@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using umaEraArchive.Game;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Game;
+using EraDream.Core.Extensions;
 
-namespace umaEraArchive.Tests;
+namespace EraDream.Tests;
 
 /// <summary>
 /// 养成系统重构后的综合测试与行为包验证
@@ -199,7 +199,7 @@ public partial class SimulationTurnTest : Node
 
         // 3. 买道具 (Cupcake 300)
         // 确保物品已注册
-        UmaEraArchive.Core.Extensions.BehaviorRegistry.Instance.LoadBehaviorPack("res://test_inventory.behavior.json");
+        EraDream.Core.Extensions.BehaviorRegistry.Instance.LoadBehaviorPack("res://test_inventory.behavior.json");
 
         // 确保钱够，不够再打一次工
         if (state.Player.Money < 300)

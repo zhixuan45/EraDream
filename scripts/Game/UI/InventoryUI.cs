@@ -1,11 +1,11 @@
 using Godot;
 using System;
 using System.Linq;
-using UmaEraArchive.Core;
-using UmaEraArchive.Core.Extensions;
-using umaEraArchive.Game.Models;
+using EraDream.Core;
+using EraDream.Core.Extensions;
+using EraDream.Game.Models;
 
-namespace umaEraArchive.Game.UI;
+namespace EraDream.Game.UI;
 
 /// <summary>
 /// 背包界面控制器 - 支持响应式布局与弹窗详情

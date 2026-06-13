@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace UmaEraArchive.Core
+namespace EraDream.Core
 {
     public enum ScreenOrientation
     {
@@ -47,13 +47,10 @@ namespace UmaEraArchive.Core
             // 连接屏幕尺寸改变信号
             GetTree().Root.SizeChanged += OnScreenSizeChanged;
             
-            // 监听设置中的安全区改变
+            // 监听设置中的安全区改变（使用命名方法以便在 _ExitTree 取消订阅）
             if (SettingsManager.Instance != null)
             {
-                SettingsManager.Instance.OnSafeAreaPaddingChanged += (padding) => {
-                    SafeAreaPadding = padding;
-                    OnSafeAreaChanged?.Invoke(padding);
-                };
+                SettingsManager.Instance.OnSafeAreaPaddingChanged += OnSafeAreaPaddingChangedHandler;
                 SafeAreaPadding = SettingsManager.Instance.SafeAreaPadding;
             }
 
@@ -85,15 +82,23 @@ namespace UmaEraArchive.Core
             }
         }
 
+        // 安全区偏移改变的命名处理方法
+        private void OnSafeAreaPaddingChangedHandler(float padding)
+        {
+            SafeAreaPadding = padding;
+            OnSafeAreaChanged?.Invoke(padding);
+        }
+
         public override void _ExitTree()
         {
             if (Instance == this)
             {
                 Instance = null;
                 if (GetTree() != null && GetTree().Root != null)
-                {
                     GetTree().Root.SizeChanged -= OnScreenSizeChanged;
-                }
+                // 取消订阅安全区事件，防止 Autoload 持有悬挂引用
+                if (SettingsManager.Instance != null)
+                    SettingsManager.Instance.OnSafeAreaPaddingChanged -= OnSafeAreaPaddingChangedHandler;
             }
         }
     }

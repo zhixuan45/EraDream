@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 负责处理日程安排与训练功能
@@ -55,9 +55,9 @@ public partial class TrainingModule : Node
         ApplyTrainingRewards(state, type, isAccompanied);
 
         // 触发行为包 Hook
-        if (UmaEraArchive.Core.Extensions.BehaviorRegistry.Instance != null)
+        if (EraDream.Core.Extensions.BehaviorRegistry.Instance != null)
         {
-            UmaEraArchive.Core.Extensions.BehaviorRegistry.Instance.TriggerHook("OnTraining", state);
+            EraDream.Core.Extensions.BehaviorRegistry.Instance.TriggerHook("OnTraining", state);
         }
 
         return true;

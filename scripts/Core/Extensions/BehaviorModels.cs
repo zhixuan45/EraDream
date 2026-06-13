@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using umaEraArchive.Game.Models;
+using EraDream.Game.Models;
 
-namespace UmaEraArchive.Core.Extensions;
+namespace EraDream.Core.Extensions;
 
 public class BehaviorPack
 {

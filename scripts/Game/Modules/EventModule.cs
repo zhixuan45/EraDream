@@ -2,10 +2,10 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UmaEraArchive.Editor.Nodes;
-using UmaEraArchive.Core;
+using EraDream.Editor.Nodes;
+using EraDream.Core;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 负责剧情事件的触发与调度，支持基于属性条件的自动匹配

@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using UmaEraArchive.Core;
-using UmaEraArchive.Core.Models;
+using EraDream.Core;
+using EraDream.Core.Models;
 
-namespace umaEraArchive.Game.UI
+namespace EraDream.Game.UI
 {
     /// <summary>
     /// 运动场签约面板控制器，处理马娘展示、金币刷新与签约逻辑

@@ -2,15 +2,15 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UmaEraArchive.Editor.Nodes;
-using UmaEraArchive.Core;
+using EraDream.Editor.Nodes;
+using EraDream.Core;
 
 public partial class EditorScreen : Control
 {
 	private GraphEdit _graphEdit;
 	private Dictionary<string, BaseNodeData> _nodeDataMap = new Dictionary<string, BaseNodeData>();
 	private MenuBar _menuBar;
-	private UmaEraArchive.Core.CommandHistory _cmdHistory = new();
+	private EraDream.Core.CommandHistory _cmdHistory = new();
 
 	private ColorRect _loadingOverlay;
 	private ProgressBar _loadingProgress;

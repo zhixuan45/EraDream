@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UmaEraArchive.Editor.Nodes;
+using EraDream.Editor.Nodes;
 
 public partial class StoryPreviewUI : Node
 {

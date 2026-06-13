@@ -32,6 +32,9 @@ public partial class SettingsOverlay : CanvasLayer
 
     public void ShowOverlay()
     {
+        // 安全检查：避免 UI 节点未初始化时崩溃
+        if (_overlayRoot == null) return;
+
         if (SettingsManager.Instance != null)
         {
             if (_darkModeToggle != null)

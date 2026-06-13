@@ -3,8 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using UmaEraArchive.Editor.Nodes;
-using UmaEraArchive.Core;
+using EraDream.Editor.Nodes;
+using EraDream.Core;
 
 public partial class StoryPlayerEngine : Control
 {
@@ -51,7 +51,7 @@ public partial class StoryPlayerEngine : Control
         _overlay.MouseFilter = MouseFilterEnum.Ignore; // 确保遮罩层不拦截点击
 
         // 通过 ResourceProxy 安全加载 blur shader（路径不存在时优雅降级）
-        var blurShader = UmaEraArchive.Core.ResourceProxy.LoadBlurOverlayShader();
+        var blurShader = EraDream.Core.ResourceProxy.LoadBlurOverlayShader();
         var mat = new ShaderMaterial();
         if (blurShader != null)
         {
@@ -215,7 +215,7 @@ public partial class StoryPlayerEngine : Control
 
     private void HandleValueNode(ValueNodeData data)
     {
-        var manager = umaEraArchive.Game.GameManager.Instance;
+        var manager = EraDream.Game.GameManager.Instance;
         var errorNotifier = GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
         string storyId = System.IO.Path.GetFileNameWithoutExtension(CurrentStoryPath);
         string valueId = data.TargetAttribute == "Custom" ? data.CustomId : data.TargetAttribute;
@@ -236,11 +236,11 @@ public partial class StoryPlayerEngine : Control
                 case "Money": state.Player.Money += data.ChangeValue; break;
                 case "Vitality": state.Player.AddStamina(data.ChangeValue); break;
                 case "Energy": state.Player.AddEnergy(data.ChangeValue); break;
-                case "Speed": state.Uma.AddStat(umaEraArchive.Game.StatType.Speed, data.ChangeValue); break;
-                case "Stamina": state.Uma.AddStat(umaEraArchive.Game.StatType.Stamina, data.ChangeValue); break;
-                case "Power": state.Uma.AddStat(umaEraArchive.Game.StatType.Power, data.ChangeValue); break;
-                case "Guts": state.Uma.AddStat(umaEraArchive.Game.StatType.Guts, data.ChangeValue); break;
-                case "Intelligence": state.Uma.AddStat(umaEraArchive.Game.StatType.Intelligence, data.ChangeValue); break;
+                case "Speed": state.Uma.AddStat(EraDream.Game.StatType.Speed, data.ChangeValue); break;
+                case "Stamina": state.Uma.AddStat(EraDream.Game.StatType.Stamina, data.ChangeValue); break;
+                case "Power": state.Uma.AddStat(EraDream.Game.StatType.Power, data.ChangeValue); break;
+                case "Guts": state.Uma.AddStat(EraDream.Game.StatType.Guts, data.ChangeValue); break;
+                case "Intelligence": state.Uma.AddStat(EraDream.Game.StatType.Intelligence, data.ChangeValue); break;
                 case "SkillPoints": state.Uma.SkillPoints += data.ChangeValue; break;
                 case "Affection": state.Uma.Affection += data.ChangeValue; break;
                 case "Custom":
@@ -255,7 +255,7 @@ public partial class StoryPlayerEngine : Control
                         state.Uma.AddCustomStat(data.CustomId, data.ChangeValue);
                         
                         // 同时同步到全局状态，方便 BranchNode 等即时查询
-                        var globalState = UmaEraArchive.Core.GlobalGameState.Instance;
+                        var globalState = EraDream.Core.GlobalGameState.Instance;
                         if (globalState != null)
                         {
                             float current = globalState.GetVariable(data.CustomId);
@@ -433,7 +433,7 @@ public partial class StoryPlayerEngine : Control
         
         GD.Print($"[Engine] Attempting to load background: {file}");
 
-        var bgTexture = UmaEraArchive.Core.ResourceProxy.LoadBackgroundTexture(file);
+        var bgTexture = EraDream.Core.ResourceProxy.LoadBackgroundTexture(file);
         if (bgTexture != null)
         {
             _backgroundRect.Texture = bgTexture;
@@ -450,7 +450,7 @@ public partial class StoryPlayerEngine : Control
     {
         if (string.IsNullOrEmpty(file)) { _bgmPlayer.Stop(); return; }
         
-        AudioStream stream = UmaEraArchive.Core.ResourceProxy.LoadAudioFromProject(file);
+        AudioStream stream = EraDream.Core.ResourceProxy.LoadAudioFromProject(file);
         if (stream != null)
         {
             if (_bgmPlayer.Stream != stream) 

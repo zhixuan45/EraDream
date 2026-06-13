@@ -1,5 +1,5 @@
 using Godot;
-using UmaEraArchive.Editor.Nodes;
+using EraDream.Editor.Nodes;
 using System.Collections.Generic;
 
 // 贴纸节点数据，复用 SpriteNode 的结构但绑定贴纸而非角色

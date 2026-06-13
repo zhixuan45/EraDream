@@ -1,8 +1,8 @@
 using Godot;
 using System.Text.Json.Serialization;
-using umaEraArchive.Game.Models;
+using EraDream.Game.Models;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 作为整个养成状态的包装器，聚合属性并提供序列化基础

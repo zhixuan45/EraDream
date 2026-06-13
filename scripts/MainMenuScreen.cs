@@ -1,7 +1,7 @@
 using Godot;
 using System;
-using UmaEraArchive.Core;
-using umaEraArchive.Game;
+using EraDream.Core;
+using EraDream.Game;
 
 public partial class MainMenuScreen : Control
 {
@@ -103,9 +103,9 @@ public partial class MainMenuScreen : Control
 
     private void OnExtensionsPressed()
     {
-        if (UmaEraArchive.Core.Extensions.ExtensionManagerUI.Instance != null)
+        if (EraDream.Core.Extensions.ExtensionManagerUI.Instance != null)
         {
-            UmaEraArchive.Core.Extensions.ExtensionManagerUI.Instance.ShowUI();
+            EraDream.Core.Extensions.ExtensionManagerUI.Instance.ShowUI();
         }
     }
 

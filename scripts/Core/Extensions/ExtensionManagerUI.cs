@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     /// <summary>
     /// 扩展包管理界面逻辑

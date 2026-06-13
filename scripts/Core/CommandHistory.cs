@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace UmaEraArchive.Core
+namespace EraDream.Core
 {
     /// <summary>
     /// 纯 C# 实现的撤销/重做命令栈

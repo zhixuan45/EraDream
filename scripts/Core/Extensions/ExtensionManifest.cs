@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum PackType

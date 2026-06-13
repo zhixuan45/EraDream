@@ -9,6 +9,8 @@ public partial class SettingsOverlay
     private CheckButton _mouseCursorToggle;
     private HSlider _safeAreaSlider;
     private ColorRect _safeAreaPreview;
+    // 缓存关闭按鈕引用，用于 _ExitTree 清理事件
+    private Button _closeButton;
 
     private void InitUI()
     {
@@ -117,20 +119,40 @@ public partial class SettingsOverlay
         safeAreaVBox.AddChild(_safeAreaSlider);
         vbox.AddChild(safeAreaVBox);
 
-        Callable.From(() => {
+        Callable.From(() =>
+        {
             _safeAreaSlider.Value = SettingsManager.Instance.SafeAreaPadding;
             _safeAreaSlider.ValueChanged += OnSafeAreaSliderChanged;
-            _safeAreaSlider.DragStarted += () => { _safeAreaPreview.Visible = true; UpdatePreview((float)_safeAreaSlider.Value); };
-            _safeAreaSlider.DragEnded += (changed) => _safeAreaPreview.Visible = false;
+            _safeAreaSlider.DragStarted += OnSafeAreaDragStarted;
+            _safeAreaSlider.DragEnded += OnSafeAreaDragEnded;
         }).CallDeferred();
 
-        // 关闭按钮
-        var closeButton = new Button();
-        closeButton.Text = "关闭";
-        closeButton.CustomMinimumSize = new Vector2(150, 40);
-        if (mainTheme != null) closeButton.Theme = mainTheme;
-        closeButton.Pressed += HideOverlay;
-        vbox.AddChild(closeButton);
+        // 关闭按鈕
+        _closeButton = new Button();
+        _closeButton.Text = "关闭";
+        _closeButton.CustomMinimumSize = new Vector2(150, 40);
+        if (mainTheme != null) _closeButton.Theme = mainTheme;
+        _closeButton.Pressed += HideOverlay;
+        vbox.AddChild(_closeButton);
+    }
+
+    // 节点离开场景树时取消所有 UI 事件订阅，防止事件泄漏
+    public override void _ExitTree()
+    {
+        if (_darkModeToggle != null)
+            _darkModeToggle.Toggled -= OnDarkModeToggled;
+        if (_embeddedWindowToggle != null)
+            _embeddedWindowToggle.Toggled -= OnEmbeddedWindowToggled;
+        if (_mouseCursorToggle != null)
+            _mouseCursorToggle.Toggled -= OnMouseCursorToggled;
+        if (_safeAreaSlider != null)
+        {
+            _safeAreaSlider.ValueChanged -= OnSafeAreaSliderChanged;
+            _safeAreaSlider.DragStarted -= OnSafeAreaDragStarted;
+            _safeAreaSlider.DragEnded -= OnSafeAreaDragEnded;
+        }
+        if (_closeButton != null)
+            _closeButton.Pressed -= HideOverlay;
     }
 
     private void OnMouseCursorToggled(bool isToggled)
@@ -149,6 +171,19 @@ public partial class SettingsOverlay
             SettingsManager.Instance.SafeAreaPadding = padding;
             UpdatePreview(padding);
         }
+    }
+
+    // 拖拽开始：显示安全区预览
+    private void OnSafeAreaDragStarted()
+    {
+        _safeAreaPreview.Visible = true;
+        UpdatePreview((float)_safeAreaSlider.Value);
+    }
+
+    // 拖拽结束：隐藏预览
+    private void OnSafeAreaDragEnded(bool valueChanged)
+    {
+        _safeAreaPreview.Visible = false;
     }
 
     private void UpdatePreview(float padding)

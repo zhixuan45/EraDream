@@ -1,4 +1,4 @@
-# umaEraArchive 窗口自适应与响应式 UI 方案文档
+# EraDream 窗口自适应与响应式 UI 方案文档
 
 本文档详细说明了项目中用于实现多平台（PC、移动端）窗口自适应、横竖屏切换以及安全区（刘海屏）适配的技术方案。
 
@@ -7,7 +7,7 @@
 ## 1. 核心组件 (Core Components)
 
 ### 1.1 ResponsiveManager (全局布局管理器)
-*   **类名**：`UmaEraArchive.Core.ResponsiveManager`
+*   **类名**：`EraDream.Core.ResponsiveManager`
 *   **角色**：Autoload (单例)，UI 响应系统的“心脏”。
 *   **核心逻辑**：
     *   监听 `GetTree().Root.SizeChanged` 信号。

@@ -3,9 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using UmaEraArchive.Core;
+using EraDream.Core;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 养成系统主核心调度器，可作为Autoload或场景根节点
@@ -28,8 +28,8 @@ public partial class GameManager : Node
     public InventoryModule Inventory { get; private set; }
 
     // 全局扩展引用
-    public UmaEraArchive.Core.Extensions.ExtensionManager ExtensionManager { get; private set; }
-    public UmaEraArchive.Core.Extensions.BehaviorRegistry BehaviorRegistry { get; private set; }
+    public EraDream.Core.Extensions.ExtensionManager ExtensionManager { get; private set; }
+    public EraDream.Core.Extensions.BehaviorRegistry BehaviorRegistry { get; private set; }
 
     // 生命周期事件钩子
     public event Action<int> OnTurnStart;
@@ -79,12 +79,12 @@ public partial class GameManager : Node
         AddChild(Inventory);
 
         // 初始化扩展与行为引擎
-        ExtensionManager = UmaEraArchive.Core.Extensions.ExtensionManager.Instance;
-        BehaviorRegistry = UmaEraArchive.Core.Extensions.BehaviorRegistry.Instance;
+        ExtensionManager = EraDream.Core.Extensions.ExtensionManager.Instance;
+        BehaviorRegistry = EraDream.Core.Extensions.BehaviorRegistry.Instance;
 
         if (BehaviorRegistry == null)
         {
-            BehaviorRegistry = new UmaEraArchive.Core.Extensions.BehaviorRegistry();
+            BehaviorRegistry = new EraDream.Core.Extensions.BehaviorRegistry();
             AddChild(BehaviorRegistry);
         }
 

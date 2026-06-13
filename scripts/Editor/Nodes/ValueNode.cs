@@ -2,7 +2,7 @@ using System;
 using Godot;
 using System.Text.Json.Serialization;
 
-namespace UmaEraArchive.Editor.Nodes
+namespace EraDream.Editor.Nodes
 {
 	public class ValueNodeData : BaseNodeData
 	{

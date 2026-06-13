@@ -3,8 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using UmaEraArchive.Editor.Nodes;
-using UmaEraArchive.Core;
+using EraDream.Editor.Nodes;
+using EraDream.Core;
 
 public partial class StoryPlayerEngine : Control
 {

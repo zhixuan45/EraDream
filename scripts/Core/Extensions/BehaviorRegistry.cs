@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using umaEraArchive.Game;
-using umaEraArchive.Game.Models;
+using EraDream.Game;
+using EraDream.Game.Models;
 
-namespace UmaEraArchive.Core.Extensions;
+namespace EraDream.Core.Extensions;
 
 /// <summary>
 /// 行为包注册表，负责解析 .behavior.json 并分发 Hook

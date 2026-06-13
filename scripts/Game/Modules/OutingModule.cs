@@ -1,8 +1,8 @@
 using Godot;
 using System;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Core.Extensions;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 负责处理外出功能

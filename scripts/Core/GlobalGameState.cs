@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace UmaEraArchive.Core
+namespace EraDream.Core
 {
     /// <summary>
     /// 全局游戏状态，存储剧情运行时的所有变量 ID 和数值
@@ -13,8 +13,9 @@ namespace UmaEraArchive.Core
         // 存储变量，如 "favor_points" -> 20
         private Dictionary<string, float> _variables = new Dictionary<string, float>();
 
-        public override void _Ready()
+        public override void _EnterTree()
         {
+            // 提前在树进入阶段赋值，避免其他 Autoload 在 _Ready 中拿到 null
             Instance = this;
         }
 

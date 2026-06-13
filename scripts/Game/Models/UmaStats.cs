@@ -1,7 +1,7 @@
 using Godot;
 using System.Text.Json.Serialization;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 用于管理马娘的各项能力数值

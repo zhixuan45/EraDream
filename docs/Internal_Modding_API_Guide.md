@@ -1,6 +1,6 @@
-# umaEraArchive Internal Modding API Guide
+# EraDream Internal Modding API Guide
 
-This guide is intended for internal developers and mod creators working with the `umaEraArchive` extension system. It details how to correctly use C# DLLs and JSON behavior packs within the engine.
+This guide is intended for internal developers and mod creators working with the `EraDream` extension system. It details how to correctly use C# DLLs and JSON behavior packs within the engine.
 
 ## 1. Extension Loading Overview
 
@@ -23,7 +23,7 @@ The engine uses `ModLoader` (which extends `AssemblyLoadContext`) to load mod DL
 To inject logic, your `ModEntry.dll` must contain a public class that implements the `IUmaPlugin` interface. The engine will scan the assembly, instantiate the first class it finds implementing this interface, and call its `OnLoad` method.
 
 ```csharp
-using UmaEraArchive.Core.Mods;
+using EraDream.Core.Mods;
 
 namespace MyCustomMod
 {

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 处理休息指令和状态恢复逻辑

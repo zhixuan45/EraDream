@@ -1,6 +1,6 @@
 using Godot;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 处理打工逻辑，消耗训练员体力与精力获取金钱

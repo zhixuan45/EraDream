@@ -90,9 +90,9 @@ public partial class StorySelectorScreen : Control
         RefreshList("user://stories/", _scenarioList, _selectedScenarios);
         
         // 动态加载来自已激活扩展的剧本
-        if (UmaEraArchive.Core.Extensions.ExtensionManager.Instance != null)
+        if (EraDream.Core.Extensions.ExtensionManager.Instance != null)
         {
-            var extStories = UmaEraArchive.Core.Extensions.ExtensionManager.Instance.GetActiveStoryPaths();
+            var extStories = EraDream.Core.Extensions.ExtensionManager.Instance.GetActiveStoryPaths();
             foreach (var storyPath in extStories)
             {
                 AddStoryItem(storyPath, _scenarioList, _selectedScenarios);
@@ -208,21 +208,21 @@ public partial class StorySelectorScreen : Control
         if (IsForSimulation)
         {
             // 允许在没有附加剧本文件时直接开始养成（走无马娘运动场签约前置流）
-            if (umaEraArchive.Game.GameManager.Instance != null)
+            if (EraDream.Game.GameManager.Instance != null)
             {
-                umaEraArchive.Game.GameManager.Instance.StartNewGame(_selectedScenarios, _selectedCharacters, _selectedMods);
+                EraDream.Game.GameManager.Instance.StartNewGame(_selectedScenarios, _selectedCharacters, _selectedMods);
                 
                 // 若勾选了多个马娘，填充至候选签约池，但不进行直接签约以防跳过招募流程
                 if (_selectedCharacters.Count > 0)
                 {
-                    umaEraArchive.Game.GameManager.Instance.CurrentState.CurrentScoutPool.Clear();
+                    EraDream.Game.GameManager.Instance.CurrentState.CurrentScoutPool.Clear();
                     foreach (var charId in _selectedCharacters)
                     {
-                        umaEraArchive.Game.GameManager.Instance.CurrentState.CurrentScoutPool.Add(charId);
+                        EraDream.Game.GameManager.Instance.CurrentState.CurrentScoutPool.Add(charId);
                     }
                 }
 
-                umaEraArchive.Game.GameManager.Instance.AutoSave();
+                EraDream.Game.GameManager.Instance.AutoSave();
             }
             IsForSimulation = false;
             LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";

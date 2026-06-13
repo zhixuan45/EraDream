@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace UmaEraArchive.Editor.Models
+namespace EraDream.Editor.Models
 {
     public class ExtensionManifest
     {

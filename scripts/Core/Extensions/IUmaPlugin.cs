@@ -1,4 +1,4 @@
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     /// <summary>
     /// 扩展包逻辑入口接口。

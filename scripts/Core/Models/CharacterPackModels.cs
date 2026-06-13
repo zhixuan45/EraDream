@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace UmaEraArchive.Core.Models
+namespace EraDream.Core.Models
 {
     /// <summary>
     /// 马娘养成数值配置 (Data/simulation.json)

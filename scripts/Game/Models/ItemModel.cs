@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace umaEraArchive.Game.Models;
+namespace EraDream.Game.Models;
 
 /// <summary>
 /// 物品类型定义

@@ -1,6 +1,6 @@
-# umaEraArchive Project Overview
+# EraDream Project Overview
 
-`umaEraArchive` is a modern story engine and editor framework built with **Godot 4** and **C#**. It is designed to facilitate the creation, management, and playback of visual novels (Galgame/AVG) through a data-driven, node-based architecture.
+`EraDream` is a modern story engine and editor framework built with **Godot 4** and **C#**. It is designed to facilitate the creation, management, and playback of visual novels (Galgame/AVG) through a data-driven, node-based architecture.
 
 ## Core Technology Stack
 - **Engine:** Godot 4.x (C# Support)

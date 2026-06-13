@@ -3,9 +3,9 @@
 # =====================================================================
 
 $packId = "test.manual_uma"
-$srcDir = "c:\Users\JuziD\godot\umaarchive-new\test_uma_pack_src"
-$zipPath = "c:\Users\JuziD\godot\umaarchive-new\test.manual_uma.zip"
-$targetDir = "$env:APPDATA\Godot\app_userdata\umaEraArchive\extensions"
+$srcDir = "c:\Users\JuziD\godot\eradream\test_uma_pack_src"
+$zipPath = "c:\Users\JuziD\godot\eradream\test.manual_uma.zip"
+$targetDir = "$env:APPDATA\Godot\app_userdata\EraDream\extensions"
 
 Write-Host ">>> 开始打包测试扩展包: $packId..." -ForegroundColor Cyan
 

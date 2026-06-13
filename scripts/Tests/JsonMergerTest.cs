@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Text.Json.Nodes;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Core.Extensions;
 
-namespace UmaEraArchive.Tests
+namespace EraDream.Tests
 {
     /// <summary>
     /// ExtensionJsonMerger 的单元测试

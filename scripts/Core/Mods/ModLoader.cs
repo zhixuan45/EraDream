@@ -5,9 +5,9 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using Godot;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Core.Extensions;
 
-namespace UmaEraArchive.Core.Mods
+namespace EraDream.Core.Mods
 {
     /// <summary>
     /// 自定义的 AssemblyLoadContext，用于隔离加载每个 Mod

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace UmaEraArchive.Core
+namespace EraDream.Core
 {
     /// <summary>
     /// UI 通用工具类，处理跨平台的 UI 兼容性逻辑

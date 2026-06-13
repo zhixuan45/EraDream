@@ -5,7 +5,7 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using Godot;
 
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     /// <summary>
     /// 静态 IL 安全扫描器，用于检测 DLL 中的高危调用

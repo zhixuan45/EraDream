@@ -80,11 +80,11 @@ public partial class CharacterSprite : Control
         if (CharacterManager.ActorToExtensionPathMap.TryGetValue(actorId, out string extRoot))
         {
             string absPath = System.IO.Path.Combine(extRoot, fileName);
-            texture = UmaEraArchive.Core.ResourceProxy.LoadImageTexture(absPath);
+            texture = EraDream.Core.ResourceProxy.LoadImageTexture(absPath);
         }
         else
         {
-            texture = UmaEraArchive.Core.ResourceProxy.LoadSpriteTexture(fileName);
+            texture = EraDream.Core.ResourceProxy.LoadSpriteTexture(fileName);
         }
 
         if (texture != null)
@@ -105,7 +105,7 @@ public partial class CharacterSprite : Control
     /// </summary>
     public void UpdateTextureDirect(string fileName)
     {
-        var texture = UmaEraArchive.Core.ResourceProxy.LoadSpriteTexture(fileName);
+        var texture = EraDream.Core.ResourceProxy.LoadSpriteTexture(fileName);
         if (texture != null)
         {
             _textureRect.Texture = texture;

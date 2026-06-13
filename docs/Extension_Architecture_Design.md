@@ -1,6 +1,6 @@
-﻿# 扩展包与剧情嵌套架构设计文档
+# 扩展包与剧情嵌套架构设计文档
 
-本文档定义了 umaEraArchive 项目中针对扩展包 (Extension)、剧情包嵌套 (Nested Story) 以及安全权限控制的架构标准。
+本文档定义了 EraDream 项目中针对扩展包 (Extension)、剧情包嵌套 (Nested Story) 以及安全权限控制的架构标准。
 
 ## 1. 多层级扩展模型
 

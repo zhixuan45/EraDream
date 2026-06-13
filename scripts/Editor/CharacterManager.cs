@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
 using FileAccess = Godot.FileAccess;
-using UmaEraArchive.Core.Models;
+using EraDream.Core.Models;
 
 /// <summary>
 /// 角色管理器，负责管理注册角色（来自资源包）和客串角色（来自剧本目录）。
@@ -43,7 +43,7 @@ public static class CharacterManager
             if (dir.CurrentIsDir() && !extDirName.StartsWith("."))
             {
                 // 仅允许加载当前处于激活状态的扩展包角色
-                if (UmaEraArchive.Core.Extensions.ExtensionManager.Instance != null && !UmaEraArchive.Core.Extensions.ExtensionManager.Instance.IsExtensionActive(extDirName))
+                if (EraDream.Core.Extensions.ExtensionManager.Instance != null && !EraDream.Core.Extensions.ExtensionManager.Instance.IsExtensionActive(extDirName))
                 {
                     extDirName = dir.GetNext();
                     continue;
@@ -131,7 +131,7 @@ public static class CharacterManager
     /// <summary>
     /// 获取最匹配当前状态的悬浮对话 (Bark)
     /// </summary>
-    public static BarkData GetBestBark(string actorId, umaEraArchive.Game.GameState state)
+    public static BarkData GetBestBark(string actorId, EraDream.Game.GameState state)
     {
         if (!RegisteredActors.TryGetValue(actorId, out var config)) return null;
         
@@ -143,7 +143,7 @@ public static class CharacterManager
         return null;
     }
 
-    private static bool EvaluateBarkCondition(string condition, umaEraArchive.Game.GameState state)
+    private static bool EvaluateBarkCondition(string condition, EraDream.Game.GameState state)
     {
         if (string.IsNullOrEmpty(condition)) return true;
         try
@@ -175,7 +175,7 @@ public static class CharacterManager
     }
 
     // 从马娘状态数据中动态获取指定属性，支持五维、体力和好感度等
-    private static int GetUmaPropValue(string prop, umaEraArchive.Game.UmaStats uma)
+    private static int GetUmaPropValue(string prop, EraDream.Game.UmaStats uma)
     {
         return prop.ToLower() switch
         {
@@ -218,7 +218,7 @@ public static class CharacterManager
     /// <summary>
     /// 从扩展包物理路径加载马娘的养成配置 (simulation.json)
     /// </summary>
-    public static UmaEraArchive.Core.Models.SimulationData LoadUmaSimulationData(string actorId)
+    public static EraDream.Core.Models.SimulationData LoadUmaSimulationData(string actorId)
     {
         // 优先在路径字典中查找该马娘所在的扩展包物理根路径
         if (!ActorToExtensionPathMap.TryGetValue(actorId, out string extRoot)) return null;
@@ -236,7 +236,7 @@ public static class CharacterManager
         try
         {
             string json = System.IO.File.ReadAllText(simPath);
-            return JsonSerializer.Deserialize<UmaEraArchive.Core.Models.SimulationData>(json);
+            return JsonSerializer.Deserialize<EraDream.Core.Models.SimulationData>(json);
         }
         catch (Exception ex)
         {

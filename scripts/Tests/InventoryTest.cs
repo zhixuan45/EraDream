@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Linq;
-using umaEraArchive.Game;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Game;
+using EraDream.Core.Extensions;
 
-namespace umaEraArchive.Tests;
+namespace EraDream.Tests;
 
 /// <summary>
 /// 物品栏系统自动化测试

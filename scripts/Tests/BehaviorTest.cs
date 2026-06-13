@@ -2,10 +2,10 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using UmaEraArchive.Core.Extensions;
-using umaEraArchive.Game;
+using EraDream.Core.Extensions;
+using EraDream.Game;
 
-namespace UmaEraArchive.Tests;
+namespace EraDream.Tests;
 
 public partial class BehaviorTest : Node
 {

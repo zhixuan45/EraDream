@@ -1,5 +1,5 @@
 using Godot;
-using UmaEraArchive.Editor.Nodes;
+using EraDream.Editor.Nodes;
 
 public class NarrativeNodeData : BaseNodeData
 {

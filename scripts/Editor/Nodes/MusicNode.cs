@@ -1,5 +1,5 @@
 using Godot;
-using UmaEraArchive.Editor.Nodes;
+using EraDream.Editor.Nodes;
 
 public class MusicNodeData : BaseNodeData
 {
@@ -73,7 +73,7 @@ public class MusicNodeData : BaseNodeData
 
 		// 全新播放（或停止后重新播放）
 		string fileName = selector.GetItemText(selector.Selected);
-		AudioStream stream = UmaEraArchive.Core.ResourceProxy.LoadAudioFromProject(fileName);
+		AudioStream stream = EraDream.Core.ResourceProxy.LoadAudioFromProject(fileName);
 		if (stream != null)
 		{
 			if (_previewPlayer == null)

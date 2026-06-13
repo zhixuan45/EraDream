@@ -3,7 +3,7 @@ using System;
 using System.Linq;
 using System.Text.Json;
 
-namespace UmaEraArchive.Core
+namespace EraDream.Core
 {
     public static class FileIOManager
     {
@@ -111,27 +111,49 @@ namespace UmaEraArchive.Core
         }
 
         /// <summary>
-        /// 泛型保存 JSON 数据到指定的虚拟路径
+        /// 泛型保存 JSON 数据到指定的虚拟路径，使用原子写入防止嘖截损坏
         /// </summary>
-        public static void SaveJson<T>(string path, T data)
+        public static bool SaveJson<T>(string path, T data)
         {
             try
             {
                 string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-                using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
-                if (file != null)
+                string tempPath = path + ".tmp";
+
+                // 先写入临时文件，降低嘑截的概率
+                using var tempFile = FileAccess.Open(tempPath, FileAccess.ModeFlags.Write);
+                if (tempFile == null)
                 {
-                    file.StoreString(json);
+                    var err = FileAccess.GetOpenError();
+                    GD.PrintErr($"[FileIOManager] SaveJson: 无法打开临时文件 '{tempPath}': {err}");
+                    return false;
                 }
+                tempFile.StoreString(json);
+                tempFile.Close();
+
+                // 原子重命名替换目标文件
+                var renameErr = DirAccess.RenameAbsolute(
+                    ProjectSettings.GlobalizePath(tempPath),
+                    ProjectSettings.GlobalizePath(path));
+                if (renameErr != Error.Ok)
+                {
+                    // 重命名失败则回退为直接覆写模式
+                    GD.PushWarning($"[FileIOManager] 重命名失败 ({renameErr})，回退直接写入 '{path}'");
+                    using var fallback = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+                    if (fallback == null) { GD.PrintErr($"[FileIOManager] 回退写入失败: {FileAccess.GetOpenError()}"); return false; }
+                    fallback.StoreString(json);
+                }
+                return true;
             }
             catch (Exception ex)
             {
                 GD.PrintErr($"[FileIOManager] SaveJson failed: {ex.Message}");
+                return false;
             }
         }
 
         /// <summary>
-        /// 泛型从指定的虚拟路径读取 JSON 数据
+        /// 泛型从指定的虚拟路径读取 JSON 数据，大小写不敏感
         /// </summary>
         public static T LoadJson<T>(string path)
         {
@@ -143,7 +165,9 @@ namespace UmaEraArchive.Core
                     if (file != null)
                     {
                         string json = file.GetAsText();
-                        return JsonSerializer.Deserialize<T>(json);
+                        // 属性名大小写不敏感，避免 C# PascalCase 与 JSON 字段名不一致导致默默重置
+                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        return JsonSerializer.Deserialize<T>(json, options);
                     }
                 }
             }
@@ -155,25 +179,43 @@ namespace UmaEraArchive.Core
         }
 
         /// <summary>
-        /// 泛型保存数据为压缩二进制格式
+        /// 泛型保存数据为压缩二进制格式，使用原子写入防止嘖截损坏
         /// </summary>
-        public static void SaveBinary<T>(string path, T data)
+        public static bool SaveBinary<T>(string path, T data)
         {
             try
             {
                 string json = JsonSerializer.Serialize(data);
                 byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
-                
-                // 使用 Zstd 压缩保存，既是二进制也减小体积
-                using var file = FileAccess.OpenCompressed(path, FileAccess.ModeFlags.Write, FileAccess.CompressionMode.Zstd);
-                if (file != null)
+                string tempPath = path + ".tmp";
+
+                // 使用 Zstd 压缩保存到临时文件
+                using var tempFile = FileAccess.OpenCompressed(tempPath, FileAccess.ModeFlags.Write, FileAccess.CompressionMode.Zstd);
+                if (tempFile == null)
                 {
-                    file.StoreBuffer(bytes);
+                    GD.PrintErr($"[FileIOManager] SaveBinary: 无法打开临时文件 '{tempPath}': {FileAccess.GetOpenError()}");
+                    return false;
                 }
+                tempFile.StoreBuffer(bytes);
+                tempFile.Close();
+
+                // 原子重命名替换目标文件
+                var renameErr = DirAccess.RenameAbsolute(
+                    ProjectSettings.GlobalizePath(tempPath),
+                    ProjectSettings.GlobalizePath(path));
+                if (renameErr != Error.Ok)
+                {
+                    GD.PushWarning($"[FileIOManager] SaveBinary 重命名失败 ({renameErr})，回退直接写入");
+                    using var fallback = FileAccess.OpenCompressed(path, FileAccess.ModeFlags.Write, FileAccess.CompressionMode.Zstd);
+                    if (fallback == null) { GD.PrintErr($"[FileIOManager] 回退写入失败: {FileAccess.GetOpenError()}"); return false; }
+                    fallback.StoreBuffer(bytes);
+                }
+                return true;
             }
             catch (Exception ex)
             {
                 GD.PrintErr($"[FileIOManager] SaveBinary failed: {ex.Message}");
+                return false;
             }
         }
 
@@ -190,7 +232,8 @@ namespace UmaEraArchive.Core
                     if (file != null)
                     {
                         string json = file.GetAsText();
-                        return JsonSerializer.Deserialize<T>(json);
+                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        return JsonSerializer.Deserialize<T>(json, options);
                     }
                 }
             }

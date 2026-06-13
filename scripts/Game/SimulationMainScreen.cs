@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Linq;
-using UmaEraArchive.Core;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Core;
+using EraDream.Core.Extensions;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 public partial class SimulationMainScreen : Control
 {
@@ -289,7 +289,7 @@ public partial class SimulationMainScreen : Control
 
     private void OnTrainPressed()
     {
-        var menu = _trainingMenuScene.Instantiate<UmaEraArchive.Game.UI.TrainingMenuUI>();
+        var menu = _trainingMenuScene.Instantiate<EraDream.Game.UI.TrainingMenuUI>();
         AddChild(menu);
         menu.TrainingSelected += (type) => OnTrainingSelected((long)type);
         menu.DynamicOptionSelected += OnDynamicOptionSelected;
@@ -348,7 +348,7 @@ public partial class SimulationMainScreen : Control
         if (options != null && options.Count > 0)
         {
             // 复用 TrainingMenuUI 展现动态菜单
-            var menu = _trainingMenuScene.Instantiate<UmaEraArchive.Game.UI.TrainingMenuUI>();
+            var menu = _trainingMenuScene.Instantiate<EraDream.Game.UI.TrainingMenuUI>();
             AddChild(menu);
             // 重新设置标题（可选，TrainingMenuUI 目前没有公开设置标题的方法，暂且由于其通用布局直接使用）
             menu.TrainingSelected += (type) => OnOutingSelected(); // 兼容旧逻辑
@@ -720,7 +720,7 @@ public partial class SimulationMainScreen : Control
         var scene = GD.Load<PackedScene>("res://scenes/ScoutingUI.tscn");
         if (scene != null)
         {
-            var ui = scene.Instantiate<umaEraArchive.Game.UI.ScoutingUI>();
+            var ui = scene.Instantiate<EraDream.Game.UI.ScoutingUI>();
             AddChild(ui);
             ui.ContractSigned += () => {
                 InitializeUma();

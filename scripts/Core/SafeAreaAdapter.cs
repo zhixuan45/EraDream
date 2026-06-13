@@ -28,7 +28,9 @@ public partial class SafeAreaAdapter : MarginContainer
 
     private void ApplySafeArea(float padding)
     {
-        int p = (int)padding;
+        // 防止 NaN/Infinity 导致 (int)padding 返回 int.MinValue 破坏布局
+        if (float.IsNaN(padding) || float.IsInfinity(padding)) padding = 0f;
+        int p = Mathf.Clamp((int)padding, 0, 100);
         AddThemeConstantOverride("margin_left", p);
         AddThemeConstantOverride("margin_right", p);
         AddThemeConstantOverride("margin_top", p);

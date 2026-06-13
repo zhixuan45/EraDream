@@ -1,7 +1,7 @@
-# umaEraArchive 扩展包系统规格说明书 (Extension Specification)
+# EraDream 扩展包系统规格说明书 (Extension Specification)
 
 ## 1. 概述
-`umaEraArchive` 采用模块化的扩展包系统，允许玩家和创作者通过 `.umaext` 文件添加新角色、媒体资源以及自定义养成玩法。
+`EraDream` 采用模块化的扩展包系统，允许玩家和创作者通过 `.umaext` 文件添加新角色、媒体资源以及自定义养成玩法。
 
 ## 2. 核心原则：包类型隔离
 系统严格区分两类扩展包，以确保稳定性和安全性：

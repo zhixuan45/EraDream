@@ -1,7 +1,7 @@
 using Godot;
 using System;
-using UmaEraArchive.Core;
-using umaEraArchive.Game;
+using EraDream.Core;
+using EraDream.Game;
 
 public partial class SaveSlotScreen : Control
 {

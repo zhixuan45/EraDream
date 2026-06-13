@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Linq;
-using UmaEraArchive.Core.Extensions;
-using umaEraArchive.Game.Models;
+using EraDream.Core.Extensions;
+using EraDream.Game.Models;
 
-namespace umaEraArchive.Game;
+namespace EraDream.Game;
 
 /// <summary>
 /// 负责处理训练员背包逻辑，包括物品使用、添加、移除及持续效果更新。

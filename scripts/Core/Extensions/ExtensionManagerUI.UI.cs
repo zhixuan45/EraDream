@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace UmaEraArchive.Core.Extensions
+namespace EraDream.Core.Extensions
 {
     public partial class ExtensionManagerUI
     {

@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Core.Extensions;
 
-namespace UmaEraArchive.Tests
+namespace EraDream.Tests
 {
     public partial class ExtensionDecompressionTest : Node
     {

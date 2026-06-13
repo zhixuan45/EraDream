@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using umaEraArchive.Game;
-using UmaEraArchive.Core.Extensions;
+using EraDream.Game;
+using EraDream.Core.Extensions;
 
-namespace UmaEraArchive.Game.UI
+namespace EraDream.Game.UI
 {
     /// <summary>
     /// 独立的训练菜单 UI 场景控制逻辑

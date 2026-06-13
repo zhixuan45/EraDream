@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using umaEraArchive.Game;
+using EraDream.Game;
 
-namespace umaEraArchive.Tests;
+namespace EraDream.Tests;
 
 /// <summary>
 /// 养成系统自动化测试用例
@@ -195,7 +195,7 @@ public partial class SimulationTest : Node
         state.Inventory.Items.Clear();
 
         // 确保物品已注册
-        var registry = UmaEraArchive.Core.Extensions.BehaviorRegistry.Instance;
+        var registry = EraDream.Core.Extensions.BehaviorRegistry.Instance;
         registry.LoadBehaviorPack("res://test_inventory.behavior.json");
 
         var shop = GameManager.Instance.Shop;
@@ -244,7 +244,7 @@ public partial class SimulationTest : Node
             file.StoreString(behaviorJson);
         }
 
-        var registry = UmaEraArchive.Core.Extensions.BehaviorRegistry.Instance;
+        var registry = EraDream.Core.Extensions.BehaviorRegistry.Instance;
         registry.LoadBehaviorPack(testBehaviorPath);
         
         // 触发 Hook 并验证 (通过观察日志或状态变更，目前 BriefStory 只是显示 Toast)
