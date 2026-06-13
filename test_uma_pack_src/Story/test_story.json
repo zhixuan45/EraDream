@@ -1,0 +1,24 @@
+[
+  {
+    "$type": "start",
+    "Id": "start_node",
+    "NextNodeId": "dialogue_node",
+    "trigger_condition": "",
+    "trigger_timing": 0
+  },
+  {
+    "$type": "dialogue",
+    "Id": "dialogue_node",
+    "NextNodeId": "end_node",
+    "character_id": "test.manual_uma",
+    "emotion": "1",
+    "content": "训练员！今天也要和我一起全力奔跑哦！我们会取得最棒的成绩的！"
+  },
+  {
+    "$type": "end",
+    "Id": "end_node",
+    "NextNodeId": "",
+    "EndType": "Custom",
+    "CustomScenePath": "res://scenes/SimulationMainScreen.tscn"
+  }
+]

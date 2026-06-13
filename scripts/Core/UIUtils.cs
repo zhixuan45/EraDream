@@ -17,12 +17,26 @@ namespace UmaEraArchive.Core
         {
             if (menu == null || caller == null) return;
 
-            // 获取当前 Viewport 的鼠标位置（像素坐标）
-            Vector2 mousePos = caller.GetViewport().GetMousePosition();
-            
-            // 使用 Popup(Rect2I) 确保在 embed_subwindows=false 时也能正确显示
-            // Rect2I 的 size 设置为 Zero 即可，PopupMenu 会自动计算自身大小
-            menu.Popup(new Rect2I((Vector2I)mousePos, Vector2I.Zero));
+            // 检查当前子窗口是否被嵌入游戏视口内
+            bool isEmbedded = true;
+            var window = caller.GetWindow();
+            if (window != null)
+            {
+                isEmbedded = window.GetTree().Root.GuiEmbedSubwindows;
+            }
+
+            if (isEmbedded)
+            {
+                // 嵌入模式下，直接使用当前视口相对鼠标坐标
+                Vector2 mousePos = caller.GetViewport().GetMousePosition();
+                menu.Popup(new Rect2I((Vector2I)mousePos, Vector2I.Zero));
+            }
+            else
+            {
+                // 原生非嵌入窗口模式下，PopupMenu 视为独立系统窗口，必须使用屏幕绝对鼠标位置
+                Vector2I screenMousePos = DisplayServer.MouseGetPosition();
+                menu.Popup(new Rect2I(screenMousePos, Vector2I.Zero));
+            }
         }
 
         /// <summary>
@@ -35,8 +49,20 @@ namespace UmaEraArchive.Core
         {
             if (menu == null || target == null) return;
 
-            // 获取目标控件在窗口内的全局位置
             Vector2 targetPos = target.GetGlobalRect().Position;
+            bool isEmbedded = true;
+            var window = target.GetWindow();
+            if (window != null)
+            {
+                isEmbedded = window.GetTree().Root.GuiEmbedSubwindows;
+            }
+
+            // 非嵌入模式下，额外加上游戏窗口在操作系统屏幕上的物理绝对偏移
+            if (!isEmbedded && window != null)
+            {
+                targetPos += window.Position;
+            }
+
             menu.Popup(new Rect2I((Vector2I)targetPos + offset, Vector2I.Zero));
         }
     }

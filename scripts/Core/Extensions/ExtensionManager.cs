@@ -30,6 +30,22 @@ namespace UmaEraArchive.Core.Extensions
             EnsureDirectories();
         }
 
+        // 启动时自动扫描并激活所有可用扩展以供手动测试
+        public override void _Ready()
+        {
+            ScanExtensions();
+            AutoActivateAllAvailable();
+        }
+
+        private void AutoActivateAllAvailable()
+        {
+            foreach (var ext in GetAvailableExtensions())
+            {
+                GD.Print($"[ExtensionManager] Auto-activating extension: {ext.Id}");
+                _ = ActivateExtension(ext.Id);
+            }
+        }
+
         private void EnsureDirectories()
         {
             using var dir = DirAccess.Open("user://");
@@ -170,15 +186,32 @@ namespace UmaEraArchive.Core.Extensions
             using var reader = new ZipReader();
             if (reader.Open(archivePath) != Error.Ok) return false;
 
-            if (!Directory.Exists(targetDir))
+            string fullTargetDir = Path.GetFullPath(targetDir);
+
+            if (!Directory.Exists(fullTargetDir))
             {
-                Directory.CreateDirectory(targetDir);
+                Directory.CreateDirectory(fullTargetDir);
             }
 
             foreach (string file in reader.GetFiles())
             {
-                string targetPath = Path.Combine(targetDir, file);
-                
+                // 防止 Zip Slip 攻击：拒绝包含路径穿越的条目
+                if (file.Contains("..") || Path.IsPathRooted(file))
+                {
+                    GD.PrintErr($"[ExtensionManager] Rejected unsafe archive entry: {file}");
+                    continue;
+                }
+
+                string targetPath = Path.GetFullPath(Path.Combine(fullTargetDir, file));
+
+                // 验证解压路径必须在目标目录内
+                if (!targetPath.StartsWith(fullTargetDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                    !targetPath.Equals(fullTargetDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    GD.PrintErr($"[ExtensionManager] Rejected path traversal entry: {file}");
+                    continue;
+                }
+
                 // 处理目录
                 if (file.EndsWith("/") || file.EndsWith("\\"))
                 {
@@ -202,8 +235,20 @@ namespace UmaEraArchive.Core.Extensions
         /// </summary>
         public async Task<bool> ActivateExtension(string id)
         {
+            return await ActivateExtensionInternal(id, new HashSet<string>());
+        }
+
+        private async Task<bool> ActivateExtensionInternal(string id, HashSet<string> activating)
+        {
             if (!_loadedManifests.ContainsKey(id)) return false;
             if (_activeExtensionIds.Contains(id)) return true;
+
+            // 环检测
+            if (!activating.Add(id))
+            {
+                GD.PrintErr($"[ExtensionManager] Circular dependency detected: {id}");
+                return false;
+            }
 
             await Task.Yield(); // 确保异步性
 
@@ -214,13 +259,16 @@ namespace UmaEraArchive.Core.Extensions
             {
                 foreach (var dep in manifest.Dependencies)
                 {
-                    if (!await ActivateExtension(dep.Id))
+                    if (!await ActivateExtensionInternal(dep.Id, activating))
                     {
                         GD.PrintErr($"[ExtensionManager] Failed to activate dependency {dep.Id} for {id}");
+                        activating.Remove(id);
                         return false;
                     }
                 }
             }
+
+            activating.Remove(id);
 
             // 安全性检查：如果存在风险且未授权，则拦截
             if (manifest.IsRisky && !manifest.IsAuthorized)
@@ -235,7 +283,7 @@ namespace UmaEraArchive.Core.Extensions
             if (string.IsNullOrEmpty(id) || id.Contains("..") || id.Contains("/") || id.Contains("\\"))
             {
                 GD.PrintErr($"[ExtensionManager] Invalid extension id for activation: {id}");
-                return Task.FromResult(false);
+                return false;
             }
 
             string baseCacheDir;
@@ -248,7 +296,7 @@ namespace UmaEraArchive.Core.Extensions
             catch (Exception ex)
             {
                 GD.PrintErr($"[ExtensionManager] Invalid characters in extension id {id}: {ex.Message}");
-                return Task.FromResult(false);
+                return false;
             }
 
             // 验证 targetCache 必须在 baseCacheDir 内，防止路径穿越攻击
@@ -256,38 +304,41 @@ namespace UmaEraArchive.Core.Extensions
                 !targetCache.Equals(baseCacheDir, StringComparison.OrdinalIgnoreCase))
             {
                 GD.PrintErr($"[ExtensionManager] Security violation: target cache path {targetCache} escapes base cache directory.");
-                return Task.FromResult(false);
-            }
-            
-            // 2. 解压逻辑 (Phase 1 实现)
-            // ExtractArchive(id, targetCache);
-
-            // 3. 安全性检查：如果是 Character 类型，严禁加载 Logic 目录下的内容
-            if (manifest.Type == PackType.Character)
-            {
-                GD.PrintErr($"[ExtensionManager] Path for {id} not found.");
                 return false;
             }
+            
+            // 2. 解压逻辑：若是压缩包格式，自动解压至缓存目录
+            if (_extensionPaths.TryGetValue(id, out string extPath) && extPath.EndsWith(".umaext"))
+            {
+                ExtractArchive(extPath, targetCache);
+            }
 
-                string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
+            // 3. Character 类型不允许加载逻辑 DLL，仅允许资源替换
+            if (manifest.Type == PackType.Character)
+            {
+                GD.Print($"[ExtensionManager] {id} is a Character pack. Logic loading skipped.");
+                _activeExtensionIds.Add(id);
+                return true;
+            }
 
-                if (File.Exists(dllPath))
-                {
-                    bool success = ModLoader.Instance.LoadMod(id, dllPath);
-                    if (!success) return false;
-                }
+            string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
 
-                // 加载行为包
-                string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
-                if (BehaviorRegistry.Instance == null)
-                {
-                    GD.PrintErr($"[ExtensionManager] BehaviorRegistry instance is not available. Cannot load behavior.json for {id}.");
-                }
-                else if (File.Exists(behaviorPath))
-                {
-                    BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath);
-                    GD.Print($"[ExtensionManager] Behavior pack loaded for {id}");
-                }
+            if (File.Exists(dllPath))
+            {
+                bool success = ModLoader.Instance.LoadMod(id, dllPath);
+                if (!success) return false;
+            }
+
+            // 加载行为包
+            string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
+            if (BehaviorRegistry.Instance == null)
+            {
+                GD.PrintErr($"[ExtensionManager] BehaviorRegistry instance is not available. Cannot load behavior.json for {id}.");
+            }
+            else if (File.Exists(behaviorPath))
+            {
+                BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath);
+                GD.Print($"[ExtensionManager] Behavior pack loaded for {id}");
             }
 
             _activeExtensionIds.Add(id);
@@ -361,6 +412,23 @@ namespace UmaEraArchive.Core.Extensions
             }
         }
 
+        /// <summary>
+        /// 获取已激活扩展包的物理根路径
+        /// </summary>
+        public string GetExtensionPath(string id)
+        {
+            if (!_activeExtensionIds.Contains(id)) return null;
+            if (_extensionPaths.TryGetValue(id, out string sourcePath))
+            {
+                if (sourcePath.EndsWith(".umaext"))
+                {
+                    return Path.Combine(ProjectSettings.GlobalizePath(CacheDir), id);
+                }
+                return sourcePath;
+            }
+            return null;
+        }
+
         public bool IsExtensionActive(string id) => _activeExtensionIds.Contains(id);
         public IEnumerable<ExtensionManifest> GetAvailableExtensions() => _loadedManifests.Values;
 
@@ -394,6 +462,36 @@ namespace UmaEraArchive.Core.Extensions
                 }
             }
             return paths;
+        }
+
+        // 关闭停用指定的扩展包，完美卸载其 DLL 逻辑与行为规则
+        public void DeactivateExtension(string id)
+        {
+            if (!_activeExtensionIds.Contains(id)) return;
+
+            GD.Print($"[ExtensionManager] Deactivating extension: {id}...");
+            _activeExtensionIds.Remove(id);
+            ModLoader.Instance.UnloadMod(id);
+
+            if (BehaviorRegistry.Instance != null)
+            {
+                BehaviorRegistry.Instance.Clear();
+                foreach (var activeId in _activeExtensionIds)
+                {
+                    if (!_loadedManifests.TryGetValue(activeId, out var manifest)) continue;
+                    
+                    string sourcePath = _extensionPaths[activeId];
+                    string targetCache = sourcePath.EndsWith(".umaext") 
+                        ? Path.Combine(ProjectSettings.GlobalizePath(CacheDir), activeId) 
+                        : sourcePath;
+                    
+                    string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
+                    if (File.Exists(behaviorPath))
+                    {
+                        BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath);
+                    }
+                }
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://saveslotscreen123"]
 
 [ext_resource type="Script" path="res://scripts/SaveSlotScreen.cs" id="1_save"]
 [ext_resource type="Theme" uid="uid://c6r8q0n0x7m3b" path="res://resources/theme_main.tres" id="2_theme"]
@@ -20,34 +20,46 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.1, 0.1, 0.12, 1)
+color = Color(0.0823529, 0.0823529, 0.101961, 1)
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -100.0
-offset_right = 150.0
-offset_bottom = 100.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 30
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 30
 
-[node name="BtnNewGame" type="Button" parent="VBoxContainer"]
-custom_minimum_size = Vector2(300, 60)
+[node name="MainVBox" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
-text = "创建新存档"
+theme_override_constants/separation = 20
 
-[node name="BtnLoadGame" type="Button" parent="VBoxContainer"]
-custom_minimum_size = Vector2(300, 60)
+[node name="TitleLabel" type="Label" parent="MarginContainer/MainVBox"]
 layout_mode = 2
-text = "读取已有存档"
+theme_override_font_sizes/font_size = 28
+text = "存档/读档管理"
+horizontal_alignment = 1
 
-[node name="BtnBack" type="Button" parent="VBoxContainer"]
-custom_minimum_size = Vector2(300, 60)
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/MainVBox"]
 layout_mode = 2
-text = "返回主菜单"
+size_flags_vertical = 3
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/MainVBox/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 20
+columns = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="BtnBack" type="Button" parent="MarginContainer/MainVBox/CenterContainer"]
+custom_minimum_size = Vector2(240, 50)
+layout_mode = 2
+text = "返回 / 取消"

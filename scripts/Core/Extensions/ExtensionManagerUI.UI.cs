@@ -17,24 +17,45 @@ namespace UmaEraArchive.Core.Extensions
 
         private void InitUI()
         {
-            // 创建暗色遮罩背景
+            // 创建填满屏幕的 Control 根容器，确保子节点的锚点对齐起效
+            var rootControl = new Control();
+            rootControl.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            rootControl.GrowHorizontal = Control.GrowDirection.Both;
+            rootControl.GrowVertical = Control.GrowDirection.Both;
+            AddChild(rootControl);
+
+            // 创建遮罩背景并挂载在 rootControl 下
             var bgOverlay = new ColorRect();
             bgOverlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-            bgOverlay.Color = new Color(0, 0, 0, 0.7f);
-            AddChild(bgOverlay);
+            bgOverlay.Color = new Color(0, 0, 0, 0.5f);
+            rootControl.AddChild(bgOverlay);
 
+            // 创建居中面板并挂载在 rootControl 下
             var mainPanel = new PanelContainer();
-            mainPanel.SetAnchorsPreset(Control.LayoutPreset.Center);
             mainPanel.CustomMinimumSize = new Vector2(900, 600);
-            AddChild(mainPanel);
+            mainPanel.SetAnchorsPreset(Control.LayoutPreset.Center);
+            mainPanel.GrowHorizontal = Control.GrowDirection.Both;
+            mainPanel.GrowVertical = Control.GrowDirection.Both;
+            // 修正 pivot offset 确保缩放居中对齐
+            mainPanel.PivotOffset = new Vector2(450, 300);
+            rootControl.AddChild(mainPanel);
 
+            // 升级样式：采用深蓝微透加柔和阴影，彰显 premium 质感
             var styleBox = new StyleBoxFlat();
-            styleBox.BgColor = new Color(0.12f, 0.12f, 0.12f);
-            styleBox.SetCornerRadiusAll(8);
+            styleBox.BgColor = new Color(0.12f, 0.12f, 0.14f, 0.95f);
+            styleBox.BorderWidthLeft = 2;
+            styleBox.BorderWidthTop = 2;
+            styleBox.BorderWidthRight = 2;
+            styleBox.BorderWidthBottom = 2;
+            styleBox.BorderColor = new Color(0.24f, 0.35f, 0.6f, 0.8f);
+            styleBox.SetCornerRadiusAll(12);
             styleBox.ContentMarginLeft = 20;
             styleBox.ContentMarginRight = 20;
             styleBox.ContentMarginTop = 15;
             styleBox.ContentMarginBottom = 15;
+            styleBox.ShadowColor = new Color(0, 0, 0, 0.4f);
+            styleBox.ShadowSize = 8;
+            styleBox.ShadowOffset = new Vector2(0, 4);
             mainPanel.AddThemeStyleboxOverride("panel", styleBox);
 
             var layout = new VBoxContainer();

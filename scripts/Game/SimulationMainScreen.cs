@@ -39,6 +39,7 @@ public partial class SimulationMainScreen : Control
     private Button _btnRest;
     private Button _btnNextWeek;
     private Button _btnSystem;
+    private Button _btnVisitPlayground; // 动态运动场签约按钮
 
     private UI.InventoryUI _inventoryUI;
 
@@ -55,22 +56,50 @@ public partial class SimulationMainScreen : Control
         _playerInfo = GetNode<Label>("SafeArea/MainVBox/TopSection/StatsVBox/PlayerInfo");
         _portraitContainer = GetNode<Control>("SafeArea/MainVBox/TopSection/PortraitContainer");
 
-        // 动态创建立绘
+        // 动态创建立绘并拉伸以填充容器大小
         _umaSprite = new CharacterSprite { Name = "UmaSprite" };
+        _umaSprite.SetAnchorsPreset(LayoutPreset.FullRect);
         _portraitContainer.AddChild(_umaSprite);
         _portraitContainer.GetNodeOrNull<Control>("Placeholder")?.Hide();
 
-        // 动态创建悬浮对话标签 (Bark)
+        // 动态创建精美悬浮对话气泡 (Bark Bubble)，悬浮在立绘框上方
+        var bubblePanel = new PanelContainer {
+            Name = "BarkBubble",
+            CustomMinimumSize = new Vector2(280, 70),
+            Position = new Vector2(10, -30)
+        };
+        
+        var styleBox = new StyleBoxFlat {
+            BgColor = new Color(0.12f, 0.12f, 0.14f, 0.85f),
+            CornerRadiusTopLeft = 14,
+            CornerRadiusTopRight = 14,
+            CornerRadiusBottomLeft = 2,
+            CornerRadiusBottomRight = 14,
+            BorderWidthLeft = 1,
+            BorderWidthTop = 1,
+            BorderWidthRight = 1,
+            BorderWidthBottom = 1,
+            BorderColor = new Color(0.35f, 0.35f, 0.4f, 0.45f),
+            ContentMarginLeft = 16,
+            ContentMarginRight = 16,
+            ContentMarginTop = 12,
+            ContentMarginBottom = 12
+        };
+        bubblePanel.AddThemeStyleboxOverride("panel", styleBox);
+
         _barkLabel = new Label {
             Name = "BarkLabel",
             HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            CustomMinimumSize = new Vector2(250, 0)
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill
         };
-        _barkLabel.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0));
-        _barkLabel.AddThemeConstantOverride("outline_size", 4);
-        _portraitContainer.AddChild(_barkLabel);
-        _barkLabel.Position = new Vector2(20, 20);
+        _barkLabel.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.6f));
+        _barkLabel.AddThemeConstantOverride("outline_size", 3);
+
+        bubblePanel.AddChild(_barkLabel);
+        _portraitContainer.AddChild(bubblePanel);
 
         _speedLabel = GetNode<Label>("SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid/SpeedLabel");
         _staminaLabel = GetNode<Label>("SafeArea/MainVBox/TopSection/StatsVBox/UmaStatsGrid/StaminaLabel");
@@ -103,6 +132,14 @@ public partial class SimulationMainScreen : Control
         _btnNextWeek.Pressed += OnNextWeekPressed;
         _btnSystem.Pressed += OnSystemPressed;
 
+        // 动态实例化运动场按钮
+        _btnVisitPlayground = new Button {
+            Text = "去运动场看看 (Playground)",
+            Name = "BtnVisitPlayground"
+        };
+        _btnVisitPlayground.Pressed += OnVisitPlaygroundPressed;
+        GetNode<Control>("SafeArea/MainVBox/BottomActions").AddChild(_btnVisitPlayground);
+
         _shopMenu = new PopupMenu();
         _shopMenu.AddItem("体力药水 (500)", 0);
         _shopMenu.AddItem("小蛋糕 (300)", 1);
@@ -129,8 +166,14 @@ public partial class SimulationMainScreen : Control
         string activeId = GameManager.Instance.CurrentState.ActiveUmaId;
         if (!string.IsNullOrEmpty(activeId))
         {
+            _umaSprite.Show();
             _umaSprite.UpdateCharacter(activeId);
             TriggerBark();
+        }
+        else
+        {
+            _umaSprite.Hide();
+            _barkLabel.Text = "（当前没有签约的马娘，请前往运动场签约）";
         }
     }
 
@@ -198,22 +241,49 @@ public partial class SimulationMainScreen : Control
             _turnInfo.Text = $"当前回合: {state.CurrentTurn} / {state.MaxTurns}";
             _playerInfo.Text = $"{state.Player.PlayerName} 体力: {state.Player.Stamina}/{state.Player.MaxStamina} | 精力: {state.Player.Energy} | 金钱: {state.Player.Money}";
 
-            var uma = state.Uma;
-            _speedLabel.Text = $"速度: {uma.Speed}";
-            _staminaLabel.Text = $"耐力: {uma.Stamina}";
-            _powerLabel.Text = $"力量: {uma.Power}";
-            _gutsLabel.Text = $"根性: {uma.Guts}";
-            _intLabel.Text = $"智力: {uma.Intelligence}";
-            _affectionLabel.Text = $"好感度: {uma.Affection} | 心情: {uma.CurrentMoodStage}";
+            bool hasUma = !string.IsNullOrEmpty(state.ActiveUmaId);
 
-            // 更新马娘资源条
-            _umaStaminaBar.MaxValue = uma.MaxActionStamina;
-            _umaStaminaBar.Value = uma.ActionStamina;
-            _umaStaminaText.Text = $"{uma.ActionStamina} / {uma.MaxActionStamina}";
+            // 控制马娘专属行动按钮的可见性
+            _btnTrain.Visible = hasUma;
+            _btnOuting.Visible = hasUma;
+            _btnShop.Visible = hasUma;
+            _btnInventory.Visible = hasUma;
+            _btnVisitPlayground.Visible = !hasUma;
 
-            _umaEnergyBar.MaxValue = uma.MaxEnergy;
-            _umaEnergyBar.Value = uma.Energy;
-            _umaEnergyText.Text = $"{uma.Energy} / {uma.MaxEnergy}";
+            if (hasUma)
+            {
+                var uma = state.Uma;
+                _speedLabel.Text = $"速度: {uma.Speed}";
+                _staminaLabel.Text = $"耐力: {uma.Stamina}";
+                _powerLabel.Text = $"力量: {uma.Power}";
+                _gutsLabel.Text = $"根性: {uma.Guts}";
+                _intLabel.Text = $"智力: {uma.Intelligence}";
+                _affectionLabel.Text = $"好感度: {uma.Affection} | 心情: {uma.CurrentMoodStage}";
+
+                // 显示马娘资源条
+                _umaStaminaBar.Visible = true;
+                _umaStaminaBar.MaxValue = uma.MaxActionStamina;
+                _umaStaminaBar.Value = uma.ActionStamina;
+                _umaStaminaText.Text = $"{uma.ActionStamina} / {uma.MaxActionStamina}";
+
+                _umaEnergyBar.Visible = true;
+                _umaEnergyBar.MaxValue = uma.MaxEnergy;
+                _umaEnergyBar.Value = uma.Energy;
+                _umaEnergyText.Text = $"{uma.Energy} / {uma.MaxEnergy}";
+            }
+            else
+            {
+                _speedLabel.Text = "速度: -";
+                _staminaLabel.Text = "耐力: -";
+                _powerLabel.Text = "力量: -";
+                _gutsLabel.Text = "根性: -";
+                _intLabel.Text = "智力: -";
+                _affectionLabel.Text = "好感度: - | 心情: -";
+
+                // 隐藏未签约马娘的资源条
+                _umaStaminaBar.Visible = false;
+                _umaEnergyBar.Visible = false;
+            }
         }
     }
 
@@ -248,7 +318,7 @@ public partial class SimulationMainScreen : Control
             }
             else
             {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("马娘行动力不足，无法进行训练！");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("马娘行动力不足，无法进行训练！");
             }
         }
     }
@@ -259,12 +329,12 @@ public partial class SimulationMainScreen : Control
         {
             if (GameManager.Instance.Work.ExecuteWork(GameManager.Instance.CurrentState))
             {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("打工成功，获得了金钱！");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("打工成功，获得了金钱！");
                 UpdateUI();
             }
             else
             {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("训练员体力或精力不足！");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练员体力或精力不足！");
             }
         }
     }
@@ -301,7 +371,7 @@ public partial class SimulationMainScreen : Control
         }
         else
         {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("训练员体力或精力不足！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练员体力或精力不足！");
         }
     }
 
@@ -326,13 +396,13 @@ public partial class SimulationMainScreen : Control
         {
             // 简单逻辑：买完直接用
             GameManager.Instance.Shop.UseItem(state, itemId);
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"购买并使用了物品 {itemId}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"购买并使用了物品 {itemId}");
             UpdateUI();
             TriggerBark();
         }
         else
         {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("金钱不足或物品未定义！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("金钱不足或物品未定义！");
         }
     }
 
@@ -354,7 +424,7 @@ public partial class SimulationMainScreen : Control
         if (GameManager.Instance != null && !GameManager.Instance.CurrentState.IsGameOver)
         {
             GameManager.Instance.Rest.ExecuteRest(GameManager.Instance.CurrentState);
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("进行了休息，体力已恢复。");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("进行了休息，体力已恢复。");
             UpdateUI();
         }
     }
@@ -366,14 +436,296 @@ public partial class SimulationMainScreen : Control
             GameManager.Instance.AdvanceTurn();
             UpdateUI();
             TriggerBark();
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("新的一周开始了！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("新的一周开始了！");
         }
     }
 
+    private Control _systemOverlay;
+    private LineEdit _cmdInput;
+
     private void OnSystemPressed()
     {
+        // 如果已经显示，则不重复创建 (C#注释，最多两行)
+        if (_systemOverlay != null && IsInstanceValid(_systemOverlay)) return;
+
+        // 1. 创建全屏半透明遮罩背景 (C#注释，最多两行)
+        _systemOverlay = new ColorRect {
+            Color = new Color(0, 0, 0, 0.6f),
+            Name = "SystemOverlay"
+        };
+        _systemOverlay.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(_systemOverlay);
+
+        // 2. 创建居中系统菜单面板 (C#注释，最多两行)
+        var panel = new PanelContainer {
+            CustomMinimumSize = new Vector2(400, 480)
+        };
+        
+        var panelStyle = new StyleBoxFlat {
+            BgColor = new Color(0.15f, 0.15f, 0.18f, 0.95f),
+            CornerRadiusTopLeft = 12,
+            CornerRadiusTopRight = 12,
+            CornerRadiusBottomLeft = 12,
+            CornerRadiusBottomRight = 12,
+            BorderWidthLeft = 2,
+            BorderWidthTop = 2,
+            BorderWidthRight = 2,
+            BorderWidthBottom = 2,
+            BorderColor = new Color(0.3f, 0.35f, 0.45f, 0.8f),
+            ContentMarginLeft = 24,
+            ContentMarginRight = 24,
+            ContentMarginTop = 20,
+            ContentMarginBottom = 20
+        };
+        panel.AddThemeStyleboxOverride("panel", panelStyle);
+        _systemOverlay.AddChild(panel);
+        panel.SetAnchorsPreset(LayoutPreset.Center);
+
+        var margin = new MarginContainer();
+        panel.AddChild(margin);
+
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 15);
+        margin.AddChild(vbox);
+
+        // 标题 (C#注释，最多两行)
+        var titleLabel = new Label {
+            Text = "系统控制台",
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        titleLabel.AddThemeFontSizeOverride("font_size", 22);
+        titleLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 1.0f));
+        vbox.AddChild(titleLabel);
+
+        // 按钮列表 (C#注释，最多两行)
+        var btnSave = new Button { Text = "保存游戏 (Save Game)", CustomMinimumSize = new Vector2(0, 45) };
+        btnSave.Pressed += OnSystemMenuSavePressed;
+        vbox.AddChild(btnSave);
+
+        var btnLoad = new Button { Text = "读取游戏 (Load Game)", CustomMinimumSize = new Vector2(0, 45) };
+        btnLoad.Pressed += OnSystemMenuLoadPressed;
+        vbox.AddChild(btnLoad);
+
+        var btnMainMenu = new Button { Text = "返回主菜单 (Return to Menu)", CustomMinimumSize = new Vector2(0, 45) };
+        btnMainMenu.Pressed += OnSystemMenuReturnPressed;
+        vbox.AddChild(btnMainMenu);
+
+        var btnCancel = new Button { Text = "返回游戏 (Cancel)", CustomMinimumSize = new Vector2(0, 45) };
+        btnCancel.Pressed += CloseSystemOverlay;
+        vbox.AddChild(btnCancel);
+
+        // 分割线 (C#注释，最多两行)
+        var separator = new HSeparator();
+        vbox.AddChild(separator);
+
+        // 调试指令区域标题 (C#注释，最多两行)
+        var debugTitle = new Label {
+            Text = "调试控制台 (Debug Console):",
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        debugTitle.AddThemeFontSizeOverride("font_size", 13);
+        debugTitle.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
+        vbox.AddChild(debugTitle);
+
+        // 调试指令输入行 (C#注释，最多两行)
+        var hboxCmd = new HBoxContainer();
+        hboxCmd.AddThemeConstantOverride("separation", 10);
+        vbox.AddChild(hboxCmd);
+
+        _cmdInput = new LineEdit {
+            PlaceholderText = "输入调试指令 (输入help查看帮助)...",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 36)
+        };
+        _cmdInput.TextSubmitted += ExecuteDebugCommand;
+        hboxCmd.AddChild(_cmdInput);
+
+        var btnExec = new Button {
+            Text = "执行",
+            CustomMinimumSize = new Vector2(70, 36)
+        };
+        btnExec.Pressed += () => ExecuteDebugCommand(_cmdInput.Text);
+        hboxCmd.AddChild(btnExec);
+        
+        // 自动聚焦输入框 (C#注释，最多两行)
+        _cmdInput.GrabFocus();
+    }
+
+    private void CloseSystemOverlay()
+    {
+        // 销毁全屏系统弹窗 (C#注释，最多两行)
+        if (_systemOverlay != null && IsInstanceValid(_systemOverlay))
+        {
+            _systemOverlay.QueueFree();
+            _systemOverlay = null;
+        }
+    }
+
+    private void OnSystemMenuSavePressed()
+    {
+        // 跳转至保存存档界面 (C#注释，最多两行)
+        CloseSystemOverlay();
+        SaveSlotScreen.IsSaveMode = true;
+        SaveSlotScreen.BackScenePath = "res://scenes/SimulationMainScreen.tscn";
+        LoadingScreen.TargetScene = "res://scenes/SaveSlotScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+    }
+
+    private void OnSystemMenuLoadPressed()
+    {
+        // 跳转至读取存档界面 (C#注释，最多两行)
+        CloseSystemOverlay();
+        SaveSlotScreen.IsSaveMode = false;
+        SaveSlotScreen.BackScenePath = "res://scenes/SimulationMainScreen.tscn";
+        LoadingScreen.TargetScene = "res://scenes/SaveSlotScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+    }
+
+    private void OnSystemMenuReturnPressed()
+    {
+        // 自动存一下档，并返回主菜单 (C#注释，最多两行)
+        CloseSystemOverlay();
         GameManager.Instance?.AutoSave();
         LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
         GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+    }
+
+    private void ExecuteDebugCommand(string rawCommand)
+    {
+        if (string.IsNullOrWhiteSpace(rawCommand)) return;
+        string text = rawCommand.Trim();
+        _cmdInput.Clear();
+
+        var state = GameManager.Instance?.CurrentState;
+        if (state == null)
+        {
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("错误：当前游戏状态为空！");
+            return;
+        }
+
+        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return;
+
+        string cmd = parts[0].ToLower();
+        var notifier = GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier");
+
+        try
+        {
+            switch (cmd)
+            {
+                case "help":
+                    notifier?.ShowToast("指令: set money/speed/stamina/power/guts/int/turn [v] 或 scout nominated [id]");
+                    break;
+                case "set":
+                    if (parts.Length < 3)
+                    {
+                        notifier?.ShowToast("用法: set [属性] [数值]");
+                        return;
+                    }
+                    string prop = parts[1].ToLower();
+                    if (!int.TryParse(parts[2], out int val))
+                    {
+                        notifier?.ShowToast("错误：数值必须为整数！");
+                        return;
+                    }
+
+                    switch (prop)
+                    {
+                        case "money":
+                            state.Player.Money = val;
+                            notifier?.ShowToast($"[调试] 金钱已设为 {val}");
+                            break;
+                        case "speed":
+                            state.Uma.Speed = val;
+                            notifier?.ShowToast($"[调试] 马娘速度已设为 {val}");
+                            break;
+                        case "stamina":
+                            state.Uma.Stamina = val;
+                            notifier?.ShowToast($"[调试] 马娘耐力已设为 {val}");
+                            break;
+                        case "power":
+                            state.Uma.Power = val;
+                            notifier?.ShowToast($"[调试] 马娘力量已设为 {val}");
+                            break;
+                        case "guts":
+                            state.Uma.Guts = val;
+                            notifier?.ShowToast($"[调试] 马娘根性已设为 {val}");
+                            break;
+                        case "int":
+                        case "intelligence":
+                            state.Uma.Intelligence = val;
+                            notifier?.ShowToast($"[调试] 马娘智力已设为 {val}");
+                            break;
+                        case "turn":
+                            state.CurrentTurn = val;
+                            notifier?.ShowToast($"[调试] 当前回合已设为 {val}");
+                            break;
+                        default:
+                            notifier?.ShowToast($"错误：不支持修改的属性 '{prop}'");
+                            break;
+                    }
+                    UpdateUI();
+                    break;
+
+                case "scout":
+                    if (parts.Length < 2)
+                    {
+                        notifier?.ShowToast("用法: scout nominate [uma_id] 或 scout list");
+                        return;
+                    }
+                    string sub = parts[1].ToLower();
+                    if (sub == "list")
+                    {
+                        GD.Print("[Scout List] Available characters in manager:");
+                        foreach (var charData in CharacterManager.Characters)
+                        {
+                            GD.Print($" - {charData.ActorId} ({charData.DisplayName})");
+                        }
+                        notifier?.ShowToast("已打印可用马娘ID池到日志控制台。");
+                    }
+                    else if (sub == "nominate" || sub == "nominated")
+                    {
+                        if (parts.Length < 3)
+                        {
+                            notifier?.ShowToast("用法: scout nominate [uma_id]");
+                            return;
+                        }
+                        string targetId = parts[2];
+                        state.CurrentScoutPool.Clear();
+                        state.CurrentScoutPool.Add(targetId);
+                        notifier?.ShowToast($"[调试] 已将签约池重置并指定为: {targetId}");
+                    }
+                    else
+                    {
+                        notifier?.ShowToast($"错误：未知的子指令 '{sub}'");
+                    }
+                    break;
+
+                default:
+                    notifier?.ShowToast($"错误：未知调试指令 '{cmd}'，输入 help 查看帮助。");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            notifier?.ShowToast($"异常: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 处理点击“去运动场看看”按钮的事件，打开签约面板
+    /// </summary>
+    private void OnVisitPlaygroundPressed()
+    {
+        var scene = GD.Load<PackedScene>("res://scenes/ScoutingUI.tscn");
+        if (scene != null)
+        {
+            var ui = scene.Instantiate<umaEraArchive.Game.UI.ScoutingUI>();
+            AddChild(ui);
+            ui.ContractSigned += () => {
+                InitializeUma();
+                UpdateUI();
+            };
+        }
     }
 }

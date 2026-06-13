@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using UmaEraArchive.Core;
 
@@ -78,12 +79,15 @@ public partial class GameManager : Node
         AddChild(Inventory);
 
         // 初始化扩展与行为引擎
-        ExtensionManager = new UmaEraArchive.Core.Extensions.ExtensionManager();
-        AddChild(ExtensionManager);
+        ExtensionManager = UmaEraArchive.Core.Extensions.ExtensionManager.Instance;
+        BehaviorRegistry = UmaEraArchive.Core.Extensions.BehaviorRegistry.Instance;
 
-        BehaviorRegistry = new UmaEraArchive.Core.Extensions.BehaviorRegistry();
-        AddChild(BehaviorRegistry);
-        
+        if (BehaviorRegistry == null)
+        {
+            BehaviorRegistry = new UmaEraArchive.Core.Extensions.BehaviorRegistry();
+            AddChild(BehaviorRegistry);
+        }
+
         StartNewGame(new System.Collections.Generic.List<string>());
     }
 
@@ -106,11 +110,115 @@ public partial class GameManager : Node
             CurrentState.ModPaths.AddRange(modPaths);
         }
 
+        // 初始化刷新马娘池
+        RefreshScoutPool();
+
         Events.LoadEventPool(CurrentState.ScenarioPaths);
         GD.Print($"[GameManager] New game: {CurrentState.ScenarioPaths.Count} scenarios, {CurrentState.CharacterPaths.Count} characters, {CurrentState.ModPaths.Count} mods.");
 
         OnGameStarted?.Invoke();
         OnTurnStart?.Invoke(CurrentState.CurrentTurn);
+    }
+
+    /// <summary>
+    /// 刷新运动场上的随机马娘签约池，固定提供 3 位马娘
+    /// </summary>
+    public void RefreshScoutPool()
+    {
+        if (CurrentState == null) return;
+        CurrentState.CurrentScoutPool.Clear();
+
+        var availableIds = new List<string>();
+        // 获取所有可用的马娘 ID
+        foreach (var charData in CharacterManager.Characters)
+        {
+            if (!string.IsNullOrEmpty(charData.ActorId)) availableIds.Add(charData.ActorId);
+        }
+
+        // 若无已加载马娘，注入默认测试 ID 供手动测试使用
+        if (availableIds.Count == 0)
+        {
+            availableIds.Add("test.manual_uma");
+            availableIds.Add("special_uma_silence");
+            availableIds.Add("special_uma_goldship");
+        }
+
+        var rng = new Random();
+        var selected = availableIds.OrderBy(x => rng.Next()).Take(3).ToList();
+        CurrentState.CurrentScoutPool.AddRange(selected);
+        GD.Print($"[GameManager] Scout pool refreshed with {CurrentState.CurrentScoutPool.Count} characters.");
+    }
+
+    /// <summary>
+    /// 扣除金币并刷新随机马娘签约池
+    /// </summary>
+    public bool RefreshScoutPoolWithCost(int cost)
+    {
+        if (CurrentState == null) return false;
+        if (CurrentState.Player.Money < cost) return false;
+
+        CurrentState.Player.AddMoney(-cost);
+        RefreshScoutPool();
+        return true;
+    }
+
+    /// <summary>
+    /// 签约指定的马娘并初始化其在 GameState.Uma 中的养成数值
+    /// </summary>
+    public bool ContractUma(string id)
+    {
+        if (CurrentState == null) return false;
+        if (!CurrentState.CurrentScoutPool.Contains(id)) return false;
+
+        CurrentState.ActiveUmaId = id;
+        CurrentState.CurrentScoutPool.Clear();
+
+        // 尝试加载该马娘的 simulation.json 数据
+        var simData = CharacterManager.LoadUmaSimulationData(id);
+        if (simData != null && simData.Stats != null)
+        {
+            var initial = simData.Stats.Initial;
+            CurrentState.Uma.Speed = initial.GetValueOrDefault("speed", 100);
+            CurrentState.Uma.Stamina = initial.GetValueOrDefault("stamina", 100);
+            CurrentState.Uma.Power = initial.GetValueOrDefault("power", 100);
+            CurrentState.Uma.Guts = initial.GetValueOrDefault("guts", 100);
+            CurrentState.Uma.Intelligence = initial.GetValueOrDefault("intelligence", 100);
+            CurrentState.Uma.SkillPoints = initial.GetValueOrDefault("skill_points", 0);
+
+            var conditions = simData.Stats.Conditions;
+            if (conditions.ContainsKey("motivation"))
+            {
+                int mot = conditions["motivation"];
+                CurrentState.Uma.Mood = mot switch {
+                    1 => 10, 2 => 35, 3 => 75, 4 => 110, 5 => 140, _ => 75
+                };
+            }
+            CurrentState.Uma.Energy = conditions.GetValueOrDefault("energy", 100);
+            CurrentState.Uma.MaxEnergy = conditions.GetValueOrDefault("energy", 100);
+            CurrentState.Uma.Affection = conditions.GetValueOrDefault("affection", 0);
+
+            if (simData.Stats.CustomStats != null)
+            {
+                foreach (var kvp in simData.Stats.CustomStats) CurrentState.Uma.CustomStats[kvp.Key] = kvp.Value;
+            }
+            GD.Print($"[GameManager] Contracted {id}. Base stats loaded.");
+        }
+        else
+        {
+            CurrentState.Uma.Speed = 100;
+            CurrentState.Uma.Stamina = 100;
+            CurrentState.Uma.Power = 100;
+            CurrentState.Uma.Guts = 100;
+            CurrentState.Uma.Intelligence = 100;
+            CurrentState.Uma.SkillPoints = 10;
+            CurrentState.Uma.Mood = 75;
+            CurrentState.Uma.Energy = 100;
+            CurrentState.Uma.Affection = 0;
+            GD.Print($"[GameManager] Contracted {id}. Default stats loaded.");
+        }
+
+        AutoSave();
+        return true;
     }
 
     public void SaveGame(string path)
@@ -175,10 +283,20 @@ public partial class GameManager : Node
         // 每周结束时的资源恢复逻辑
         CurrentState.Player.AddStamina(30); // 基础恢复
         CurrentState.Player.AddEnergy(10);
-        CurrentState.Uma.AddActionStamina(40);
-        CurrentState.Uma.AddEnergy(20);
-        // 心情随时间自然衰减（普通以下不衰减，绝好/好缓慢衰减）
-        if (CurrentState.Uma.Mood > 75) CurrentState.Uma.AddMood(-5);
+
+        // 仅在已签约马娘时恢复马娘属性
+        if (!string.IsNullOrEmpty(CurrentState.ActiveUmaId))
+        {
+            CurrentState.Uma.AddActionStamina(40);
+            CurrentState.Uma.AddEnergy(20);
+            // 心情随时间自然衰减（普通以下不衰减，绝好/好缓慢衰减）
+            if (CurrentState.Uma.Mood > 75) CurrentState.Uma.AddMood(-5);
+        }
+        else
+        {
+            // 若未签约，则新一回合自动刷新运动场签约池
+            RefreshScoutPool();
+        }
 
         CurrentState.NextTurn();
         GD.Print($"[GameManager] Advanced to turn {CurrentState.CurrentTurn}");

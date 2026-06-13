@@ -13,6 +13,9 @@ public static class CharacterManager
 {
     // 已注册的马娘/固定角色 (ActorId -> Config)
     public static Dictionary<string, ActorConfigData> RegisteredActors { get; private set; } = new();
+
+    // 保存马娘 ID 到其对应扩展包物理根路径的映射关系，以解决一包多马娘的路径定位问题
+    public static Dictionary<string, string> ActorToExtensionPathMap { get; private set; } = new();
     
     // 当前剧本的客串角色 (ActorId -> Config)
     public static Dictionary<string, ActorConfigData> GuestActors { get; private set; } = new();
@@ -21,28 +24,74 @@ public static class CharacterManager
     public static List<ActorConfigData> Characters => RegisteredActors.Values.Concat(GuestActors.Values).ToList();
 
     /// <summary>
-    /// 加载全局/资源包角色配置
+    /// 加载全局/资源包角色配置，支持增量加载
     /// </summary>
-    public static void LoadRegisteredActors(string folderPath)
+    public static void LoadRegisteredActors(string folderPath, bool clear = true)
     {
-        RegisteredActors.Clear();
+        if (clear)
+        {
+            RegisteredActors.Clear();
+            ActorToExtensionPathMap.Clear(); // 加载前清空映射
+        }
         using var dir = DirAccess.Open(folderPath);
         if (dir == null) return;
 
         dir.ListDirBegin();
-        string subDir = dir.GetNext();
-        while (subDir != "")
+        string extDirName = dir.GetNext();
+        while (extDirName != "")
         {
-            if (dir.CurrentIsDir() && !subDir.StartsWith("."))
+            if (dir.CurrentIsDir() && !extDirName.StartsWith("."))
             {
-                string configPath = folderPath.PathJoin(subDir).PathJoin("Data/actor_config.json");
+                // 仅允许加载当前处于激活状态的扩展包角色
+                if (UmaEraArchive.Core.Extensions.ExtensionManager.Instance != null && !UmaEraArchive.Core.Extensions.ExtensionManager.Instance.IsExtensionActive(extDirName))
+                {
+                    extDirName = dir.GetNext();
+                    continue;
+                }
+                string extRoot = folderPath.PathJoin(extDirName);
+                
+                // 1. [向下兼容] 加载包根目录下的 Data/actor_config.json
+                string configPath = extRoot.PathJoin("Data/actor_config.json");
                 if (FileAccess.FileExists(configPath))
                 {
                     var config = LoadConfig(configPath);
-                    if (config != null) RegisteredActors[config.ActorId] = config;
+                    if (config != null)
+                    {
+                        RegisteredActors[config.ActorId] = config;
+                        ActorToExtensionPathMap[config.ActorId] = extRoot;
+                    }
+                }
+
+                // 2. [多马娘支持] 扫描 Data/Characters/ 子目录
+                string multiCharDir = extRoot.PathJoin("Data/Characters");
+                if (DirAccess.DirExistsAbsolute(multiCharDir))
+                {
+                    using var charDir = DirAccess.Open(multiCharDir);
+                    if (charDir != null)
+                    {
+                        charDir.ListDirBegin();
+                        string charSubDir = charDir.GetNext();
+                        while (charSubDir != "")
+                        {
+                            if (charDir.CurrentIsDir() && !charSubDir.StartsWith("."))
+                            {
+                                string charConfigPath = multiCharDir.PathJoin(charSubDir).PathJoin("actor_config.json");
+                                if (FileAccess.FileExists(charConfigPath))
+                                {
+                                    var config = LoadConfig(charConfigPath);
+                                    if (config != null)
+                                    {
+                                        RegisteredActors[config.ActorId] = config;
+                                        ActorToExtensionPathMap[config.ActorId] = extRoot;
+                                    }
+                                }
+                            }
+                            charSubDir = charDir.GetNext();
+                        }
+                    }
                 }
             }
-            subDir = dir.GetNext();
+            extDirName = dir.GetNext();
         }
     }
 
@@ -97,9 +146,49 @@ public static class CharacterManager
     private static bool EvaluateBarkCondition(string condition, umaEraArchive.Game.GameState state)
     {
         if (string.IsNullOrEmpty(condition)) return true;
-        // 此处可复用 EventModule 的逻辑，暂时简化
-        if (condition.Contains("energy < 30")) return state.Uma.GetCustomStat("energy") < 30;
+        try
+        {
+            string clean = condition.Replace(" ", "");
+            if (clean.Contains(">="))
+            {
+                var parts = clean.Split(new[] { ">=" }, StringSplitOptions.None);
+                return GetUmaPropValue(parts[0], state.Uma) >= int.Parse(parts[1]);
+            }
+            if (clean.Contains("<="))
+            {
+                var parts = clean.Split(new[] { "<=" }, StringSplitOptions.None);
+                return GetUmaPropValue(parts[0], state.Uma) <= int.Parse(parts[1]);
+            }
+            if (clean.Contains("<"))
+            {
+                var parts = clean.Split('<');
+                return GetUmaPropValue(parts[0], state.Uma) < int.Parse(parts[1]);
+            }
+            if (clean.Contains(">"))
+            {
+                var parts = clean.Split('>');
+                return GetUmaPropValue(parts[0], state.Uma) > int.Parse(parts[1]);
+            }
+        }
+        catch (Exception ex) { GD.PrintErr($"[CharacterManager] EvaluateBarkCondition error: {ex.Message}"); }
         return false;
+    }
+
+    // 从马娘状态数据中动态获取指定属性，支持五维、体力和好感度等
+    private static int GetUmaPropValue(string prop, umaEraArchive.Game.UmaStats uma)
+    {
+        return prop.ToLower() switch
+        {
+            "energy" => uma.Energy,
+            "actionstamina" or "action_stamina" => uma.ActionStamina,
+            "affection" => uma.Affection,
+            "speed" => uma.Speed,
+            "stamina" => uma.Stamina,
+            "power" => uma.Power,
+            "guts" => uma.Guts,
+            "intelligence" => uma.Intelligence,
+            _ => uma.GetCustomStat(prop)
+        };
     }
 
     public static ActorConfigData GetActor(string id)
@@ -124,5 +213,35 @@ public static class CharacterManager
         string json = JsonSerializer.Serialize(GuestActors.Values.ToList(), new JsonSerializerOptions { WriteIndented = true });
         using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
         file?.StoreString(json);
+    }
+
+    /// <summary>
+    /// 从扩展包物理路径加载马娘的养成配置 (simulation.json)
+    /// </summary>
+    public static UmaEraArchive.Core.Models.SimulationData LoadUmaSimulationData(string actorId)
+    {
+        // 优先在路径字典中查找该马娘所在的扩展包物理根路径
+        if (!ActorToExtensionPathMap.TryGetValue(actorId, out string extRoot)) return null;
+        if (string.IsNullOrEmpty(extRoot)) return null;
+
+        // 优先定位 Data/Characters/[actorId]/simulation.json 目录，无则回退
+        string simPath = System.IO.Path.Combine(extRoot, "Data", "Characters", actorId, "simulation.json");
+        if (!System.IO.File.Exists(simPath))
+        {
+            simPath = System.IO.Path.Combine(extRoot, "Data", "simulation.json");
+        }
+
+        if (!System.IO.File.Exists(simPath)) return null;
+
+        try
+        {
+            string json = System.IO.File.ReadAllText(simPath);
+            return JsonSerializer.Deserialize<UmaEraArchive.Core.Models.SimulationData>(json);
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[CharacterManager] Failed to load simulation.json for {actorId}: {ex.Message}");
+            return null;
+        }
     }
 }

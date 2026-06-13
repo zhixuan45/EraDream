@@ -1,0 +1,30 @@
+{
+  "identity": {
+    "internal_id": "test_manual_uma_02",
+    "full_name": "测试马娘二号（银发）",
+    "short_name": "测试马娘二号",
+    "personality_id": "cool"
+  },
+  "stats": {
+    "initial": {
+      "speed": 95,
+      "stamina": 105,
+      "power": 110,
+      "guts": 90,
+      "intelligence": 100,
+      "skill_points": 40
+    },
+    "conditions": {
+      "motivation": 3,
+      "energy": 100,
+      "affection": 15
+    },
+    "growth_bonus": {
+      "speed": 0.10,
+      "stamina": 0.10,
+      "power": 0.20,
+      "guts": 0.00,
+      "intelligence": 0.00
+    }
+  }
+}

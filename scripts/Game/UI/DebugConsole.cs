@@ -71,7 +71,10 @@ public partial class DebugConsole : CanvasLayer
             switch (cmd)
             {
                 case "help":
-                    Log("Available commands: set money [v], set speed [v], set stamina [v], set turn [v], save, load");
+                    Log("Available commands: set money [v], set speed [v], set stamina [v], set turn [v], scout nominate [id], scout list, save, load");
+                    break;
+                case "scout":
+                    HandleScoutCommand(parts, state);
                     break;
                 case "set":
                     HandleSetCommand(parts, state);
@@ -131,6 +134,44 @@ public partial class DebugConsole : CanvasLayer
             default:
                 Log($"[Error] Unsupported property: {prop}");
                 break;
+        }
+    }
+
+    /// <summary>
+    /// 处理控制台马娘签约池相关的调试命令
+    /// </summary>
+    private void HandleScoutCommand(string[] parts, GameState state)
+    {
+        if (parts.Length < 2)
+        {
+            Log("[Usage] scout nominate [uma_id]  OR  scout list");
+            return;
+        }
+
+        string sub = parts[1];
+        if (sub == "list")
+        {
+            Log("[Scout List] Available characters in manager:");
+            foreach (var charData in CharacterManager.Characters) Log($" - {charData.ActorId} ({charData.DisplayName})");
+        }
+        else if (sub == "nominate")
+        {
+            if (parts.Length < 3)
+            {
+                Log("[Usage] scout nominate [uma_id]");
+                return;
+            }
+            string targetId = parts[2];
+            var actor = CharacterManager.GetActor(targetId);
+            if (actor == null && targetId != "test.manual_uma") Log($"[Warning] Character '{targetId}' is not loaded.");
+
+            state.CurrentScoutPool.Clear();
+            state.CurrentScoutPool.Add(targetId);
+            Log($"[Success] Scout pool nominated with {targetId}");
+        }
+        else
+        {
+            Log($"[Error] Unknown scout subcommand: {sub}");
         }
     }
 

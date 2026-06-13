@@ -1,0 +1,9 @@
+{
+  "id": "test.manual_uma",
+  "name": "测试马娘（手动测试专用）",
+  "author": "Antigravity",
+  "version": "1.0.0",
+  "type": "character",
+  "description": "本扩展包用于手动测试游戏核心养成系统的功能，包含五维训练、体力及精力消耗、打工和休息等全流程功能验证。",
+  "min_game_version": "0.0.5"
+}

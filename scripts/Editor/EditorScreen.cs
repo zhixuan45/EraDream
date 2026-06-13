@@ -239,7 +239,7 @@ public partial class EditorScreen : Control
 		{
 			case 0: FileIOManager.OpenFolderDialog("选择新项目文件夹", (path) => { ProjectManager.CreateNewProject(path); LoadAndRender(ProjectManager.StoryFile); }); break;
 			case 1: FileIOManager.OpenLoadDialog("选择项目文件", "*.uma", (path) => { if (ProjectManager.OpenProject(path)) { CharacterManager.LoadCharacters(ProjectManager.CharacterFile); StickerManager.LoadStickers(ProjectManager.StickerFile); LoadAndRender(ProjectManager.StoryFile); } }); break;
-			case 2: if (EnsureProjectOpen()) { StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile); CharacterManager.SaveCharacters(ProjectManager.CharacterFile); StickerManager.SaveStickers(ProjectManager.StickerFile); ProjectManager.SaveMetadata(); GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目保存成功！"); } break;
+			case 2: if (EnsureProjectOpen()) { StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile); CharacterManager.SaveCharacters(ProjectManager.CharacterFile); StickerManager.SaveStickers(ProjectManager.StickerFile); ProjectManager.SaveMetadata(); GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("项目保存成功！"); } break;
 		}
 	}
 
@@ -288,12 +288,12 @@ public partial class EditorScreen : Control
 			case 1: // 导出角色配置
 				FileIOManager.OpenSaveDialog("导出角色配置", "characters.json", "*.json", (path) => {
 					CharacterManager.SaveCharacters(path);
-					GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("角色配置导出成功！");
+					GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("角色配置导出成功！");
 				}); break;
 			case 2: // 导入角色配置
 				FileIOManager.OpenLoadDialog("导入角色配置", "*.json", (path) => {
 					CharacterManager.LoadCharacters(path);
-					GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("角色配置导入成功！");
+					GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("角色配置导入成功！");
 				}); break;
 		}
 	}
@@ -307,7 +307,7 @@ public partial class EditorScreen : Control
 
 	private bool EnsureProjectOpen()
 	{
-		if (!ProjectManager.IsProjectOpened) { GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先新建或打开一个项目！"); return false; }
+		if (!ProjectManager.IsProjectOpened) { GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("请先新建或打开一个项目！"); return false; }
 		return true;
 	}
 
@@ -458,7 +458,7 @@ public partial class EditorScreen : Control
 			ProjectManager.Metadata.Author = authorEdit.Text;
 			ProjectManager.Metadata.Description = descEdit.Text;
 			ProjectManager.SaveMetadata();
-			GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目信息已保存！");
+			GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("项目信息已保存！");
 		};
 
 		dialog.CallDeferred("popup_centered");

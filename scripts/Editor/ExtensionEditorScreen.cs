@@ -226,7 +226,7 @@ public partial class ExtensionEditorScreen : Control
                 _fileEditorVBox.Show();
             }
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"无法读取文件: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"无法读取文件: {ex.Message}");
         }
     }
 
@@ -241,7 +241,7 @@ public partial class ExtensionEditorScreen : Control
                 _imagePreviewVBox.Show();
             }
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"图片加载失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"图片加载失败: {ex.Message}");
         }
     }
 
@@ -300,7 +300,7 @@ public partial class ExtensionEditorScreen : Control
                 _charSpriteEdit.Text = _currentActorConfig.Visuals?.DefaultSprite ?? "";
             }
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"加载失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"加载失败: {ex.Message}");
             ShowCodeView(path);
         }
     }
@@ -311,7 +311,7 @@ public partial class ExtensionEditorScreen : Control
 
         string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
         if (!IsPathWithinProject(absolutePath)) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("保存失败: 文件不在项目内！");
             return;
         }
 
@@ -367,9 +367,9 @@ public partial class ExtensionEditorScreen : Control
                 }
             }
 
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("配置已同步保存！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("配置已同步保存！");
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"保存失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"保存失败: {ex.Message}");
         }
     }
 
@@ -379,7 +379,7 @@ public partial class ExtensionEditorScreen : Control
 
         string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
         if (!IsPathWithinProject(absolutePath)) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("保存失败: 文件不在项目内！");
             return;
         }
 
@@ -387,10 +387,10 @@ public partial class ExtensionEditorScreen : Control
             using var file = Godot.FileAccess.Open(_currentEditingFilePath, Godot.FileAccess.ModeFlags.Write);
             if (file != null) {
                 file.StoreString(_fileContentEdit.Text);
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("文件已保存！");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("文件已保存！");
             }
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"保存失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"保存失败: {ex.Message}");
         }
     }
 
@@ -444,7 +444,7 @@ public partial class ExtensionEditorScreen : Control
             string absolutePath = System.IO.Path.GetFullPath(globalPath);
 
             if (!IsPathWithinProject(absolutePath)) {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("删除失败: 不能删除项目外的文件！");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("删除失败: 不能删除项目外的文件！");
                 return;
             }
 
@@ -456,9 +456,9 @@ public partial class ExtensionEditorScreen : Control
                 ShowManifestView();
             }
             RefreshFileTree();
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("已删除！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("已删除！");
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"删除失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"删除失败: {ex.Message}");
         }
     }
 
@@ -478,7 +478,7 @@ public partial class ExtensionEditorScreen : Control
             string absoluteNewPath = System.IO.Path.GetFullPath(globalNewPath);
 
             if (!IsPathWithinProject(absoluteOldPath) || !IsPathWithinProject(absoluteNewPath)) {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名失败: 目标文件必须在项目内！");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("重命名失败: 目标文件必须在项目内！");
                 return;
             }
 
@@ -486,9 +486,9 @@ public partial class ExtensionEditorScreen : Control
             else if (System.IO.File.Exists(absoluteOldPath)) System.IO.File.Move(absoluteOldPath, absoluteNewPath);
             if (_currentEditingFilePath == oldPath) _currentEditingFilePath = newPath;
             RefreshFileTree();
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("重命名成功！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("重命名成功！");
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"重命名失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"重命名失败: {ex.Message}");
         }
     }
 
@@ -499,7 +499,7 @@ public partial class ExtensionEditorScreen : Control
             InitializeFolderStructure();
             SaveManifest();
             RefreshFileTree();
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("新扩展包项目已初始化！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("新扩展包项目已初始化！");
         });
     }
 
@@ -511,14 +511,14 @@ public partial class ExtensionEditorScreen : Control
             UpdateUIFromManifest();
             RefreshFileTree();
             ShowManifestView();
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("项目已打开！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("项目已打开！");
         });
     }
 
     private void OnCreateJsonIdPressed(long id)
     {
         if (string.IsNullOrEmpty(_projectPath)) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先打开项目！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("请先打开项目！");
             return;
         }
 
@@ -555,9 +555,9 @@ public partial class ExtensionEditorScreen : Control
             }
             RefreshFileTree();
             DispatchFileView(path);
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"已创建: {fileName.GetFile()}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"已创建: {fileName.GetFile()}");
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"创建失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"创建失败: {ex.Message}");
         }
     }
 
@@ -599,9 +599,9 @@ public partial class ExtensionEditorScreen : Control
             try {
                 if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
                 ZipFile.CreateFromDirectory(ProjectSettings.GlobalizePath(_projectPath), ProjectSettings.GlobalizePath(path), CompressionLevel.Optimal, false);
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("导出成功！");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("导出成功！");
             } catch (Exception ex) {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowErrorDialog("导出失败", ex.Message);
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("导出失败", ex.Message);
             }
         });
     }
@@ -615,12 +615,12 @@ public partial class ExtensionEditorScreen : Control
 
     private void ImportAsset(string subDir)
     {
-        if (string.IsNullOrEmpty(_projectPath)) { GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("请先新建或打开一个项目！"); return; }
+        if (string.IsNullOrEmpty(_projectPath)) { GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("请先新建或打开一个项目！"); return; }
         FileIOManager.OpenLoadDialog("选择资源文件", "*.*", (sourcePath) => {
             string destPath = _projectPath.PathJoin(subDir).PathJoin(sourcePath.GetFile());
             if (Godot.DirAccess.CopyAbsolute(sourcePath, destPath) == Godot.Error.Ok) {
                 RefreshFileTree();
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"导入成功: {sourcePath.GetFile()}");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"导入成功: {sourcePath.GetFile()}");
             }
         });
     }
@@ -674,7 +674,7 @@ public partial class ExtensionEditorScreen : Control
 
             RefreshBehaviorRulesUI();
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"加载失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"加载失败: {ex.Message}");
             ShowCodeView(path);
         }
     }
@@ -798,7 +798,7 @@ public partial class ExtensionEditorScreen : Control
 
         string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
         if (!IsPathWithinProject(absolutePath)) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("保存失败: 文件不在项目内！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("保存失败: 文件不在项目内！");
             return;
         }
 
@@ -807,9 +807,9 @@ public partial class ExtensionEditorScreen : Control
             string json = JsonSerializer.Serialize(_currentBehaviorPack, options);
             using var file = Godot.FileAccess.Open(_currentEditingFilePath, Godot.FileAccess.ModeFlags.Write);
             file.StoreString(json);
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast("行为包已保存！");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("行为包已保存！");
         } catch (Exception ex) {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"保存失败: {ex.Message}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"保存失败: {ex.Message}");
         }
     }
 }

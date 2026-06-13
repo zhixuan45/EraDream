@@ -75,7 +75,18 @@ public partial class CharacterSprite : Control
 
         GD.Print($"[Sprite] Attempting to load sprite: {fileName}");
 
-        var texture = UmaEraArchive.Core.ResourceProxy.LoadSpriteTexture(fileName);
+        ImageTexture texture = null;
+        // 智能处理扩展包中的角色立绘：检查是否为注册激活的扩展包角色并拼接绝对路径
+        if (CharacterManager.ActorToExtensionPathMap.TryGetValue(actorId, out string extRoot))
+        {
+            string absPath = System.IO.Path.Combine(extRoot, fileName);
+            texture = UmaEraArchive.Core.ResourceProxy.LoadImageTexture(absPath);
+        }
+        else
+        {
+            texture = UmaEraArchive.Core.ResourceProxy.LoadSpriteTexture(fileName);
+        }
+
         if (texture != null)
         {
             _textureRect.Texture = texture;

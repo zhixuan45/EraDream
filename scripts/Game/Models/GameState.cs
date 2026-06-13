@@ -27,6 +27,10 @@ public class GameState
     [JsonPropertyName("active_uma_id")]
     public string ActiveUmaId { get; set; } = "";
 
+    // 存储当前回合可签约的随机马娘 ID 池
+    [JsonPropertyName("current_scout_pool")]
+    public System.Collections.Generic.List<string> CurrentScoutPool { get; set; } = new();
+
     [JsonPropertyName("player_stats")]
     public PlayerStats Player { get; set; } = new PlayerStats();
 

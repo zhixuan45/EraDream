@@ -111,34 +111,22 @@ public partial class MainMenuScreen : Control
 
     private void OnStartPressed()
     {
-        // 跳转至存档选择/新建存档中间界面
-        LoadingScreen.TargetScene = "res://scenes/SaveSlotScreen.tscn";
-        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        // 初始化新游戏状态并跳转至命名界面 (C#注释，最多两行)
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.StartNewGame(null);
+            LoadingScreen.TargetScene = "res://scenes/NamingScreen.tscn";
+            GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+        }
     }
 
     private void OnLoadPressed()
     {
-        if (GameManager.Instance != null)
-        {
-            // 优先从 SettingsManager 获取最近存档路径
-            string lastPath = SettingsManager.Instance?.LastSavePath;
-            if (string.IsNullOrEmpty(lastPath) || !FileAccess.FileExists(lastPath))
-            {
-                lastPath = GameManager.AutoSavePath;
-            }
-
-            if (FileAccess.FileExists(lastPath))
-            {
-                GameManager.Instance.LoadGame(lastPath);
-                LoadingScreen.TargetScene = "res://scenes/SimulationMainScreen.tscn";
-                GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
-            }
-            else
-            {
-                GD.Print("No valid save found!");
-                GetNode<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("未找到存档", "无法加载游戏进度，请先开始新游戏。");
-            }
-        }
+        // 以读档模式跳转到多槽位存档选择界面 (C#注释，最多两行)
+        SaveSlotScreen.IsSaveMode = false;
+        SaveSlotScreen.BackScenePath = "res://scenes/MainMenuScreen.tscn";
+        LoadingScreen.TargetScene = "res://scenes/SaveSlotScreen.tscn";
+        GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
     }
 
     private void OnSettingsPressed()

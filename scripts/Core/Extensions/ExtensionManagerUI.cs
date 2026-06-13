@@ -97,10 +97,10 @@ namespace UmaEraArchive.Core.Extensions
                 }
             }
 
-            // 状态与按钮
+            // 状态与按钮：支持反激活/关闭功能
             bool isActive = ExtensionManager.Instance.IsExtensionActive(manifest.Id);
-            _activateBtn.Text = isActive ? "已激活" : (manifest.IsRisky ? "同意并激活" : "激活");
-            _activateBtn.Disabled = isActive;
+            _activateBtn.Text = isActive ? "关闭激活" : (manifest.IsRisky ? "同意并激活" : "激活");
+            _activateBtn.Disabled = false;
             
             _detailsPanel.Visible = true;
         }
@@ -109,22 +109,35 @@ namespace UmaEraArchive.Core.Extensions
         {
             if (_selectedManifest == null) return;
 
-            if (_selectedManifest.IsRisky)
+            bool isActive = ExtensionManager.Instance.IsExtensionActive(_selectedManifest.Id);
+            if (isActive)
             {
-                // 这里本应弹窗二次确认，简化版直接进行
-                GD.Print($"[ExtensionManagerUI] User accepted risks for {_selectedManifest.Id}");
-            }
-
-            bool success = await ExtensionManager.Instance.ActivateExtension(_selectedManifest.Id);
-            if (success)
-            {
+                // 关闭停用扩展包
+                ExtensionManager.Instance.DeactivateExtension(_selectedManifest.Id);
                 RefreshList();
                 UpdateDetails(_selectedManifest);
-                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"扩展包 {_selectedManifest.Name} 已激活");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"扩展包 {_selectedManifest.Name} 已关闭激活");
             }
             else
             {
-                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"激活失败: {_selectedManifest.Id}");
+                // 激活扩展包
+                if (_selectedManifest.IsRisky)
+                {
+                    _selectedManifest.IsAuthorized = true;
+                    GD.Print($"[ExtensionManagerUI] User accepted risks for {_selectedManifest.Id}");
+                }
+
+                bool success = await ExtensionManager.Instance.ActivateExtension(_selectedManifest.Id);
+                if (success)
+                {
+                    RefreshList();
+                    UpdateDetails(_selectedManifest);
+                    GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"扩展包 {_selectedManifest.Name} 已激活");
+                }
+                else
+                {
+                    GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"激活失败: {_selectedManifest.Id}");
+                }
             }
         }
     }

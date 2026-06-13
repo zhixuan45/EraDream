@@ -217,7 +217,7 @@ public partial class InventoryUI : Control
 
         if (GameManager.Instance.Inventory.UseItem(state, _selectedItemId))
         {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"使用了物品: {BehaviorRegistry.Instance.GetItemDefinition(_selectedItemId).Name}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"使用了物品: {BehaviorRegistry.Instance.GetItemDefinition(_selectedItemId).Name}");
             RefreshUI();
             
             // 如果物品用完了，关闭弹窗

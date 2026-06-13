@@ -54,6 +54,17 @@ public partial class StorySelectorScreen : Control
 
         EnsureDirs();
         RefreshAllLists();
+
+        // 养成模式下，允许免除选剧本限制，直接开始游戏进行签约
+        if (IsForSimulation)
+        {
+            _btnPlay.Text = "开始养成 (Start)";
+            _btnPlay.Disabled = false;
+        }
+        else
+        {
+            _btnPlay.Disabled = true;
+        }
     }
 
     private void EnsureDirs()
@@ -88,7 +99,27 @@ public partial class StorySelectorScreen : Control
             }
         }
 
-        RefreshList("user://characters/", _characterList, _selectedCharacters);
+        if (IsForSimulation)
+        {
+            // 智能自动加载并注册当前激活的缓存马娘与本地开发马娘配置
+            CharacterManager.LoadRegisteredActors(ProjectSettings.GlobalizePath("user://cache/ext/"), true);
+            CharacterManager.LoadRegisteredActors(ProjectSettings.GlobalizePath("user://extensions/"), false);
+
+            // 养成模式下，智能直接载入当前游戏已注册激活的所有马娘，脱离物理 user:// 限制
+            foreach (Node child in _characterList.GetChildren()) child.QueueFree();
+            foreach (var character in CharacterManager.Characters)
+            {
+                if (!string.IsNullOrEmpty(character.ActorId))
+                {
+                    AddActiveUmaItem(character.ActorId, character.DisplayName, _characterList, _selectedCharacters);
+                }
+            }
+        }
+        else
+        {
+            RefreshList("user://characters/", _characterList, _selectedCharacters);
+        }
+
         RefreshList("user://mods/", _modList, _selectedMods);
     }
 
@@ -122,9 +153,33 @@ public partial class StorySelectorScreen : Control
             ButtonPressed = selection.Contains(fullPath)
         };
         cb.Toggled += (bool pressed) => {
-            if (pressed) { if (!selection.Contains(fullPath)) selection.Add(fullPath); }
-            else selection.Remove(fullPath);
-            _btnPlay.Disabled = _selectedScenarios.Count == 0;
+            if (pressed)
+            {
+                if (!IsForSimulation)
+                {
+                    // 非养成模式下强制排他单选
+                    foreach (Node node in container.GetChildren())
+                    {
+                        if (node is CheckBox otherCb && otherCb != cb)
+                        {
+                            otherCb.SetPressedNoSignal(false);
+                        }
+                    }
+                    selection.Clear();
+                    _selectedStoryPath = fullPath;
+                }
+                if (!selection.Contains(fullPath)) selection.Add(fullPath);
+            }
+            else
+            {
+                selection.Remove(fullPath);
+                if (!IsForSimulation && _selectedStoryPath == fullPath)
+                {
+                    _selectedStoryPath = "";
+                }
+            }
+            // 仅在非养成（即普通剧本播放模式）下才强制置灰开始按钮
+            _btnPlay.Disabled = !IsForSimulation && _selectedScenarios.Count == 0;
         };
         container.AddChild(cb);
     }
@@ -152,17 +207,19 @@ public partial class StorySelectorScreen : Control
     {
         if (IsForSimulation)
         {
-            if (_selectedScenarios.Count == 0) return;
-            
+            // 允许在没有附加剧本文件时直接开始养成（走无马娘运动场签约前置流）
             if (umaEraArchive.Game.GameManager.Instance != null)
             {
                 umaEraArchive.Game.GameManager.Instance.StartNewGame(_selectedScenarios, _selectedCharacters, _selectedMods);
                 
-                // 自动将第一个马娘包的 ID 设为当前活跃马娘 (需从包名或 manifest 解析，暂时简化为路径 ID)
+                // 若勾选了多个马娘，填充至候选签约池，但不进行直接签约以防跳过招募流程
                 if (_selectedCharacters.Count > 0)
                 {
-                    string charId = System.IO.Path.GetFileNameWithoutExtension(_selectedCharacters[0]);
-                    umaEraArchive.Game.GameManager.Instance.CurrentState.ActiveUmaId = charId;
+                    umaEraArchive.Game.GameManager.Instance.CurrentState.CurrentScoutPool.Clear();
+                    foreach (var charId in _selectedCharacters)
+                    {
+                        umaEraArchive.Game.GameManager.Instance.CurrentState.CurrentScoutPool.Add(charId);
+                    }
                 }
 
                 umaEraArchive.Game.GameManager.Instance.AutoSave();
@@ -186,7 +243,7 @@ public partial class StorySelectorScreen : Control
             }
             else
             {
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowErrorDialog("加载失败", "[Selector] Failed to load package!");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("加载失败", "[Selector] Failed to load package!");
                 return;
             }
         }
@@ -200,6 +257,32 @@ public partial class StorySelectorScreen : Control
 
         LoadingScreen.TargetScene = "res://scenes/StoryPlayerScreen.tscn";
         GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
+    }
+
+    /// <summary>
+    /// 在已载入的马娘列表中添加复选框条目，支持自由多选
+    /// </summary>
+    private void AddActiveUmaItem(string actorId, string displayName, VBoxContainer container, List<string> selection)
+    {
+        CheckBox cb = new CheckBox {
+            Text = $"{displayName} ({actorId})",
+            TooltipText = $"马娘 ID: {actorId}",
+            CustomMinimumSize = new Vector2(0, 40),
+            ButtonPressed = selection.Contains(actorId)
+        };
+
+        cb.Toggled += (bool pressed) => {
+            if (pressed)
+            {
+                if (!selection.Contains(actorId)) selection.Add(actorId);
+            }
+            else
+            {
+                selection.Remove(actorId);
+            }
+        };
+
+        container.AddChild(cb);
     }
 }
 

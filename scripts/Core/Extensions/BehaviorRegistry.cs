@@ -242,7 +242,7 @@ public partial class BehaviorRegistry : Node
         else if (action.Type == "BriefStory")
         {
             // 简要剧情：目前通过通知显示
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"触发简要剧情: {action.Path}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"触发简要剧情: {action.Path}");
         }
         else if (action.Type == "ChangeStat")
         {
@@ -251,7 +251,7 @@ public partial class BehaviorRegistry : Node
                 ApplyStatChange(action.TargetProperty, val, state);
                 string sign = val >= 0 ? "+" : "";
                 string propName = action.TargetProperty.Split('.').Last();
-                GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"{propName} {sign}{val}");
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"{propName} {sign}{val}");
             }
         }
     }

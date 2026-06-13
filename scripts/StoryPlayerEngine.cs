@@ -111,7 +111,7 @@ public partial class StoryPlayerEngine : Control
 
         if (string.IsNullOrEmpty(CurrentStoryPath))
         {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowErrorDialog("加载失败", "[Engine] Story path is empty!");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowErrorDialog("加载失败", "[Engine] Story path is empty!");
             GetTree().ChangeSceneToFile("res://scenes/MainMenuScreen.tscn");
             return;
         }
@@ -442,7 +442,7 @@ public partial class StoryPlayerEngine : Control
         }
         else
         {
-            GetNode<ErrorNotifier>("/root/ErrorNotifier").ShowToast($"[Engine] Background file NOT found/failed to load: {file}");
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"[Engine] Background file NOT found/failed to load: {file}");
         }
     }
 

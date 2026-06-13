@@ -1,0 +1,30 @@
+{
+  "identity": {
+    "internal_id": "test_manual_uma_01",
+    "full_name": "测试马娘一号（栗发）",
+    "short_name": "测试马娘一号",
+    "personality_id": "normal"
+  },
+  "stats": {
+    "initial": {
+      "speed": 100,
+      "stamina": 100,
+      "power": 100,
+      "guts": 100,
+      "intelligence": 100,
+      "skill_points": 50
+    },
+    "conditions": {
+      "motivation": 3,
+      "energy": 100,
+      "affection": 10
+    },
+    "growth_bonus": {
+      "speed": 0.20,
+      "stamina": 0.10,
+      "power": 0.10,
+      "guts": 0.00,
+      "intelligence": 0.00
+    }
+  }
+}

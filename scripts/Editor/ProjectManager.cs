@@ -96,7 +96,7 @@ public static class ProjectManager
     public static string ImportFile(string sourcePath, string targetSubDir)
     {
         if (!IsProjectOpened) {
-            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast("Import failed: Project not opened.");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNodeOrNull<ErrorNotifier>("ErrorNotifier")?.ShowToast("Import failed: Project not opened.");
             return "";
         }
         
@@ -138,7 +138,7 @@ public static class ProjectManager
         if (err == Error.Ok) {
             return fileName;
         } else {
-            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowToast($"Import Error: {(fileData == null || fileData.Length == 0 ? "ReadFailed" : err.ToString())}");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNodeOrNull<ErrorNotifier>("ErrorNotifier")?.ShowToast($"Import Error: {(fileData == null || fileData.Length == 0 ? "ReadFailed" : err.ToString())}");
             return "";
         }
     }
@@ -218,7 +218,7 @@ public static class ProjectManager
         }
         catch (System.Exception ex)
         {
-            ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ErrorNotifier>("ErrorNotifier").ShowErrorDialog("导出失败", $"Export Project Error: {ex.Message}");
+            ((SceneTree)Engine.GetMainLoop()).Root.GetNodeOrNull<ErrorNotifier>("ErrorNotifier")?.ShowErrorDialog("导出失败", $"Export Project Error: {ex.Message}");
         }
     }
 

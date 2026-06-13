@@ -3,12 +3,10 @@ using System.Text.Json.Serialization;
 
 namespace UmaEraArchive.Core.Extensions
 {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum PackType
     {
-        [JsonPropertyName("character")]
         Character,
-        
-        [JsonPropertyName("gameplay")]
         Gameplay
     }
 
