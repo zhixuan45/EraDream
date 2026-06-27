@@ -18,8 +18,12 @@ namespace EraDream.StoryEditor.Nodes
 	[JsonPropertyName("trigger_timing")]
 	public TriggerTiming Timing { get; set; } = TriggerTiming.TurnStart;
 
+	[JsonPropertyName("priority")]
+	public int Priority { get; set; } = 0;
+
 	private LineEdit _conditionInput;
 	private OptionButton _timingPicker;
+	private SpinBox _priorityInput;
 
 	public override GraphNode CreateGraphNode(GraphEdit host)
 	{
@@ -47,8 +51,22 @@ namespace EraDream.StoryEditor.Nodes
 			CustomMinimumSize = new Vector2(120, 30)
 		};
 		node.AddChild(_conditionInput);
+
+		// 加上优先级设置输入 UI
+		HBoxContainer priBox = new HBoxContainer();
+		Label priLabel = new Label { Text = "优先级:" };
+		priBox.AddChild(priLabel);
+		_priorityInput = new SpinBox {
+			MinValue = 0,
+			MaxValue = 100,
+			Step = 1,
+			Value = Priority,
+			CustomMinimumSize = new Vector2(80, 20)
+		};
+		priBox.AddChild(_priorityInput);
+		node.AddChild(priBox);
 		
-		node.CustomMinimumSize = new Vector2(160, 150);
+		node.CustomMinimumSize = new Vector2(160, 180);
 		node.Size = Vector2.Zero;
 		return node;
 	}
@@ -65,6 +83,10 @@ namespace EraDream.StoryEditor.Nodes
 		if (_timingPicker != null)
 		{
 			Timing = (TriggerTiming)_timingPicker.Selected;
+		}
+		if (_priorityInput != null)
+		{
+			Priority = (int)_priorityInput.Value;
 		}
 	}
 }

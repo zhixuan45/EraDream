@@ -37,6 +37,26 @@ namespace EraDream.Core.Extensions
         public static bool IsStatRegistered(string id) => _registeredStatIds.Contains(id);
 
         /// <summary>
+        /// 注销数值属性 ID，解决卸载后无法二次注册的问题。
+        /// </summary>
+        public static bool UnregisterStat(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            bool removed = _registeredStatIds.Remove(id);
+            if (removed) GD.Print($"[RegistryAPI] Stat unregistered: {id}");
+            return removed;
+        }
+
+        /// <summary>
+        /// 清空所有注册的 Stat 属性 ID。
+        /// </summary>
+        public static void Clear()
+        {
+            _registeredStatIds.Clear();
+            GD.Print("[RegistryAPI] All registered stats cleared.");
+        }
+
+        /// <summary>
         /// 批量验证 ID 规范
         /// </summary>
         public static void ValidateIds(IEnumerable<string> ids)

@@ -61,6 +61,10 @@ dotnet build
 - The main entry scene is `uid://c6587dhy1q4a` (linked to `WelcomeScreen.tscn`).
 - Press **F5** in the Godot Editor to run the project.
 
+### Godot Engine Path
+- **Windows Local Path:** `C:\Users\JuziD\godot\Godot_v4.6.1-stable_mono_win64\Godot_v4.6.1-stable_mono_win64\Godot_v4.6.1-stable_mono_win64.exe`
+- **Console Version (For head-less tests):** `C:\Users\JuziD\godot\Godot_v4.6.1-stable_mono_win64\Godot_v4.6.1-stable_mono_win64\Godot_v4.6.1-stable_mono_win64_console.exe`
+
 ## Key Files
 - `project.godot`: Main engine configuration.
 - `scripts/Core/AppSettings.cs`: Definitions for application-wide configuration.

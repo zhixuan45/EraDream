@@ -1,7 +1,40 @@
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace EraDream.Editor.Models
 {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum PackType
+    {
+        Character,
+        Gameplay
+    }
+
+    public class DependencyInfo
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("version")]
+        public string Version { get; set; }
+    }
+
+    public class OverrideRule
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; } // "resource", "variable", "behavior"
+
+        [JsonPropertyName("path")]
+        public string Path { get; set; }
+
+        [JsonPropertyName("target")]
+        public string Target { get; set; }
+
+        [JsonPropertyName("strategy")]
+        public string Strategy { get; set; } // "replace", "append", "merge"
+    }
+
+    // 编辑器所用的扩展包清单模型，与核心运行时保持结构一致
     public class ExtensionManifest
     {
         [JsonPropertyName("id")]
@@ -17,7 +50,7 @@ namespace EraDream.Editor.Models
         public string Version { get; set; } = "1.0.0";
 
         [JsonPropertyName("type")]
-        public string Type { get; set; } = "character"; // "character" or "gameplay"
+        public PackType Type { get; set; } = PackType.Character;
 
         [JsonPropertyName("description")]
         public string Description { get; set; } = "添加了一个具有全新数值逻辑的角色。";
@@ -26,12 +59,12 @@ namespace EraDream.Editor.Models
         public string MinGameVersion { get; set; } = "0.5.0";
 
         [JsonPropertyName("dependencies")]
-        public System.Collections.Generic.List<object> Dependencies { get; set; } = new();
+        public List<DependencyInfo> Dependencies { get; set; } = new();
 
         [JsonPropertyName("overrides")]
-        public System.Collections.Generic.List<object> Overrides { get; set; } = new();
+        public List<OverrideRule> Overrides { get; set; } = new();
 
         [JsonPropertyName("nested_packages")]
-        public System.Collections.Generic.List<string> NestedPackages { get; set; } = new();
+        public List<string> NestedPackages { get; set; } = new();
     }
 }

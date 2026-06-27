@@ -28,6 +28,13 @@ namespace EraDream.Core.Mods
             string assemblyPath = Path.Combine(_modDirectory, $"{assemblyName.Name}.dll");
             if (File.Exists(assemblyPath))
             {
+                // 扫描依赖的 DLL 以防高危代码绕过
+                var risks = SecurityScanner.Scan(assemblyPath);
+                if (risks.Count > 0)
+                {
+                    GD.PrintRich($"[color=red][SECURITY] Blocked dependency DLL '{assemblyName.Name}.dll' due to unauthorized risks: {string.Join(", ", risks)}[/color]");
+                    throw new System.Security.SecurityException($"Blocked unsafe dependency DLL: {assemblyName.Name}.dll");
+                }
                 return context.LoadFromAssemblyPath(assemblyPath);
             }
             return null;
@@ -159,6 +166,14 @@ namespace EraDream.Core.Mods
 
                 modInfo.LoadContext.Unload();
                 _loadedMods.Remove(modId);
+
+                // 强制回收，释放 DLL 物理文件锁定
+                for (int i = 0; i < 3; i++)
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                }
+
                 GD.Print($"[ModLoader] Successfully unloaded mod '{modId}'.");
             }
         }

@@ -64,11 +64,31 @@ namespace EraDream.Core.Extensions
                 return tObj;
             }
             
-            // 4. 合并数组（追加模式）
+            // 4. 合并数组（追加模式且按 ID 去重，防止数组无限增长）
             if (target is JsonArray tArr && source is JsonArray sArr)
             {
                 foreach (var item in sArr)
                 {
+                    if (item is JsonObject sItemObj && sItemObj.TryGetPropertyValue("id", out var sIdNode) && sIdNode != null)
+                    {
+                        string sId = sIdNode.GetValue<string>();
+                        JsonNode existing = null;
+                        foreach (var tItem in tArr)
+                        {
+                            if (tItem is JsonObject tItemObj && tItemObj.TryGetPropertyValue("id", out var tIdNode) && tIdNode != null)
+                            {
+                                if (tIdNode.GetValue<string>() == sId)
+                                {
+                                    existing = tItem;
+                                    break;
+                                }
+                            }
+                        }
+                        if (existing != null)
+                        {
+                            tArr.Remove(existing);
+                        }
+                    }
                     tArr.Add(item?.DeepClone());
                 }
                 return tArr;

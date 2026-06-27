@@ -17,9 +17,9 @@ public partial class TrainingModule : Node
     }
 
     /// <summary>
-    /// 执行一次训练动作
+    /// 执行一次训练动作，返回训练结果状态
     /// </summary>
-    public bool ExecuteTraining(GameState state, TrainingType type, bool isAccompanied = false)
+    public TrainingResult ExecuteTraining(GameState state, TrainingType type, bool isAccompanied = false)
     {
         int actionStaminaCost = GetActionStaminaCost(type);
         int playerEnergyCost = isAccompanied ? 15 : 0;
@@ -27,13 +27,13 @@ public partial class TrainingModule : Node
         // 马娘行动体力不足判断
         if (state.Uma.ActionStamina < actionStaminaCost && actionStaminaCost > 0)
         {
-            return false;
+            return TrainingResult.InsufficientStamina;
         }
 
         // 训练员精力不足判断
         if (isAccompanied && state.Player.Energy < playerEnergyCost)
         {
-            return false;
+            return TrainingResult.InsufficientTrainerEnergy;
         }
 
         // 失败率计算：考虑马娘 ActionStamina 和训练员 Energy
@@ -48,7 +48,7 @@ public partial class TrainingModule : Node
         {
             // 失败惩罚，掉心情
             state.Uma.AddMood(-10);
-            return false;
+            return TrainingResult.Failed;
         }
 
         // 成功奖励
@@ -60,7 +60,7 @@ public partial class TrainingModule : Node
             EraDream.Core.Extensions.BehaviorRegistry.Instance.TriggerHook("OnTraining", state);
         }
 
-        return true;
+        return TrainingResult.Success;
     }
 
     private int GetActionStaminaCost(TrainingType type)
@@ -129,6 +129,14 @@ public partial class TrainingModule : Node
         
         if (isAccompanied) state.Uma.Affection += 5;
     }
+}
+
+public enum TrainingResult
+{
+    Success,
+    Failed,
+    InsufficientStamina,
+    InsufficientTrainerEnergy
 }
 
 public enum TrainingType

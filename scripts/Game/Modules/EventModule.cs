@@ -13,6 +13,10 @@ namespace EraDream.Game;
 /// </summary>
 public partial class EventModule : Node
 {
+    // 剧情触发事件信号，通知上层执行场景切换
+    [Signal]
+    public delegate void StoryTriggeredEventHandler(string path, string startNodeId);
+
     private static readonly char[] OperatorChars = { '>', '<', '=' };
 
     private class RegisteredEvent
@@ -77,7 +81,10 @@ public partial class EventModule : Node
     /// <returns>是否触发了剧情（若触发则会阻断后续养成逻辑）</returns>
     public bool CheckAndTriggerStory(TriggerTiming timing, GameState state)
     {
-        var candidates = _eventPool.Where(e => e.StartNode.Timing == timing).ToList();
+        // 按优先级从大到小对事件进行排序
+        var candidates = _eventPool.Where(e => e.StartNode.Timing == timing)
+                                  .OrderByDescending(e => e.StartNode.Priority)
+                                  .ToList();
         
         foreach (var evt in candidates)
         {
@@ -93,12 +100,8 @@ public partial class EventModule : Node
 
     private void TriggerStory(string path, string startNodeId)
     {
-        StoryPlayerEngine.CurrentStoryPath = path;
-        StoryPlayerEngine.StartNodeId = startNodeId;
-        StoryPlayerEngine.ReturnScenePath = "res://scenes/SimulationMainScreen.tscn";
-        
-        // 切换到剧情引擎场景
-        GetTree().ChangeSceneToFile("res://scenes/StoryPlayerEngine.tscn");
+        // 触发信号由上层 GameManager 处理切换
+        EmitSignal(SignalName.StoryTriggered, path, startNodeId);
     }
 
     /// <summary>
@@ -129,6 +132,7 @@ public partial class EventModule : Node
             {
                 if (firstChar == '>') opType = 3; // >
                 else if (firstChar == '<') opType = 4; // <
+                else if (firstChar == '=') opType = 5; // = 等同于 ==
             }
 
             if (opType == 0) return false;

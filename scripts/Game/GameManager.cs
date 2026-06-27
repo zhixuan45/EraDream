@@ -36,6 +36,7 @@ public partial class GameManager : Node
     public event Action<int> OnTurnStart;
     public event Action<int> OnTurnEnd;
     public event Action OnGameStarted;
+    public event Action OnGameOver;
 
     public override void _EnterTree()
     {
@@ -44,15 +45,14 @@ public partial class GameManager : Node
         {
             Instance = this;
             GD.Print("[GameManager] Singleton Instance assigned.");
+            InitializeModules();
         }
-        else
+        else if (Instance != this)
         {
             GD.Print("[GameManager] Singleton Instance already exists, freeing this duplicate.");
             QueueFree();
             return;
         }
-
-        InitializeModules();
     }
 
     private void InitializeModules()
@@ -89,7 +89,33 @@ public partial class GameManager : Node
             AddChild(BehaviorRegistry);
         }
 
+        if (Events != null)
+        {
+            Events.StoryTriggered += OnStoryTriggered;
+        }
+
         StartNewGame(new System.Collections.Generic.List<string>());
+    }
+
+    public override void _ExitTree()
+    {
+        if (Instance == this)
+        {
+            if (Events != null)
+            {
+                Events.StoryTriggered -= OnStoryTriggered;
+            }
+            Instance = null;
+        }
+    }
+
+    private void OnStoryTriggered(string path, string startNodeId)
+    {
+        StoryPlayerEngine.CurrentStoryPath = path;
+        StoryPlayerEngine.StartNodeId = startNodeId;
+        StoryPlayerEngine.ReturnScenePath = "res://scenes/SimulationMainScreen.tscn";
+        
+        GetTree().ChangeSceneToFile("res://scenes/StoryPlayerEngine.tscn");
     }
 
     /// <summary>
@@ -98,10 +124,12 @@ public partial class GameManager : Node
     public void StartNewGame(List<string> scenarioPaths, List<string> characterPaths = null, List<string> modPaths = null)
     {
         CurrentState = new GameState();
-        if (scenarioPaths != null)
+        if (scenarioPaths == null || scenarioPaths.Count == 0)
         {
-            CurrentState.ScenarioPaths.AddRange(scenarioPaths);
+            // 至少传入默认测试剧本路径
+            scenarioPaths = new List<string> { "res://scenarios/default/" };
         }
+        CurrentState.ScenarioPaths.AddRange(scenarioPaths);
         if (characterPaths != null)
         {
             CurrentState.CharacterPaths.AddRange(characterPaths);
@@ -156,6 +184,11 @@ public partial class GameManager : Node
     public bool RefreshScoutPoolWithCost(int cost)
     {
         if (CurrentState == null) return false;
+        if (cost <= 0)
+        {
+            GD.PushError($"[GameManager] RefreshScoutPoolWithCost called with invalid cost: {cost}");
+            return false;
+        }
         if (CurrentState.Player.Money < cost) return false;
 
         CurrentState.Player.AddMoney(-cost);
@@ -255,13 +288,17 @@ public partial class GameManager : Node
         SaveGame(AutoSavePath);
     }
 
+    private bool _hasTriggeredTurnStartThisTurn = false;
+
     /// <summary>
     /// 回合开始时的逻辑（由 UI 或系统调用）
     /// </summary>
     public void HandleTurnStart()
     {
         if (CurrentState == null || CurrentState.IsGameOver) return;
+        if (_hasTriggeredTurnStartThisTurn) return;
 
+        _hasTriggeredTurnStartThisTurn = true;
         // 检查回合开始剧情，如果触发了剧情则直接跳转
         if (Events.CheckAndTriggerStory(TriggerTiming.TurnStart, CurrentState))
         {
@@ -300,20 +337,44 @@ public partial class GameManager : Node
         }
 
         CurrentState.NextTurn();
+        _hasTriggeredTurnStartThisTurn = false; // 新回合重置触发状态
         GD.Print($"[GameManager] Advanced to turn {CurrentState.CurrentTurn}");
+
+        if (CurrentState.IsGameOver)
+        {
+            TriggerEnding();
+            return;
+        }
 
         // 自动存档
         AutoSave();
 
-        // 检查回合开始剧情
-        CheckTurnStartStory();
+        // 检查回合开始剧情，若触发则直接返回（防 use-after-free）
+        if (CheckTurnStartStory())
+        {
+            return;
+        }
 
         OnTurnStart?.Invoke(CurrentState.CurrentTurn);
     }
 
-    private void CheckTurnStartStory()
+    private bool CheckTurnStartStory()
     {
-        if (CurrentState == null) return;
-        Events.CheckAndTriggerStory(TriggerTiming.TurnStart, CurrentState);
+        if (CurrentState == null) return false;
+        // 如果此回合开始就已经通过 HandleTurnStart 触发过了，就不要再触发了
+        if (_hasTriggeredTurnStartThisTurn) return false;
+        
+        bool triggered = Events.CheckAndTriggerStory(TriggerTiming.TurnStart, CurrentState);
+        if (triggered)
+        {
+            _hasTriggeredTurnStartThisTurn = true;
+        }
+        return triggered;
+    }
+
+    private void TriggerEnding()
+    {
+        GD.Print("[GameManager] Game over! Reached max turns.");
+        OnGameOver?.Invoke();
     }
 }

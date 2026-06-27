@@ -21,6 +21,9 @@ public partial class BehaviorRegistry : Node
     private Dictionary<string, List<UIOption>> _menus = new();
     private RandomNumberGenerator _rng = new();
 
+    // 追踪每个扩展包注册的内容，方便增量卸载。ID -> (List<HookName, RuleId>, List<ItemId>, List<MenuId, OptionId>)
+    private Dictionary<string, (List<(string hook, string ruleId)> rules, List<string> items, List<(string menuId, string optionId)> menus)> _registeredByExtension = new();
+
     public override void _EnterTree()
     {
         if (Instance == null) Instance = this;
@@ -28,14 +31,14 @@ public partial class BehaviorRegistry : Node
     }
 
     /// <summary>
-    /// 从指定路径加载行为包
+    /// 从指定路径加载行为包，关联特定的扩展包 ID
     /// </summary>
-    public void LoadBehaviorPack(string jsonPath)
+    public void LoadBehaviorPack(string jsonPath, string extensionId = null)
     {
         try
         {
             string jsonContent = File.ReadAllText(ProjectSettings.GlobalizePath(jsonPath));
-            LoadBehaviorPackFromContent(jsonContent);
+            LoadBehaviorPackFromContent(jsonContent, extensionId);
         }
         catch (Exception ex)
         {
@@ -44,14 +47,19 @@ public partial class BehaviorRegistry : Node
     }
 
     /// <summary>
-    /// 从 JSON 字符串直接加载行为包
+    /// 从 JSON 字符串直接加载行为包，关联特定的扩展包 ID
     /// </summary>
-    public void LoadBehaviorPackFromContent(string jsonContent)
+    public void LoadBehaviorPackFromContent(string jsonContent, string extensionId = null)
     {
         try
         {
             var pack = JsonSerializer.Deserialize<BehaviorPack>(jsonContent);
             if (pack == null) return;
+
+            if (extensionId != null && !_registeredByExtension.ContainsKey(extensionId))
+            {
+                _registeredByExtension[extensionId] = (new(), new(), new());
+            }
 
             // 加载规则
             if (pack.Rules != null)
@@ -80,6 +88,11 @@ public partial class BehaviorRegistry : Node
                         _rulesByHook[rule.Hook].Add(rule);
                         GD.Print($"[BehaviorRegistry] Registered rule {rule.Id} for hook {rule.Hook}");
                     }
+
+                    if (extensionId != null)
+                    {
+                        _registeredByExtension[extensionId].rules.Add((rule.Hook, rule.Id));
+                    }
                 }
             }
 
@@ -97,6 +110,11 @@ public partial class BehaviorRegistry : Node
                     {
                         _itemDefinitions[item.Id] = item;
                         GD.Print($"[BehaviorRegistry] Registered item {item.Id}: {item.Name}");
+                    }
+
+                    if (extensionId != null)
+                    {
+                        _registeredByExtension[extensionId].items.Add(item.Id);
                     }
                 }
             }
@@ -122,6 +140,11 @@ public partial class BehaviorRegistry : Node
                         {
                             _menus[menu.MenuId].Add(option);
                             GD.Print($"[BehaviorRegistry] Registered UI option {option.Id} in menu {menu.MenuId}");
+                        }
+
+                        if (extensionId != null)
+                        {
+                            _registeredByExtension[extensionId].menus.Add((menu.MenuId, option.Id));
                         }
                     }
                 }
@@ -282,10 +305,48 @@ public partial class BehaviorRegistry : Node
         }
     }
 
+    public void UnloadBehaviorsForExtension(string extensionId)
+    {
+        if (string.IsNullOrEmpty(extensionId) || !_registeredByExtension.TryGetValue(extensionId, out var registered)) return;
+
+        // 1. 移除规则
+        foreach (var r in registered.rules)
+        {
+            if (_rulesByHook.TryGetValue(r.hook, out var list))
+            {
+                var rule = list.FirstOrDefault(rule => rule.Id == r.ruleId);
+                if (rule != null) list.Remove(rule);
+                if (list.Count == 0) _rulesByHook.Remove(r.hook);
+            }
+        }
+
+        // 2. 移除物品定义
+        foreach (var itemId in registered.items)
+        {
+            _itemDefinitions.Remove(itemId);
+        }
+
+        // 3. 移除菜单 UIOption
+        foreach (var m in registered.menus)
+        {
+            if (_menus.TryGetValue(m.menuId, out var list))
+            {
+                var opt = list.FirstOrDefault(o => o.Id == m.optionId);
+                if (opt != null) list.Remove(opt);
+                if (list.Count == 0) _menus.Remove(m.menuId);
+            }
+        }
+
+        _registeredByExtension.Remove(extensionId);
+        GD.Print($"[BehaviorRegistry] Unloaded behavior pack for extension: {extensionId}");
+    }
+
     public void Clear()
     {
         _rulesByHook.Clear();
         _itemDefinitions.Clear();
+        _menus.Clear();
+        _registeredByExtension.Clear();
     }
 
     public List<string> GetPermanentItemIds()

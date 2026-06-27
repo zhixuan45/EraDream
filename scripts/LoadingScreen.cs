@@ -46,7 +46,7 @@ public partial class LoadingScreen : Control
         " SYSTEM LOADING ",
         " U.M.A NEW WORLD！ ",
         " 笙溪正在掉发... ",
-        " 牢笙和牢芝也是苦命鸳鸯 ",
+        " 我想睡觉觉... ",
         " 看完这集睡着了... ", 
         " 再等等，马上就好！ ",
         " POWERD BY GEMINI ！  ",

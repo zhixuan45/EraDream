@@ -32,13 +32,34 @@ public partial class DebugConsole : CanvasLayer
 
     public override void _Input(InputEvent @event)
     {
-        // 使用 ~ 键切换控制台显示 (QuoteLeft)
-        if (@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.Quoteleft)
+        // 优化按键检测逻辑：支持物理键、修饰键，并在处理后消耗事件防止冲突
+        if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {
-            Visible = !Visible;
-            if (Visible && _inputField != null)
+            // 切换键：波浪号或反引号，检查 Keycode 和 PhysicalKeycode
+            bool isToggleKey = keyEvent.Keycode == Key.Quoteleft || 
+                               keyEvent.Keycode == Key.Asciitilde || 
+                               keyEvent.PhysicalKeycode == Key.Quoteleft ||
+                               keyEvent.PhysicalKeycode == Key.Asciitilde;
+
+            // 关闭键：当控制台可见时，允许按 Esc 键关闭
+            bool isCloseKey = Visible && keyEvent.Keycode == Key.Escape;
+
+            if (isToggleKey || isCloseKey)
             {
-                _inputField.GrabFocus();
+                Visible = !Visible;
+                GD.Print($"[DebugConsole] Toggle Visible to: {Visible} via {keyEvent.Keycode}");
+                
+                // 标记事件为已处理，防止穿透到输入框或其他UI组件
+                GetViewport().SetInputAsHandled();
+
+                if (Visible)
+                {
+                    _inputField?.GrabFocus();
+                }
+                else
+                {
+                    _inputField?.ReleaseFocus();
+                }
             }
         }
     }

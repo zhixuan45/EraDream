@@ -12,21 +12,22 @@ namespace EraDream.Game;
 public partial class InventoryModule : Node
 {
     /// <summary>
-    /// 向背包添加物品
+    /// 向背包添加物品，返回实际添加的物品数量
     /// </summary>
-    public void AddItem(GameState state, string itemId, int count = 1)
+    public int AddItem(GameState state, string itemId, int count = 1)
     {
         var def = BehaviorRegistry.Instance.GetItemDefinition(itemId);
-        if (def == null) return;
+        if (def == null) return 0;
 
-        if (state.Inventory.Items.ContainsKey(itemId))
+        int current = state.Inventory.Items.ContainsKey(itemId) ? state.Inventory.Items[itemId] : 0;
+        int target = Math.Min(current + count, def.MaxStack);
+        int added = target - current;
+
+        if (added > 0)
         {
-            state.Inventory.Items[itemId] = Math.Min(state.Inventory.Items[itemId] + count, def.MaxStack);
+            state.Inventory.Items[itemId] = target;
         }
-        else
-        {
-            state.Inventory.Items[itemId] = Math.Min(count, def.MaxStack);
-        }
+        return added;
     }
 
     /// <summary>
@@ -89,15 +90,16 @@ public partial class InventoryModule : Node
     }
 
     /// <summary>
-    /// 添加持续性效果
+    /// 添加持续性效果，防止 turns 为负数
     /// </summary>
     private void AddActiveEffect(GameState state, string itemId, int turns)
     {
-        // 如果已经存在同类效果，则重置回合数（不叠加）
+        if (turns <= 0) return;
+        // 如果已经存在同类效果，则重置回合数（取大值，不叠加）
         var existing = state.Inventory.ActiveEffects.FirstOrDefault(e => e.ItemId == itemId);
         if (existing != null)
         {
-            existing.RemainingTurns = turns;
+            existing.RemainingTurns = Math.Max(existing.RemainingTurns, turns);
         }
         else
         {
@@ -128,8 +130,9 @@ public partial class InventoryModule : Node
         }
 
         // 2. 处理长期持有物品 (Permanent)
-        // 只要在背包里就触发 Tick
-        foreach (var itemId in state.Inventory.Items.Keys)
+        // 只要在背包里就触发 Tick，通过 ToList 避免 Hook 修改背包导致的集合遍历异常
+        var itemIds = state.Inventory.Items.Keys.ToList();
+        foreach (var itemId in itemIds)
         {
             var def = BehaviorRegistry.Instance.GetItemDefinition(itemId);
             if (def?.Type == ItemType.Permanent)

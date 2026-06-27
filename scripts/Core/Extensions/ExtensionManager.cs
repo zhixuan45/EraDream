@@ -2,8 +2,10 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using EraDream.Core.Mods;
 
@@ -20,9 +22,48 @@ namespace EraDream.Core.Extensions
         private const string ExtDir = "user://extensions";
         private const string CacheDir = "user://cache/ext";
 
+        public const string CurrentGameVersion = "1.0.0";
+
+        // ZIP 解压限制常量
+        private const long MaxExtractFileSize = 50 * 1024 * 1024;   // 单个文件 50MB
+        private const long MaxExtractTotalSize = 200 * 1024 * 1024; // 总提取 200MB
+        private const int MaxFileCount = 1000;                       // 最多 1000 个文件
+
         private Dictionary<string, ExtensionManifest> _loadedManifests = new();
         private Dictionary<string, string> _extensionPaths = new(); // ID -> Global Path
         private List<string> _activeExtensionIds = new();
+
+        private int CompareVersions(string v1, string v2)
+        {
+            if (string.IsNullOrEmpty(v1)) v1 = "0.0.0";
+            if (string.IsNullOrEmpty(v2)) v2 = "0.0.0";
+
+            var p1 = v1.Split('.').Select(s => int.TryParse(s, out int n) ? n : 0).ToArray();
+            var p2 = v2.Split('.').Select(s => int.TryParse(s, out int n) ? n : 0).ToArray();
+
+            for (int i = 0; i < Math.Max(p1.Length, p2.Length); i++)
+            {
+                int val1 = i < p1.Length ? p1[i] : 0;
+                int val2 = i < p2.Length ? p2[i] : 0;
+                if (val1 != val2) return val1.CompareTo(val2);
+            }
+            return 0;
+        }
+
+        public bool ValidateManifest(ExtensionManifest manifest)
+        {
+            if (manifest == null) return false;
+            if (string.IsNullOrWhiteSpace(manifest.Id)) return false;
+            if (string.IsNullOrWhiteSpace(manifest.Name)) return false;
+
+            // 拦截包含路径穿越的恶意 ID
+            if (manifest.Id.Contains("..") || manifest.Id.Contains("/") || manifest.Id.Contains("\\"))
+            {
+                GD.PrintErr($"[ExtensionManager] Unsafe extension ID: '{manifest.Id}'");
+                return false;
+            }
+            return true;
+        }
 
         public override void _EnterTree()
         {
@@ -71,7 +112,7 @@ namespace EraDream.Core.Extensions
                 if (File.Exists(manifestPath))
                 {
                     var manifest = LoadManifestFromFile(manifestPath);
-                    if (manifest != null)
+                    if (ValidateManifest(manifest))
                     {
                         _extensionPaths[manifest.Id] = dirPath;
                         ProcessManifest(manifest, dirPath);
@@ -83,7 +124,7 @@ namespace EraDream.Core.Extensions
             foreach (var filePath in Directory.GetFiles(globalExtDir, "*.umaext"))
             {
                 var manifest = LoadManifestFromArchive(filePath);
-                if (manifest != null)
+                if (ValidateManifest(manifest))
                 {
                     _extensionPaths[manifest.Id] = filePath;
                     ProcessManifestArchive(manifest, filePath);
@@ -145,7 +186,9 @@ namespace EraDream.Core.Extensions
             try
             {
                 string json = File.ReadAllText(path);
-                return JsonSerializer.Deserialize<ExtensionManifest>(json);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+                return JsonSerializer.Deserialize<ExtensionManifest>(json, options);
             }
             catch (Exception ex)
             {
@@ -172,7 +215,9 @@ namespace EraDream.Core.Extensions
             byte[] data = reader.ReadFile("manifest.json");
             try
             {
-                return JsonSerializer.Deserialize<ExtensionManifest>(data);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+                return JsonSerializer.Deserialize<ExtensionManifest>(data, options);
             }
             catch (Exception ex)
             {
@@ -193,16 +238,20 @@ namespace EraDream.Core.Extensions
                 Directory.CreateDirectory(fullTargetDir);
             }
 
+            long totalExtracted = 0;
+            int fileCount = 0;
+
             foreach (string file in reader.GetFiles())
             {
+                // 处理目录
+                string targetPath = Path.GetFullPath(Path.Combine(fullTargetDir, file));
+
                 // 防止 Zip Slip 攻击：拒绝包含路径穿越的条目
                 if (file.Contains("..") || Path.IsPathRooted(file))
                 {
                     GD.PrintErr($"[ExtensionManager] Rejected unsafe archive entry: {file}");
                     continue;
                 }
-
-                string targetPath = Path.GetFullPath(Path.Combine(fullTargetDir, file));
 
                 // 验证解压路径必须在目标目录内
                 if (!targetPath.StartsWith(fullTargetDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
@@ -212,11 +261,16 @@ namespace EraDream.Core.Extensions
                     continue;
                 }
 
-                // 处理目录
                 if (file.EndsWith("/") || file.EndsWith("\\"))
                 {
                     if (!Directory.Exists(targetPath)) Directory.CreateDirectory(targetPath);
                     continue;
+                }
+
+                if (++fileCount > MaxFileCount)
+                {
+                    GD.PrintErr($"[ExtensionManager] Archive contains too many files ({fileCount})");
+                    return false;
                 }
 
                 // 确保父目录存在
@@ -224,6 +278,21 @@ namespace EraDream.Core.Extensions
                 if (!Directory.Exists(dirName)) Directory.CreateDirectory(dirName);
 
                 byte[] data = reader.ReadFile(file);
+                if (data == null) continue;
+
+                if (data.Length > MaxExtractFileSize)
+                {
+                    GD.PrintErr($"[ExtensionManager] File exceeds size limit: {file} ({data.Length} bytes)");
+                    return false;
+                }
+
+                totalExtracted += data.Length;
+                if (totalExtracted > MaxExtractTotalSize)
+                {
+                    GD.PrintErr($"[ExtensionManager] Total extraction size limit exceeded ({totalExtracted} bytes)");
+                    return false;
+                }
+
                 File.WriteAllBytes(targetPath, data);
             }
 
@@ -254,11 +323,38 @@ namespace EraDream.Core.Extensions
 
             var manifest = _loadedManifests[id];
 
-            // 0. 递归激活依赖项
+            // 游戏版本校验
+            if (!string.IsNullOrEmpty(manifest.MinGameVersion))
+            {
+                if (CompareVersions(CurrentGameVersion, manifest.MinGameVersion) < 0)
+                {
+                    GD.PrintErr($"[ExtensionManager] Extension '{id}' requires game version >= {manifest.MinGameVersion}, current is {CurrentGameVersion}");
+                    activating.Remove(id);
+                    return false;
+                }
+            }
+
+            // 0. 递归激活依赖项，加入依赖版本号校验
             if (manifest.Dependencies != null)
             {
                 foreach (var dep in manifest.Dependencies)
                 {
+                    if (!_loadedManifests.TryGetValue(dep.Id, out var depManifest))
+                    {
+                        GD.PrintErr($"[ExtensionManager] Missing dependency '{dep.Id}' for extension '{id}'");
+                        activating.Remove(id);
+                        return false;
+                    }
+                    if (!string.IsNullOrEmpty(dep.Version))
+                    {
+                        if (CompareVersions(depManifest.Version, dep.Version) < 0)
+                        {
+                            GD.PrintErr($"[ExtensionManager] Dependency '{dep.Id}' version ({depManifest.Version}) is lower than required ({dep.Version}) for extension '{id}'");
+                            activating.Remove(id);
+                            return false;
+                        }
+                    }
+
                     if (!await ActivateExtensionInternal(dep.Id, activating))
                     {
                         GD.PrintErr($"[ExtensionManager] Failed to activate dependency {dep.Id} for {id}");
@@ -308,9 +404,14 @@ namespace EraDream.Core.Extensions
             }
             
             // 2. 解压逻辑：若是压缩包格式，自动解压至缓存目录
-            if (_extensionPaths.TryGetValue(id, out string extPath) && extPath.EndsWith(".umaext"))
+            bool isArchived = _extensionPaths.TryGetValue(id, out string extPath) && extPath.EndsWith(".umaext");
+            if (isArchived)
             {
-                ExtractArchive(extPath, targetCache);
+                if (!ExtractArchive(extPath, targetCache))
+                {
+                    GD.PrintErr($"[ExtensionManager] Failed to extract archive for {id}");
+                    return false;
+                }
             }
 
             // 3. Character 类型不允许加载逻辑 DLL，仅允许资源替换
@@ -321,7 +422,10 @@ namespace EraDream.Core.Extensions
                 return true;
             }
 
-            string dllPath = Path.Combine(targetCache, "Logic", "ModEntry.dll");
+            // 确定扩展真正的根路径：压缩包在缓存中，文件夹包则是原地址
+            string extensionRootPath = isArchived ? targetCache : extPath;
+
+            string dllPath = Path.Combine(extensionRootPath, "Logic", "ModEntry.dll");
 
             if (File.Exists(dllPath))
             {
@@ -329,15 +433,18 @@ namespace EraDream.Core.Extensions
                 if (!success) return false;
             }
 
-            // 加载行为包
-            string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
+            // 应用合并规则（启用被忽略的 override rule 合并功能）
+            ApplyManifestOverrides(manifest, extensionRootPath);
+
+            // 加载行为包，传递关联 ID 以便进行增量卸载
+            string behaviorPath = Path.Combine(extensionRootPath, "Logic", "behavior.json");
             if (BehaviorRegistry.Instance == null)
             {
                 GD.PrintErr($"[ExtensionManager] BehaviorRegistry instance is not available. Cannot load behavior.json for {id}.");
             }
             else if (File.Exists(behaviorPath))
             {
-                BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath);
+                BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath, id);
                 GD.Print($"[ExtensionManager] Behavior pack loaded for {id}");
             }
 
@@ -429,6 +536,14 @@ namespace EraDream.Core.Extensions
             return null;
         }
 
+        /// <summary>
+        /// 获取扩展包原始文件/文件夹路径（无论是否激活）
+        /// </summary>
+        public string GetRawExtensionPath(string id)
+        {
+            return _extensionPaths.TryGetValue(id, out string path) ? path : null;
+        }
+
         public bool IsExtensionActive(string id) => _activeExtensionIds.Contains(id);
         public IEnumerable<ExtensionManifest> GetAvailableExtensions() => _loadedManifests.Values;
 
@@ -475,22 +590,8 @@ namespace EraDream.Core.Extensions
 
             if (BehaviorRegistry.Instance != null)
             {
-                BehaviorRegistry.Instance.Clear();
-                foreach (var activeId in _activeExtensionIds)
-                {
-                    if (!_loadedManifests.TryGetValue(activeId, out var manifest)) continue;
-                    
-                    string sourcePath = _extensionPaths[activeId];
-                    string targetCache = sourcePath.EndsWith(".umaext") 
-                        ? Path.Combine(ProjectSettings.GlobalizePath(CacheDir), activeId) 
-                        : sourcePath;
-                    
-                    string behaviorPath = Path.Combine(targetCache, "Logic", "behavior.json");
-                    if (File.Exists(behaviorPath))
-                    {
-                        BehaviorRegistry.Instance.LoadBehaviorPack(behaviorPath);
-                    }
-                }
+                // 改为增量卸载，降低全盘清空重载引起的数据丢失风险
+                BehaviorRegistry.Instance.UnloadBehaviorsForExtension(id);
             }
         }
     }

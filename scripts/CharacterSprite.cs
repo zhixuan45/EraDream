@@ -91,17 +91,8 @@ public partial class CharacterSprite : Control
 
         GD.Print($"[Sprite] Attempting to load sprite: {fileName}");
 
-        ImageTexture texture = null;
-        // 智能处理扩展包中的角色立绘：检查是否为注册激活的扩展包角色并拼接绝对路径
-        if (CharacterManager.ActorToExtensionPathMap.TryGetValue(actorId, out string extRoot))
-        {
-            string absPath = System.IO.Path.Combine(extRoot, fileName);
-            texture = EraDream.Core.ResourceProxy.LoadImageTexture(absPath);
-        }
-        else
-        {
-            texture = EraDream.Core.ResourceProxy.LoadSpriteTexture(fileName);
-        }
+        // 使用新重载的 LoadSpriteTexture 加载立绘，自动适配扩展包与普通物理路径。
+        ImageTexture texture = EraDream.Core.ResourceProxy.LoadSpriteTexture(fileName, actorId);
 
         if (texture != null)
         {

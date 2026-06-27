@@ -38,11 +38,18 @@ public class PlayerStats
 
     public void AddMoney(int amount)
     {
-        Money += amount;
+        // 采用 long 进行计算以避免金额加法溢出
+        long newMoney = (long)Money + amount;
+        Money = (int)System.Math.Clamp(newMoney, 0, (long)int.MaxValue);
     }
 
     public bool ConsumeMoney(int amount)
     {
+        if (amount < 0)
+        {
+            AddMoney(-amount);
+            return true;
+        }
         if (Money >= amount)
         {
             Money -= amount;
@@ -53,6 +60,11 @@ public class PlayerStats
     
     public bool ConsumeStamina(int amount)
     {
+        if (amount < 0)
+        {
+            AddStamina(-amount);
+            return true;
+        }
         if (Stamina >= amount)
         {
             Stamina -= amount;
@@ -63,6 +75,11 @@ public class PlayerStats
 
     public bool ConsumeEnergy(int amount)
     {
+        if (amount < 0)
+        {
+            AddEnergy(-amount);
+            return true;
+        }
         if (Energy >= amount)
         {
             Energy -= amount;

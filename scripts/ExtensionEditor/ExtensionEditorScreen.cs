@@ -51,6 +51,8 @@ public partial class ExtensionEditorScreen : Control
 
     // Behavior Editor Fields
     private VBoxContainer _behaviorRulesContainer;
+    private VBoxContainer _behaviorItemsContainer;
+    private VBoxContainer _behaviorMenusContainer;
     private Button _btnSaveBehavior;
     private Button _btnAddBehaviorRule;
 
@@ -86,6 +88,26 @@ public partial class ExtensionEditorScreen : Control
         _btnNew = GetNode<Button>("SafeArea/HSplit/SidePanel/VBox/ProjBtns/BtnNewProject");
         _btnOpen = GetNode<Button>("SafeArea/HSplit/SidePanel/VBox/ProjBtns/BtnOpenProject");
         _btnCreateJSON = GetNode<MenuButton>("SafeArea/HSplit/SidePanel/VBox/ProjBtns/BtnCreateJSON");
+        
+        // 动态添加并列的“创建文件夹”按钮，使按钮均分空间
+        var projBtns = _btnCreateJSON.GetParent();
+        int btnIdx = _btnCreateJSON.GetIndex();
+        projBtns.RemoveChild(_btnCreateJSON);
+        
+        HBoxContainer createHBox = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        projBtns.AddChild(createHBox);
+        projBtns.MoveChild(createHBox, btnIdx);
+        
+        _btnCreateJSON.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        createHBox.AddChild(_btnCreateJSON);
+        
+        Button btnCreateFolder = new Button { 
+            Text = "创建文件夹", 
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 35)
+        };
+        btnCreateFolder.Pressed += OnCreateFolderPressed;
+        createHBox.AddChild(btnCreateFolder);
         _btnExport = GetNode<Button>("SafeArea/HSplit/SidePanel/VBox/FooterBtns/BtnExport");
         _btnBack = GetNode<Button>("SafeArea/HSplit/SidePanel/VBox/FooterBtns/BtnBack");
         _fileTree = GetNode<Tree>("SafeArea/HSplit/SidePanel/VBox/FileTree");
@@ -132,9 +154,35 @@ public partial class ExtensionEditorScreen : Control
 
         // Behavior Editor
         _behaviorEditorRoot = GetNode<Control>(rootPath + "BehaviorEditorRoot");
-        _behaviorRulesContainer = GetNode<VBoxContainer>(rootPath + "BehaviorEditorRoot/ScrollContainer/RulesVBox");
         _btnSaveBehavior = GetNode<Button>(rootPath + "BehaviorEditorRoot/Header/BtnSaveBehavior");
         _btnAddBehaviorRule = GetNode<Button>(rootPath + "BehaviorEditorRoot/Header/BtnAddRule");
+        
+        // 动态隐藏原始 Header 上的添加按钮，改为各 Tab 内置
+        _btnAddBehaviorRule.Hide();
+
+        var scroll = _behaviorEditorRoot.GetNode<ScrollContainer>("ScrollContainer");
+        _behaviorRulesContainer = scroll.GetNode<VBoxContainer>("RulesVBox");
+        _behaviorEditorRoot.RemoveChild(scroll);
+
+        TabContainer behaviorTabs = new TabContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        
+        // Tab 1: 事件规则
+        scroll.Name = "事件规则";
+        behaviorTabs.AddChild(scroll);
+        
+        // Tab 2: 扩展道具
+        var itemsScroll = new ScrollContainer { Name = "扩展道具", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _behaviorItemsContainer = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        itemsScroll.AddChild(_behaviorItemsContainer);
+        behaviorTabs.AddChild(itemsScroll);
+        
+        // Tab 3: 交互菜单
+        var menusScroll = new ScrollContainer { Name = "交互菜单", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _behaviorMenusContainer = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        menusScroll.AddChild(_behaviorMenusContainer);
+        behaviorTabs.AddChild(menusScroll);
+
+        _behaviorEditorRoot.AddChild(behaviorTabs);
 
         // Common UI
         _fileContextMenu = GetNode<PopupMenu>("FileContextMenu");
@@ -163,7 +211,6 @@ public partial class ExtensionEditorScreen : Control
         _btnSaveFile.Pressed += OnSaveFilePressed;
         _btnSaveCombined.Pressed += OnSaveCombinedPressed;
         _btnSaveBehavior.Pressed += OnSaveBehaviorPressed;
-        _btnAddBehaviorRule.Pressed += OnAddBehaviorRulePressed;
 
         GetNode<Button>(rootPath + "ManifestVBox/ResHBox/BtnImportSprite").Pressed += () => ImportAsset("Assets/Sprites");
         GetNode<Button>(rootPath + "ManifestVBox/ResHBox/BtnImportBG").Pressed += () => ImportAsset("Assets/Backgrounds");
@@ -233,12 +280,17 @@ public partial class ExtensionEditorScreen : Control
     private void ShowImageView(string path)
     {
         try {
-            var image = Image.LoadFromFile(path);
-            if (image != null) {
-                var tex = ImageTexture.CreateFromImage(image);
+            // 使用格式自适应且物理路径友好的 ResourceProxy.LoadImageTexture 载入图像纹理。
+            var tex = EraDream.Core.ResourceProxy.LoadImageTexture(path);
+            if (tex != null) {
                 _previewTexture.Texture = tex;
-                _fileInfoLabel.Text = $"{path.GetFile()} ({image.GetWidth()}x{image.GetHeight()})";
+                var image = tex.GetImage();
+                string sizeStr = image != null ? $"{image.GetWidth()}x{image.GetHeight()}" : "未知尺寸";
+                _fileInfoLabel.Text = $"{path.GetFile()} ({sizeStr})";
                 _imagePreviewVBox.Show();
+            }
+            else {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("图片加载失败，文件可能损坏或是不支持的格式");
             }
         } catch (Exception ex) {
             GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"图片加载失败: {ex.Message}");
@@ -518,17 +570,37 @@ public partial class ExtensionEditorScreen : Control
     private void OnCreateJsonIdPressed(long id)
     {
         if (string.IsNullOrEmpty(_projectPath)) {
-            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("请先打开项目！");
+            // 处于活跃场景树时给出打开项目提示
+            if (IsInsideTree()) GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("请先打开项目！");
             return;
         }
 
+        // 智能根据选中节点决定新配置文件的目标创建路径
+        string baseDir = _projectPath;
+        var selectedItem = _fileTree.GetSelected();
+        if (selectedItem != null)
+        {
+            string selectedPath = selectedItem.GetMetadata(0).AsString();
+            if (!string.IsNullOrEmpty(selectedPath))
+            {
+                if (System.IO.Directory.Exists(ProjectSettings.GlobalizePath(selectedPath)))
+                {
+                    baseDir = selectedPath;
+                }
+                else
+                {
+                    baseDir = selectedPath.GetBaseDir();
+                }
+            }
+        }
+
         string fileName = id switch {
-            0 => "Data/simulation.json",
-            1 => "Data/actor_config.json",
+            0 => "simulation.json",
+            1 => "actor_config.json",
             2 => "characters.json",
-            _ => "Data/behavior.json"
+            _ => "behavior.json"
         };
-        string path = _projectPath.PathJoin(fileName);
+        string path = baseDir.PathJoin(fileName);
         
         if (Godot.FileAccess.FileExists(path)) {
             DispatchFileView(path);
@@ -555,9 +627,11 @@ public partial class ExtensionEditorScreen : Control
             }
             RefreshFileTree();
             DispatchFileView(path);
-            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"已创建: {fileName.GetFile()}");
+            // 处于活跃场景树时触发 Toast 状态提醒
+            if (IsInsideTree()) GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"已创建: {fileName.GetFile()}");
         } catch (Exception ex) {
-            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"创建失败: {ex.Message}");
+            // 处于活跃场景树时报告创建失败异常
+            if (IsInsideTree()) GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"创建失败: {ex.Message}");
         }
     }
 
@@ -644,172 +718,62 @@ public partial class ExtensionEditorScreen : Control
         }
     }
 
+    private void OnCreateFolderPressed()
+    {
+        if (string.IsNullOrEmpty(_projectPath)) {
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("请先打开项目！");
+            return;
+        }
+
+        string baseDir = _projectPath;
+        var selectedItem = _fileTree.GetSelected();
+        if (selectedItem != null)
+        {
+            string selectedPath = selectedItem.GetMetadata(0).AsString();
+            if (!string.IsNullOrEmpty(selectedPath))
+            {
+                if (System.IO.Directory.Exists(ProjectSettings.GlobalizePath(selectedPath)))
+                {
+                    baseDir = selectedPath;
+                }
+                else
+                {
+                    baseDir = selectedPath.GetBaseDir();
+                }
+            }
+        }
+
+        string newFolderName = "NewFolder";
+        string newFolderPath = baseDir.PathJoin(newFolderName);
+        int counter = 1;
+        while (System.IO.Directory.Exists(ProjectSettings.GlobalizePath(newFolderPath)))
+        {
+            newFolderPath = baseDir.PathJoin($"{newFolderName}_{counter}");
+            counter++;
+        }
+
+        try {
+            string globalPath = ProjectSettings.GlobalizePath(newFolderPath);
+            System.IO.Directory.CreateDirectory(globalPath);
+            RefreshFileTree();
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("文件夹创建成功！可在右键菜单中重命名。");
+        }
+        catch (Exception ex) {
+            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"文件夹创建失败: {ex.Message}");
+        }
+    }
+
     private void UpdateUIFromManifest()
     {
         _idEdit.Text = _manifest.Id ?? ""; _nameEdit.Text = _manifest.Name ?? ""; _authorEdit.Text = _manifest.Author ?? "";
         _versionEdit.Text = _manifest.Version ?? ""; _minVerEdit.Text = _manifest.MinGameVersion ?? "";
-        _descEdit.Text = _manifest.Description ?? ""; _typeOption.Selected = _manifest.Type == "gameplay" ? 1 : 0;
+        _descEdit.Text = _manifest.Description ?? ""; _typeOption.Selected = _manifest.Type == EraDream.Editor.Models.PackType.Gameplay ? 1 : 0;
     }
 
     private void SyncManifestFromUI()
     {
         _manifest.Id = _idEdit.Text; _manifest.Name = _nameEdit.Text; _manifest.Author = _authorEdit.Text;
         _manifest.Version = _versionEdit.Text; _manifest.MinGameVersion = _minVerEdit.Text;
-        _manifest.Description = _descEdit.Text; _manifest.Type = _typeOption.Selected == 1 ? "gameplay" : "character";
-    }
-
-    private void ShowBehaviorEditor(string path)
-    {
-        _behaviorEditorRoot.Show();
-        _currentBehaviorPack = null;
-
-        try {
-            if (Godot.FileAccess.FileExists(path)) {
-                using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
-                string json = file.GetAsText();
-                _currentBehaviorPack = string.IsNullOrWhiteSpace(json) ? new() : JsonSerializer.Deserialize<BehaviorPack>(json) ?? new();
-            } else {
-                _currentBehaviorPack = new();
-            }
-
-            RefreshBehaviorRulesUI();
-        } catch (Exception ex) {
-            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"加载失败: {ex.Message}");
-            ShowCodeView(path);
-        }
-    }
-
-    private void RefreshBehaviorRulesUI()
-    {
-        foreach (Node child in _behaviorRulesContainer.GetChildren()) child.QueueFree();
-        if (_currentBehaviorPack == null) return;
-
-        foreach (var rule in _currentBehaviorPack.Rules) {
-            _behaviorRulesContainer.AddChild(CreateRuleUI(rule));
-        }
-    }
-
-    private void OnAddBehaviorRulePressed()
-    {
-        if (_currentBehaviorPack == null) _currentBehaviorPack = new();
-        var newRule = new BehaviorRule { Id = $"rule_{_currentBehaviorPack.Rules.Count + 1}", Hook = "OnTraining" };
-        _currentBehaviorPack.Rules.Add(newRule);
-        _behaviorRulesContainer.AddChild(CreateRuleUI(newRule));
-    }
-
-    private Control CreateRuleUI(BehaviorRule rule)
-    {
-        var panel = new PanelContainer();
-        var vBox = new VBoxContainer();
-        panel.AddChild(vBox);
-
-        // Header: ID and Delete
-        var header = new HBoxContainer();
-        vBox.AddChild(header);
-        
-        var idEdit = new LineEdit { Text = rule.Id, PlaceholderText = "Rule ID", CustomMinimumSize = new Vector2(150, 0) };
-        idEdit.TextChanged += (val) => rule.Id = val;
-        header.AddChild(idEdit);
-
-        header.AddChild(new Label { Text = " " + Tr("KEY_LABEL_HOOK") + " " });
-        var hookOption = new OptionButton { CustomMinimumSize = new Vector2(150, 0) };
-        string[] hooks = { "OnTraining", "OnOuting", "OnTurnStart", "OnTurnEnd", "OnRaceStart", "OnRaceEnd" };
-        foreach (var h in hooks) hookOption.AddItem(h);
-        hookOption.Text = rule.Hook;
-        hookOption.ItemSelected += (idx) => rule.Hook = hookOption.GetItemText((int)idx);
-        header.AddChild(hookOption);
-
-        header.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
-
-        var btnDel = new Button { Text = Tr("KEY_BTN_DELETE_RULE"), Modulate = Colors.Salmon };
-        btnDel.Pressed += () => {
-            _currentBehaviorPack.Rules.Remove(rule);
-            panel.QueueFree();
-        };
-        header.AddChild(btnDel);
-
-        // Action
-        var actionHBox = new HBoxContainer();
-        vBox.AddChild(actionHBox);
-        actionHBox.AddChild(new Label { Text = Tr("KEY_LABEL_ACTION_TYPE") + " " });
-        var typeOption = new OptionButton();
-        typeOption.AddItem("BriefStory"); typeOption.AddItem("DetailedStory");
-        typeOption.Text = rule.Action.Type;
-        typeOption.ItemSelected += (idx) => rule.Action.Type = typeOption.GetItemText((int)idx);
-        actionHBox.AddChild(typeOption);
-
-        actionHBox.AddChild(new Label { Text = " " + Tr("KEY_LABEL_PATH") + " " });
-        var pathEdit = new LineEdit { Text = rule.Action.Path, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        pathEdit.TextChanged += (val) => rule.Action.Path = val;
-        actionHBox.AddChild(pathEdit);
-
-        // Conditions
-        var condTitleHBox = new HBoxContainer();
-        vBox.AddChild(condTitleHBox);
-        condTitleHBox.AddChild(new Label { Text = Tr("KEY_LABEL_CONDITIONS") + " " });
-        var btnAddCond = new Button { Text = "+" };
-        condTitleHBox.AddChild(btnAddCond);
-
-        var condVBox = new VBoxContainer();
-        vBox.AddChild(condVBox);
-
-        foreach (var cond in rule.Conditions) condVBox.AddChild(CreateConditionUI(cond, rule, condVBox));
-
-        btnAddCond.Pressed += () => {
-            var newCond = new BehaviorCondition { Property = "Player.Money", Operator = ">=", Value = "100" };
-            rule.Conditions.Add(newCond);
-            condVBox.AddChild(CreateConditionUI(newCond, rule, condVBox));
-        };
-
-        return panel;
-    }
-
-    private Control CreateConditionUI(BehaviorCondition cond, BehaviorRule rule, VBoxContainer parentVBox)
-    {
-        var hbox = new HBoxContainer();
-        var propEdit = new LineEdit { Text = cond.Property, PlaceholderText = "Property", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        propEdit.TextChanged += (val) => cond.Property = val;
-        hbox.AddChild(propEdit);
-
-        var opOption = new OptionButton();
-        string[] ops = { "==", "!=", ">", "<", ">=", "<=" };
-        foreach (var op in ops) opOption.AddItem(op);
-        opOption.Text = cond.Operator;
-        opOption.ItemSelected += (idx) => cond.Operator = opOption.GetItemText((int)idx);
-        hbox.AddChild(opOption);
-
-        var valEdit = new LineEdit { Text = cond.Value, PlaceholderText = "Value" };
-        valEdit.TextChanged += (val) => cond.Value = val;
-        hbox.AddChild(valEdit);
-
-        var btnDelCond = new Button { Text = "x", Modulate = Colors.Salmon };
-        btnDelCond.Pressed += () => {
-            rule.Conditions.Remove(cond);
-            hbox.QueueFree();
-        };
-        hbox.AddChild(btnDelCond);
-
-        return hbox;
-    }
-
-    private void OnSaveBehaviorPressed()
-    {
-        if (string.IsNullOrEmpty(_currentEditingFilePath) || _currentBehaviorPack == null) return;
-
-        string absolutePath = System.IO.Path.GetFullPath(ProjectSettings.GlobalizePath(_currentEditingFilePath));
-        if (!IsPathWithinProject(absolutePath)) {
-            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("保存失败: 文件不在项目内！");
-            return;
-        }
-
-        try {
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string json = JsonSerializer.Serialize(_currentBehaviorPack, options);
-            using var file = Godot.FileAccess.Open(_currentEditingFilePath, Godot.FileAccess.ModeFlags.Write);
-            file.StoreString(json);
-            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("行为包已保存！");
-        } catch (Exception ex) {
-            GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"保存失败: {ex.Message}");
-        }
+        _manifest.Description = _descEdit.Text; _manifest.Type = _typeOption.Selected == 1 ? EraDream.Editor.Models.PackType.Gameplay : EraDream.Editor.Models.PackType.Character;
     }
 }

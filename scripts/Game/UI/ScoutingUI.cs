@@ -104,16 +104,8 @@ namespace EraDream.Game.UI
             string defaultSprite = actor?.Visuals.DefaultSprite;
             if (!string.IsNullOrEmpty(defaultSprite))
             {
-                ImageTexture texture = null;
-                if (actor != null && CharacterManager.ActorToExtensionPathMap.TryGetValue(umaId, out string extRoot))
-                {
-                    string absPath = System.IO.Path.Combine(extRoot, defaultSprite);
-                    texture = ResourceProxy.LoadImageTexture(absPath);
-                }
-                else
-                {
-                    texture = ResourceProxy.LoadSpriteTexture(defaultSprite);
-                }
+                // 使用重载方法直接加载，自动识别并载入扩展包绝对物理路径下的立绘。
+                ImageTexture texture = ResourceProxy.LoadSpriteTexture(defaultSprite, umaId);
                 if (texture != null) textureRect.Texture = texture;
             }
             vbox.AddChild(textureRect);

@@ -60,13 +60,24 @@ public class UmaStats
     [JsonPropertyName("intelligence")]
     public int Intelligence { get; set; } = 1;
 
+    private int _skillPoints = 0;
+    private int _affection = 0;
+
     // 技能点
     [JsonPropertyName("skill_points")]
-    public int SkillPoints { get; set; } = 0;
+    public int SkillPoints
+    {
+        get => _skillPoints;
+        set => _skillPoints = Mathf.Max(0, value);
+    }
 
     // 好感度/羁绊
     [JsonPropertyName("affection")]
-    public int Affection { get; set; } = 0;
+    public int Affection
+    {
+        get => _affection;
+        set => _affection = Mathf.Max(0, value);
+    }
 
     // 动态扩展属性字典，用于剧本包自定义数值（如：粉丝数、疲劳值）
     [JsonPropertyName("custom_stats")]
@@ -99,6 +110,11 @@ public class UmaStats
 
     public bool ConsumeActionStamina(int amount)
     {
+        if (amount < 0)
+        {
+            AddActionStamina(-amount);
+            return true;
+        }
         if (ActionStamina >= amount)
         {
             ActionStamina -= amount;
@@ -109,6 +125,11 @@ public class UmaStats
 
     public bool ConsumeEnergy(int amount)
     {
+        if (amount < 0)
+        {
+            AddEnergy(-amount);
+            return true;
+        }
         if (Energy >= amount)
         {
             Energy -= amount;

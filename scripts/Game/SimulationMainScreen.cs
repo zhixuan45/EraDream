@@ -311,14 +311,25 @@ public partial class SimulationMainScreen : Control
         TrainingType type = (TrainingType)id;
         if (GameManager.Instance != null && !GameManager.Instance.CurrentState.IsGameOver)
         {
-            if (GameManager.Instance.Training.ExecuteTraining(GameManager.Instance.CurrentState, type))
+            var result = GameManager.Instance.Training.ExecuteTraining(GameManager.Instance.CurrentState, type);
+            if (result == TrainingResult.Success)
             {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练成功！属性获得了提升。");
                 UpdateUI();
                 TriggerBark();
             }
-            else
+            else if (result == TrainingResult.Failed)
+            {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练失败！马娘的心情变差了。");
+                UpdateUI();
+            }
+            else if (result == TrainingResult.InsufficientStamina)
             {
                 GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("马娘行动力不足，无法进行训练！");
+            }
+            else if (result == TrainingResult.InsufficientTrainerEnergy)
+            {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练员体力或精力不足！");
             }
         }
     }

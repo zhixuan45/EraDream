@@ -18,7 +18,26 @@ namespace EraDream.Core.Extensions
             { "System.IO", "文件系统访问" },
             { "System.Net", "网络通信" },
             { "System.Diagnostics.Process", "进程管理" },
-            { "System.Runtime.InteropServices.DllImportAttribute", "底层 DLL 调用 (P/Invoke)" }
+            { "System.Reflection", "反射/动态代码执行" },
+            { "System.Runtime.InteropServices.DllImportAttribute", "底层 DLL 调用 (P/Invoke)" },
+            { "System.Runtime.InteropServices.Marshal", "内存互操作 (Marshal)" },
+            { "System.Runtime.InteropServices.NativeLibrary", "原生库加载" }
+        };
+
+        // 允许通过的无害 IO 类型
+        private static readonly HashSet<string> SafeIoTypes = new()
+        {
+            "System.IO.Path",
+            "System.IO.MemoryStream",
+            "System.IO.Stream",
+            "System.IO.IOException",
+            "System.IO.SeekOrigin",
+            "System.IO.BinaryReader",
+            "System.IO.BinaryWriter",
+            "System.IO.TextReader",
+            "System.IO.TextWriter",
+            "System.IO.StringReader",
+            "System.IO.StringWriter"
         };
 
         /// <summary>
@@ -106,6 +125,12 @@ namespace EraDream.Core.Extensions
 
         private static void CheckAndAdd(string fullName, List<string> detected)
         {
+            // 对 System.IO 进行白名单排除以降低误报率
+            if (fullName.StartsWith("System.IO") && SafeIoTypes.Contains(fullName))
+            {
+                return;
+            }
+
             foreach (var entry in Blacklist)
             {
                 if (fullName.StartsWith(entry.Key))
