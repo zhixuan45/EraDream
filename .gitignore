@@ -3,3 +3,14 @@
 /android/
 output/
 .vscode/
+
+# Unity generated project state and IDE files
+/unityproj/eradream-unity/[Ll]ibrary/
+/unityproj/eradream-unity/[Tt]emp/
+/unityproj/eradream-unity/[Oo]bj/
+/unityproj/eradream-unity/[Bb]uild/
+/unityproj/eradream-unity/[Bb]uilds/
+/unityproj/eradream-unity/[Ll]ogs/
+/unityproj/eradream-unity/[Uu]serSettings/
+/unityproj/eradream-unity/*.csproj
+/unityproj/eradream-unity/*.sln
