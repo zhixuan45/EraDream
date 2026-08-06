@@ -67,48 +67,8 @@ namespace EraDream.Tests
             GD.Print($"[ExtensionDecompressionTest] Activating {testId}...");
             bool success = await ExtensionManager.Instance.ActivateExtension(testId);
             
-            // 4. Test Risk Blocking
-            GD.Print("[ExtensionDecompressionTest] Testing risk blocking...");
-            string riskyId = "risky_ext";
-            var riskyManifest = new ExtensionManifest {
-                Id = riskyId,
-                Name = "Risky Extension",
-                Type = PackType.Gameplay
-            };
-            riskyManifest.DetectedPermissions.Add("文件系统访问"); // Manually inject risk
-            
-            // Mock loaded manifest
-            // Note: ExtensionManager doesn't expose _loadedManifests easily, 
-            // but we can trigger ScanExtensions after creating a folder
-            string riskyPath = Path.Combine(globalExtDir, riskyId);
-            if (!Directory.Exists(riskyPath)) Directory.CreateDirectory(riskyPath);
-            File.WriteAllText(Path.Combine(riskyPath, "manifest.json"), JsonSerializer.Serialize(riskyManifest));
-            
-            ExtensionManager.Instance.ScanExtensions();
-            
-            bool riskySuccess = await ExtensionManager.Instance.ActivateExtension(riskyId);
-            if (!riskySuccess)
-            {
-                GD.Print("[ExtensionDecompressionTest] Risk blocking works (returned false).");
-                
-                // Now authorize and try again
-                var targetManifest = ExtensionManager.Instance.GetAvailableExtensions().First(m => m.Id == riskyId);
-                targetManifest.IsAuthorized = true;
-                GD.Print("[ExtensionDecompressionTest] Authorizing and retrying...");
-                riskySuccess = await ExtensionManager.Instance.ActivateExtension(riskyId);
-                if (riskySuccess)
-                {
-                    GD.Print("[ExtensionDecompressionTest] Activation after authorization success!");
-                }
-                else
-                {
-                    GD.PrintErr("[ExtensionDecompressionTest] Activation after authorization FAILED!");
-                }
-            }
-            else
-            {
-                GD.PrintErr("[ExtensionDecompressionTest] Risk blocking FAILED (returned true)!");
-            }
+            // 4. Risk Blocking Test was removed because DLL plugin security checks are deprecated.
+            GD.Print("[ExtensionDecompressionTest] Risk blocking test skipped (DLL plugins deprecated).");
         }
     }
 }

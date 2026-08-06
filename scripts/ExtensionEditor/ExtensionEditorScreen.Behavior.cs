@@ -62,6 +62,18 @@ public partial class ExtensionEditorScreen : Control
         foreach (var menu in _currentBehaviorPack.Menus) {
             _behaviorMenusContainer.AddChild(CreateMenuUI(menu));
         }
+
+        // 4. 刷新赛事 Tab
+        foreach (Node child in _behaviorRacesContainer.GetChildren()) child.QueueFree();
+        Button addRaceBtn = new Button { Text = "+ 添加新赛事", CustomMinimumSize = new Vector2(0, 35) };
+        addRaceBtn.Pressed += OnAddBehaviorRacePressed;
+        _behaviorRacesContainer.AddChild(addRaceBtn);
+        if (_currentBehaviorPack.Races != null)
+        {
+            foreach (var race in _currentBehaviorPack.Races) {
+                _behaviorRacesContainer.AddChild(CreateRaceUI(race));
+            }
+        }
     }
 
     // ==================== 添加项按钮回调 ====================
@@ -113,7 +125,7 @@ public partial class ExtensionEditorScreen : Control
 
         header.AddChild(new Label { Text = " Hook类型:" });
         var hookOption = new OptionButton { CustomMinimumSize = new Vector2(150, 0) };
-        string[] hooks = { "OnTraining", "OnOuting", "OnTurnStart", "OnTurnEnd", "OnRaceStart", "OnRaceEnd" };
+        string[] hooks = { "OnTraining", "OnOuting", "OnTurnStart", "OnTurnEnd", "OnRaceStart", "OnRaceEnd", "OnContract" };
         foreach (var h in hooks) hookOption.AddItem(h);
         hookOption.Text = rule.Hook;
         hookOption.ItemSelected += (idx) => rule.Hook = hookOption.GetItemText((int)idx);

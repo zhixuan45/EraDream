@@ -19,10 +19,21 @@ public partial class BehaviorRegistry : Node
     private Dictionary<string, List<BehaviorRule>> _rulesByHook = new();
     private Dictionary<string, ItemDefinition> _itemDefinitions = new();
     private Dictionary<string, List<UIOption>> _menus = new();
+    private Dictionary<string, RaceDefinition> _raceDefinitions = new();
+    private Dictionary<string, TrainingDefinition> _trainingDefinitions = new();
     private RandomNumberGenerator _rng = new();
 
-    // 追踪每个扩展包注册的内容，方便增量卸载。ID -> (List<HookName, RuleId>, List<ItemId>, List<MenuId, OptionId>)
-    private Dictionary<string, (List<(string hook, string ruleId)> rules, List<string> items, List<(string menuId, string optionId)> menus)> _registeredByExtension = new();
+    public class ExtensionRegistration
+    {
+        public List<(string hook, string ruleId)> Rules { get; } = new();
+        public List<string> Items { get; } = new();
+        public List<(string menuId, string optionId)> Menus { get; } = new();
+        public List<string> Races { get; } = new();
+        public List<string> Trainings { get; } = new();
+    }
+
+    // 追踪每个扩展包注册的内容，方便增量卸载。ID -> ExtensionRegistration
+    private Dictionary<string, ExtensionRegistration> _registeredByExtension = new();
 
     public override void _EnterTree()
     {
@@ -53,12 +64,13 @@ public partial class BehaviorRegistry : Node
     {
         try
         {
-            var pack = JsonSerializer.Deserialize<BehaviorPack>(jsonContent);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var pack = JsonSerializer.Deserialize<BehaviorPack>(jsonContent, options);
             if (pack == null) return;
 
             if (extensionId != null && !_registeredByExtension.ContainsKey(extensionId))
             {
-                _registeredByExtension[extensionId] = (new(), new(), new());
+                _registeredByExtension[extensionId] = new ExtensionRegistration();
             }
 
             // 加载规则
@@ -91,7 +103,7 @@ public partial class BehaviorRegistry : Node
 
                     if (extensionId != null)
                     {
-                        _registeredByExtension[extensionId].rules.Add((rule.Hook, rule.Id));
+                        _registeredByExtension[extensionId].Rules.Add((rule.Hook, rule.Id));
                     }
                 }
             }
@@ -114,7 +126,7 @@ public partial class BehaviorRegistry : Node
 
                     if (extensionId != null)
                     {
-                        _registeredByExtension[extensionId].items.Add(item.Id);
+                        _registeredByExtension[extensionId].Items.Add(item.Id);
                     }
                 }
             }
@@ -144,8 +156,54 @@ public partial class BehaviorRegistry : Node
 
                         if (extensionId != null)
                         {
-                            _registeredByExtension[extensionId].menus.Add((menu.MenuId, option.Id));
+                            _registeredByExtension[extensionId].Menus.Add((menu.MenuId, option.Id));
                         }
+                    }
+                }
+            }
+
+            // 加载比赛定义
+            if (pack.Races != null)
+            {
+                foreach (var race in pack.Races)
+                {
+                    if (race.Override && _raceDefinitions.ContainsKey(race.Id))
+                    {
+                        _raceDefinitions[race.Id] = race;
+                        GD.Print($"[BehaviorRegistry] Overridden race {race.Id}: {race.Name}");
+                    }
+                    else
+                    {
+                        _raceDefinitions[race.Id] = race;
+                        GD.Print($"[BehaviorRegistry] Registered race {race.Id}: {race.Name}");
+                    }
+
+                    if (extensionId != null)
+                    {
+                        _registeredByExtension[extensionId].Races.Add(race.Id);
+                    }
+                }
+            }
+
+            // 加载自定义训练定义
+            if (pack.Trainings != null)
+            {
+                foreach (var training in pack.Trainings)
+                {
+                    if (training.Override && _trainingDefinitions.ContainsKey(training.Id))
+                    {
+                        _trainingDefinitions[training.Id] = training;
+                        GD.Print($"[BehaviorRegistry] Overridden training {training.Id}: {training.Name}");
+                    }
+                    else
+                    {
+                        _trainingDefinitions[training.Id] = training;
+                        GD.Print($"[BehaviorRegistry] Registered training {training.Id}: {training.Name}");
+                    }
+
+                    if (extensionId != null)
+                    {
+                        _registeredByExtension[extensionId].Trainings.Add(training.Id);
                     }
                 }
             }
@@ -180,6 +238,31 @@ public partial class BehaviorRegistry : Node
     public List<ItemDefinition> GetAllItemDefinitions()
     {
         return _itemDefinitions.Values.ToList();
+    }
+
+    public RaceDefinition GetRaceDefinition(string id)
+    {
+        return _raceDefinitions.TryGetValue(id, out var def) ? def : null;
+    }
+
+    public List<RaceDefinition> GetRacesForTurn(int turn)
+    {
+        return _raceDefinitions.Values.Where(r => r.Turn == turn).ToList();
+    }
+
+    public List<RaceDefinition> GetAllRaces()
+    {
+        return _raceDefinitions.Values.ToList();
+    }
+
+    public TrainingDefinition GetTrainingDefinition(string id)
+    {
+        return _trainingDefinitions.TryGetValue(id, out var def) ? def : null;
+    }
+
+    public List<TrainingDefinition> GetAllTrainings()
+    {
+        return _trainingDefinitions.Values.ToList();
     }
 
     /// <summary>
@@ -235,12 +318,20 @@ public partial class BehaviorRegistry : Node
             return GlobalGameState.Instance.GetVariable(property.Substring(9));
         }
 
+        if (property.StartsWith("Uma.CustomStats:"))
+        {
+            return state.Uma.GetCustomStat(property.Substring(16));
+        }
+
         return property switch
         {
+            "Game.CurrentTurn" or "CurrentTurn" => state.CurrentTurn,
             "Player.Money" => state.Player.Money,
             "Player.Stamina" => state.Player.Stamina,
             "Player.Energy" => state.Player.Energy,
             "Uma.Mood" => state.Uma.Mood,
+            "Uma.ActionStamina" => state.Uma.ActionStamina,
+            "Uma.Energy" => state.Uma.Energy,
             "Uma.Affection" => state.Uma.Affection,
             "Uma.Speed" => state.Uma.Speed,
             "Uma.Stamina" => state.Uma.Stamina,
@@ -259,12 +350,10 @@ public partial class BehaviorRegistry : Node
         {
             // 切换到剧情引擎
             StoryPlayerEngine.CurrentStoryPath = action.Path;
-            // TODO: 这里需要一个全局导航方法，暂时使用 ChangeScene
             GetTree().ChangeSceneToFile("res://scenes/StoryPlayerScreen.tscn");
         }
         else if (action.Type == "BriefStory")
         {
-            // 简要剧情：目前通过通知显示
             GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"触发简要剧情: {action.Path}");
         }
         else if (action.Type == "ChangeStat")
@@ -279,7 +368,7 @@ public partial class BehaviorRegistry : Node
         }
     }
 
-    private void ApplyStatChange(string property, float value, GameState state)
+    public void ApplyStatChange(string property, float value, GameState state)
     {
         int amount = (int)value;
         if (property.StartsWith("Variable:"))
@@ -290,12 +379,26 @@ public partial class BehaviorRegistry : Node
             return;
         }
 
+        if (property.StartsWith("Uma.CustomStats:"))
+        {
+            state.Uma.AddCustomStat(property.Substring(16), amount);
+            return;
+        }
+
+        if (property.Contains(":"))
+        {
+            state.Uma.AddCustomStat(property, amount);
+            return;
+        }
+
         switch (property)
         {
             case "Player.Money": state.Player.AddMoney(amount); break;
             case "Player.Stamina": state.Player.AddStamina(amount); break;
             case "Player.Energy": state.Player.AddEnergy(amount); break;
             case "Uma.Mood": state.Uma.AddMood(amount); break;
+            case "Uma.ActionStamina": state.Uma.AddActionStamina(amount); break;
+            case "Uma.Energy": state.Uma.AddEnergy(amount); break;
             case "Uma.Affection": state.Uma.Affection += amount; break;
             case "Uma.Speed": state.Uma.AddStat(StatType.Speed, amount); break;
             case "Uma.Stamina": state.Uma.AddStat(StatType.Stamina, amount); break;
@@ -310,7 +413,7 @@ public partial class BehaviorRegistry : Node
         if (string.IsNullOrEmpty(extensionId) || !_registeredByExtension.TryGetValue(extensionId, out var registered)) return;
 
         // 1. 移除规则
-        foreach (var r in registered.rules)
+        foreach (var r in registered.Rules)
         {
             if (_rulesByHook.TryGetValue(r.hook, out var list))
             {
@@ -321,13 +424,13 @@ public partial class BehaviorRegistry : Node
         }
 
         // 2. 移除物品定义
-        foreach (var itemId in registered.items)
+        foreach (var itemId in registered.Items)
         {
             _itemDefinitions.Remove(itemId);
         }
 
         // 3. 移除菜单 UIOption
-        foreach (var m in registered.menus)
+        foreach (var m in registered.Menus)
         {
             if (_menus.TryGetValue(m.menuId, out var list))
             {
@@ -335,6 +438,18 @@ public partial class BehaviorRegistry : Node
                 if (opt != null) list.Remove(opt);
                 if (list.Count == 0) _menus.Remove(m.menuId);
             }
+        }
+
+        // 4. 移除赛事定义
+        foreach (var raceId in registered.Races)
+        {
+            _raceDefinitions.Remove(raceId);
+        }
+
+        // 5. 移除自定义训练定义
+        foreach (var trainingId in registered.Trainings)
+        {
+            _trainingDefinitions.Remove(trainingId);
         }
 
         _registeredByExtension.Remove(extensionId);
@@ -346,6 +461,8 @@ public partial class BehaviorRegistry : Node
         _rulesByHook.Clear();
         _itemDefinitions.Clear();
         _menus.Clear();
+        _raceDefinitions.Clear();
+        _trainingDefinitions.Clear();
         _registeredByExtension.Clear();
     }
 

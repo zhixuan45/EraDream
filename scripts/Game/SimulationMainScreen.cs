@@ -190,10 +190,15 @@ public partial class SimulationMainScreen : Control
             
             // 语音处理
             string voicePath = bark.Voice;
+            var actor = CharacterManager.GetActor(activeId);
+            if (!string.IsNullOrEmpty(voicePath) && actor?.Audio?.Voices != null && actor.Audio.Voices.TryGetValue(voicePath, out string mappedPath))
+            {
+                voicePath = mappedPath;
+            }
+
             if (string.IsNullOrEmpty(voicePath))
             {
-                var actor = CharacterManager.GetActor(activeId);
-                if (actor?.Audio.FallbackVoices.Count > 0)
+                if (actor?.Audio?.FallbackVoices?.Count > 0)
                 {
                     voicePath = actor.Audio.FallbackVoices[(int)(GD.Randi() % actor.Audio.FallbackVoices.Count)];
                 }
@@ -292,6 +297,7 @@ public partial class SimulationMainScreen : Control
         var menu = _trainingMenuScene.Instantiate<EraDream.Game.UI.TrainingMenuUI>();
         AddChild(menu);
         menu.TrainingSelected += (type) => OnTrainingSelected((long)type);
+        menu.CustomTrainingSelected += (trainingId) => OnCustomTrainingSelected(trainingId);
         menu.DynamicOptionSelected += OnDynamicOptionSelected;
         menu.CloseRequested += () => menu.Close();
     }
@@ -303,6 +309,33 @@ public partial class SimulationMainScreen : Control
             BehaviorRegistry.Instance.ExecuteOptionAction(menuId, optionId, GameManager.Instance.CurrentState);
             UpdateUI();
             TriggerBark();
+        }
+    }
+
+    private void OnCustomTrainingSelected(string trainingId)
+    {
+        if (GameManager.Instance != null && !GameManager.Instance.CurrentState.IsGameOver)
+        {
+            var result = GameManager.Instance.Training.ExecuteTraining(GameManager.Instance.CurrentState, trainingId);
+            if (result == TrainingResult.Success)
+            {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练成功！属性获得了提升。");
+                UpdateUI();
+                TriggerBark();
+            }
+            else if (result == TrainingResult.Failed)
+            {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练失败！马娘的心情变差了。");
+                UpdateUI();
+            }
+            else if (result == TrainingResult.InsufficientStamina)
+            {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("马娘行动力不足，无法进行训练！");
+            }
+            else if (result == TrainingResult.InsufficientTrainerEnergy)
+            {
+                GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练员体力或精力不足！");
+            }
         }
     }
 

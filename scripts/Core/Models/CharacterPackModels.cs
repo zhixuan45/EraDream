@@ -64,6 +64,9 @@ namespace EraDream.Core.Models
 
         [JsonPropertyName("audio")]
         public ActorAudio Audio { get; set; } = new();
+
+        [JsonPropertyName("simulation")]
+        public SimulationData Simulation { get; set; }
     }
 
     public class ActorVisuals
@@ -115,5 +118,8 @@ namespace EraDream.Core.Models
 
         [JsonPropertyName("fallback_voices")]
         public List<string> FallbackVoices { get; set; } = new();
+
+        [JsonPropertyName("voices")]
+        public Dictionary<string, string> Voices { get; set; } = new();
     }
 }

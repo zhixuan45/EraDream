@@ -7,7 +7,8 @@ namespace EraDream.Core.Extensions
     public enum PackType
     {
         Character,
-        Gameplay
+        Gameplay,
+        Mixed
     }
 
     public class DependencyInfo
@@ -66,22 +67,5 @@ namespace EraDream.Core.Extensions
         [JsonPropertyName("nested_packages")]
         public List<string> NestedPackages { get; set; } = new();
 
-        /// <summary>
-        /// 运行时检测到的权限列表（不序列化）
-        /// </summary>
-        [JsonIgnore]
-        public List<string> DetectedPermissions { get; set; } = new();
-
-        /// <summary>
-        /// 是否包含风险权限（不序列化）
-        /// </summary>
-        [JsonIgnore]
-        public bool IsRisky => DetectedPermissions.Count > 0;
-
-        /// <summary>
-        /// 用户是否已授权运行（针对高危包，不序列化）
-        /// </summary>
-        [JsonIgnore]
-        public bool IsAuthorized { get; set; } = false;
     }
 }

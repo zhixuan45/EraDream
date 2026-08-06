@@ -78,31 +78,12 @@ namespace EraDream.Core.Extensions
             _authorLabel.Text = $"作者: {manifest.Author} | 版本: {manifest.Version}";
             _descLabel.Text = manifest.Description ?? "无描述";
             
-            // 安全信息
-            _riskContainer.Visible = manifest.Type == PackType.Gameplay;
-            if (_riskContainer.Visible)
-            {
-                _riskList.Clear();
-                if (manifest.DetectedPermissions.Count > 0)
-                {
-                    _riskWarningLabel.Text = "检测到以下敏感权限:";
-                    _riskWarningLabel.Modulate = Colors.OrangeRed;
-                    foreach (var risk in manifest.DetectedPermissions)
-                    {
-                        _riskList.AddItem(risk);
-                    }
-                }
-                else
-                {
-                    _riskWarningLabel.Text = "未检测到已知风险调用。";
-                    _riskWarningLabel.Modulate = Colors.LightGreen;
-                    _riskList.AddItem("无敏感权限请求");
-                }
-            }
+            // 安全信息已经彻底废除，隐藏警告区域
+            _riskContainer.Visible = false;
 
             // 状态与按钮：支持反激活/关闭功能
             bool isActive = ExtensionManager.Instance.IsExtensionActive(manifest.Id);
-            _activateBtn.Text = isActive ? "关闭激活" : (manifest.IsRisky ? "同意并激活" : "激活");
+            _activateBtn.Text = isActive ? "关闭激活" : "激活";
             _activateBtn.Disabled = false;
 
             // 异步预览已有配置的 behavior.json 内容
@@ -128,12 +109,6 @@ namespace EraDream.Core.Extensions
             else
             {
                 // 激活扩展包
-                if (_selectedManifest.IsRisky)
-                {
-                    _selectedManifest.IsAuthorized = true;
-                    GD.Print($"[ExtensionManagerUI] User accepted risks for {_selectedManifest.Id}");
-                }
-
                 bool success = await ExtensionManager.Instance.ActivateExtension(_selectedManifest.Id);
                 if (success)
                 {
@@ -328,6 +303,23 @@ namespace EraDream.Core.Extensions
                             string overrideStr = opt.Override ? " [覆写]" : "";
                             optNode.SetText(0, $"  - 选项: {opt.Name} [ID: {opt.Id}]{overrideStr} (动作: {opt.Action.Type})");
                         }
+                    }
+                }
+
+                // 4. 渲染赛马赛事 (Races)
+                if (pack.Races != null && pack.Races.Count > 0)
+                {
+                    var racesCategory = _configTree.CreateItem(root);
+                    racesCategory.SetText(0, $"🏁 赛马赛事 (Races) [{pack.Races.Count}个]");
+
+                    foreach (var race in pack.Races)
+                    {
+                        var raceNode = _configTree.CreateItem(racesCategory);
+                        string overrideStr = race.Override ? " [覆写]" : "";
+                        raceNode.SetText(0, $"• 赛事: {race.Name} [ID: {race.Id}]{overrideStr} (举办回合: 第{race.Turn}回合)");
+                        
+                        var detailNode = _configTree.CreateItem(raceNode);
+                        detailNode.SetText(0, $"  门槛: 速度 >= {race.MinSpeed} | 奖励: {race.RewardStat} +{race.RewardValue}");
                     }
                 }
             }

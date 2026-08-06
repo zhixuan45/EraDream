@@ -53,6 +53,7 @@ public partial class ExtensionEditorScreen : Control
     private VBoxContainer _behaviorRulesContainer;
     private VBoxContainer _behaviorItemsContainer;
     private VBoxContainer _behaviorMenusContainer;
+    private VBoxContainer _behaviorRacesContainer;
     private Button _btnSaveBehavior;
     private Button _btnAddBehaviorRule;
 
@@ -182,6 +183,12 @@ public partial class ExtensionEditorScreen : Control
         menusScroll.AddChild(_behaviorMenusContainer);
         behaviorTabs.AddChild(menusScroll);
 
+        // Tab 4: 赛马赛事
+        var racesScroll = new ScrollContainer { Name = "赛马赛事", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _behaviorRacesContainer = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        racesScroll.AddChild(_behaviorRacesContainer);
+        behaviorTabs.AddChild(racesScroll);
+
         _behaviorEditorRoot.AddChild(behaviorTabs);
 
         // Common UI
@@ -215,7 +222,7 @@ public partial class ExtensionEditorScreen : Control
         GetNode<Button>(rootPath + "ManifestVBox/ResHBox/BtnImportSprite").Pressed += () => ImportAsset("Assets/Sprites");
         GetNode<Button>(rootPath + "ManifestVBox/ResHBox/BtnImportBG").Pressed += () => ImportAsset("Assets/Backgrounds");
         GetNode<Button>(rootPath + "ManifestVBox/ResHBox/BtnImportAudio").Pressed += () => ImportAsset("Assets/Audio");
-        GetNode<Button>(rootPath + "ManifestVBox/ResHBox/BtnImportDLL").Pressed += () => ImportAsset("Logic");
+        GetNode<Button>(rootPath + "ManifestVBox/ResHBox/BtnImportDLL").Hide();
 
         UpdateUIFromManifest();
         RefreshFileTree();

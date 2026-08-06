@@ -220,7 +220,14 @@ public static class CharacterManager
     /// </summary>
     public static EraDream.Core.Models.SimulationData LoadUmaSimulationData(string actorId)
     {
-        // 优先在路径字典中查找该马娘所在的扩展包物理根路径
+        // 1. 优先检查内存中已加载的 ActorConfigData 里是否已内嵌 SimulationData
+        if (RegisteredActors.TryGetValue(actorId, out var actorConfig) && actorConfig?.Simulation != null)
+        {
+            GD.Print($"[CharacterManager] Found inline simulation data for {actorId}. skipping disk load.");
+            return actorConfig.Simulation;
+        }
+
+        // 2. 否则向后兼容，在路径字典中查找该马娘所在的扩展包物理根路径进行物理加载
         if (!ActorToExtensionPathMap.TryGetValue(actorId, out string extRoot)) return null;
         if (string.IsNullOrEmpty(extRoot)) return null;
 

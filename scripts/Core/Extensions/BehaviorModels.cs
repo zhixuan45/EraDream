@@ -15,6 +15,12 @@ public class BehaviorPack
 
     [JsonPropertyName("menus")]
     public List<UIMenuDefinition> Menus { get; set; } = new();
+
+    [JsonPropertyName("races")]
+    public List<RaceDefinition> Races { get; set; } = new();
+
+    [JsonPropertyName("trainings")]
+    public List<TrainingDefinition> Trainings { get; set; } = new();
 }
 
 public class UIMenuDefinition
@@ -96,4 +102,61 @@ public class BehaviorAction
 
     [JsonPropertyName("value_change")]
     public string ValueChange { get; set; } = "0"; // Used for ChangeStat
+}
+
+public class RaceDefinition
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("turn")]
+    public int Turn { get; set; } = 1;
+
+    [JsonPropertyName("min_speed")]
+    public int MinSpeed { get; set; } = 0;
+
+    [JsonPropertyName("reward_stat")]
+    public string RewardStat { get; set; } = "";
+
+    [JsonPropertyName("reward_value")]
+    public int RewardValue { get; set; } = 0;
+
+    [JsonPropertyName("override")]
+    public bool Override { get; set; } = false;
+}
+
+public class TrainingDefinition
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("stamina_cost")]
+    public int StaminaCost { get; set; } = 0;
+
+    [JsonPropertyName("energy_cost")]
+    public int EnergyCost { get; set; } = 0;
+
+    [JsonPropertyName("min_stamina")]
+    public int MinStamina { get; set; } = 0;
+
+    [JsonPropertyName("stats_rewards")]
+    public Dictionary<string, int> StatsRewards { get; set; } = new();
+
+    [JsonPropertyName("custom_stats_rewards")]
+    public Dictionary<string, int> CustomStatsRewards { get; set; } = new();
+
+    [JsonPropertyName("override")]
+    public bool Override { get; set; } = false;
 }

@@ -146,6 +146,7 @@ public partial class GameManager : Node
         GD.Print($"[GameManager] New game: {CurrentState.ScenarioPaths.Count} scenarios, {CurrentState.CharacterPaths.Count} characters, {CurrentState.ModPaths.Count} mods.");
 
         OnGameStarted?.Invoke();
+        BehaviorRegistry?.TriggerHook("OnScenarioStart", CurrentState);
         OnTurnStart?.Invoke(CurrentState.CurrentTurn);
     }
 
@@ -207,50 +208,47 @@ public partial class GameManager : Node
         CurrentState.ActiveUmaId = id;
         CurrentState.CurrentScoutPool.Clear();
 
-        // 尝试加载该马娘的 simulation.json 数据
+        // 尝试加载该马娘的 simulation.json 数据（支持从内嵌或物理文件加载）
         var simData = CharacterManager.LoadUmaSimulationData(id);
-        if (simData != null && simData.Stats != null)
+        var stats = simData?.Stats;
+
+        var initial = stats?.Initial;
+        CurrentState.Uma.Speed = initial?.GetValueOrDefault("speed", 100) ?? 100;
+        CurrentState.Uma.Stamina = initial?.GetValueOrDefault("stamina", 100) ?? 100;
+        CurrentState.Uma.Power = initial?.GetValueOrDefault("power", 100) ?? 100;
+        CurrentState.Uma.Guts = initial?.GetValueOrDefault("guts", 100) ?? 100;
+        CurrentState.Uma.Intelligence = initial?.GetValueOrDefault("intelligence", 100) ?? 100;
+        CurrentState.Uma.SkillPoints = initial?.GetValueOrDefault("skill_points", 10) ?? 10;
+
+        var conditions = stats?.Conditions;
+        int moodVal = 75;
+        if (conditions != null && conditions.ContainsKey("motivation"))
         {
-            var initial = simData.Stats.Initial;
-            CurrentState.Uma.Speed = initial.GetValueOrDefault("speed", 100);
-            CurrentState.Uma.Stamina = initial.GetValueOrDefault("stamina", 100);
-            CurrentState.Uma.Power = initial.GetValueOrDefault("power", 100);
-            CurrentState.Uma.Guts = initial.GetValueOrDefault("guts", 100);
-            CurrentState.Uma.Intelligence = initial.GetValueOrDefault("intelligence", 100);
-            CurrentState.Uma.SkillPoints = initial.GetValueOrDefault("skill_points", 0);
-
-            var conditions = simData.Stats.Conditions;
-            if (conditions.ContainsKey("motivation"))
-            {
-                int mot = conditions["motivation"];
-                CurrentState.Uma.Mood = mot switch {
-                    1 => 10, 2 => 35, 3 => 75, 4 => 110, 5 => 140, _ => 75
-                };
-            }
-            CurrentState.Uma.Energy = conditions.GetValueOrDefault("energy", 100);
-            CurrentState.Uma.MaxEnergy = conditions.GetValueOrDefault("energy", 100);
-            CurrentState.Uma.Affection = conditions.GetValueOrDefault("affection", 0);
-
-            if (simData.Stats.CustomStats != null)
-            {
-                foreach (var kvp in simData.Stats.CustomStats) CurrentState.Uma.CustomStats[kvp.Key] = kvp.Value;
-            }
-            GD.Print($"[GameManager] Contracted {id}. Base stats loaded.");
+            int mot = conditions["motivation"];
+            moodVal = mot switch {
+                1 => 10, 2 => 35, 3 => 75, 4 => 110, 5 => 140, _ => 75
+            };
         }
-        else
+        else if (conditions != null && conditions.ContainsKey("mood"))
         {
-            CurrentState.Uma.Speed = 100;
-            CurrentState.Uma.Stamina = 100;
-            CurrentState.Uma.Power = 100;
-            CurrentState.Uma.Guts = 100;
-            CurrentState.Uma.Intelligence = 100;
-            CurrentState.Uma.SkillPoints = 10;
-            CurrentState.Uma.Mood = 75;
-            CurrentState.Uma.Energy = 100;
-            CurrentState.Uma.Affection = 0;
-            GD.Print($"[GameManager] Contracted {id}. Default stats loaded.");
+            moodVal = conditions["mood"];
         }
+        CurrentState.Uma.Mood = moodVal;
+        CurrentState.Uma.Energy = conditions?.GetValueOrDefault("energy", 100) ?? 100;
+        CurrentState.Uma.MaxEnergy = conditions?.GetValueOrDefault("energy", 100) ?? 100;
+        CurrentState.Uma.Affection = conditions?.GetValueOrDefault("affection", 0) ?? 0;
 
+        if (stats?.CustomStats != null)
+        {
+            foreach (var kvp in stats.CustomStats)
+            {
+                CurrentState.Uma.CustomStats[kvp.Key] = kvp.Value;
+            }
+        }
+        GD.Print($"[GameManager] Contracted {id}. Base stats loaded (with optional fallback options).");
+
+        BehaviorRegistry?.TriggerHook($"OnContract_{id}", CurrentState);
+        BehaviorRegistry?.TriggerHook("OnContract", CurrentState);
         AutoSave();
         return true;
     }
@@ -299,6 +297,7 @@ public partial class GameManager : Node
         if (_hasTriggeredTurnStartThisTurn) return;
 
         _hasTriggeredTurnStartThisTurn = true;
+        BehaviorRegistry?.TriggerHook("OnTurnStart", CurrentState);
         // 检查回合开始剧情，如果触发了剧情则直接跳转
         if (Events.CheckAndTriggerStory(TriggerTiming.TurnStart, CurrentState))
         {
@@ -313,6 +312,7 @@ public partial class GameManager : Node
     {
         if (CurrentState == null || CurrentState.IsGameOver) return;
 
+        BehaviorRegistry?.TriggerHook("OnTurnEnd", CurrentState);
         OnTurnEnd?.Invoke(CurrentState.CurrentTurn);
 
         // 更新物品效果 (持续物品扣减回合 & 触发 Tick)
@@ -355,6 +355,7 @@ public partial class GameManager : Node
             return;
         }
 
+        BehaviorRegistry?.TriggerHook("OnTurnStart", CurrentState);
         OnTurnStart?.Invoke(CurrentState.CurrentTurn);
     }
 

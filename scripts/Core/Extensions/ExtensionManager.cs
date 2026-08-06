@@ -7,7 +7,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using EraDream.Core.Mods;
 
 namespace EraDream.Core.Extensions
 {
@@ -135,49 +134,11 @@ namespace EraDream.Core.Extensions
 
         private void ProcessManifestArchive(ExtensionManifest manifest, string archivePath)
         {
-            if (manifest.Type == PackType.Gameplay)
-            {
-                using var reader = new ZipReader();
-                if (reader.Open(archivePath) == Error.Ok)
-                {
-                    foreach (var file in reader.GetFiles())
-                    {
-                        if (file.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-                        {
-                            byte[] data = reader.ReadFile(file);
-                            using var ms = new MemoryStream(data);
-                            var risks = SecurityScanner.Scan(ms);
-                            foreach (var risk in risks)
-                            {
-                                if (!manifest.DetectedPermissions.Contains(risk))
-                                    manifest.DetectedPermissions.Add(risk);
-                            }
-                        }
-                    }
-                }
-            }
             _loadedManifests[manifest.Id] = manifest;
         }
 
         private void ProcessManifest(ExtensionManifest manifest, string rootPath)
         {
-            // 如果是 Gameplay 类型，扫描 Logic 目录下的 DLL
-            if (manifest.Type == PackType.Gameplay)
-            {
-                string logicDir = Path.Combine(rootPath, "Logic");
-                if (Directory.Exists(logicDir))
-                {
-                    foreach (var dll in Directory.GetFiles(logicDir, "*.dll"))
-                    {
-                        var risks = SecurityScanner.Scan(dll);
-                        foreach (var risk in risks)
-                        {
-                            if (!manifest.DetectedPermissions.Contains(risk))
-                                manifest.DetectedPermissions.Add(risk);
-                        }
-                    }
-                }
-            }
             _loadedManifests[manifest.Id] = manifest;
         }
 
@@ -273,7 +234,7 @@ namespace EraDream.Core.Extensions
                     return false;
                 }
 
-                // 确保父目录存在
+                // 确保 parent 目录存在
                 string dirName = Path.GetDirectoryName(targetPath);
                 if (!Directory.Exists(dirName)) Directory.CreateDirectory(dirName);
 
@@ -366,13 +327,6 @@ namespace EraDream.Core.Extensions
 
             activating.Remove(id);
 
-            // 安全性检查：如果存在风险且未授权，则拦截
-            if (manifest.IsRisky && !manifest.IsAuthorized)
-            {
-                GD.PrintErr($"[ExtensionManager] Blocked activation of {id} due to unauthorized risks: {string.Join(", ", manifest.DetectedPermissions)}");
-                return false;
-            }
-
             GD.Print($"[ExtensionManager] Activating {id}...");
 
             // 1. 准备解压目录及安全检查
@@ -414,24 +368,8 @@ namespace EraDream.Core.Extensions
                 }
             }
 
-            // 3. Character 类型不允许加载逻辑 DLL，仅允许资源替换
-            if (manifest.Type == PackType.Character)
-            {
-                GD.Print($"[ExtensionManager] {id} is a Character pack. Logic loading skipped.");
-                _activeExtensionIds.Add(id);
-                return true;
-            }
-
             // 确定扩展真正的根路径：压缩包在缓存中，文件夹包则是原地址
             string extensionRootPath = isArchived ? targetCache : extPath;
-
-            string dllPath = Path.Combine(extensionRootPath, "Logic", "ModEntry.dll");
-
-            if (File.Exists(dllPath))
-            {
-                bool success = ModLoader.Instance.LoadMod(id, dllPath);
-                if (!success) return false;
-            }
 
             // 应用合并规则（启用被忽略的 override rule 合并功能）
             ApplyManifestOverrides(manifest, extensionRootPath);
@@ -586,7 +524,6 @@ namespace EraDream.Core.Extensions
 
             GD.Print($"[ExtensionManager] Deactivating extension: {id}...");
             _activeExtensionIds.Remove(id);
-            ModLoader.Instance.UnloadMod(id);
 
             if (BehaviorRegistry.Instance != null)
             {

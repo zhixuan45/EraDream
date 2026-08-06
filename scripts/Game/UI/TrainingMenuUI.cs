@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EraDream.Game;
 using EraDream.Core.Extensions;
 
@@ -12,6 +13,7 @@ namespace EraDream.Game.UI
     public partial class TrainingMenuUI : Control
     {
         [Signal] public delegate void TrainingSelectedEventHandler(int type);
+        [Signal] public delegate void CustomTrainingSelectedEventHandler(string trainingId);
         [Signal] public delegate void DynamicOptionSelectedEventHandler(string menuId, string optionId);
         [Signal] public delegate void CloseRequestedEventHandler();
 
@@ -38,14 +40,26 @@ namespace EraDream.Game.UI
             // 清理旧项
             foreach (Node child in _listContainer.GetChildren()) child.QueueFree();
 
-            // 1. 加载默认项
-            AddTrainingItem("速度训练", "提升速度与力量", (int)TrainingType.Speed, "res://icon.svg");
-            AddTrainingItem("耐力训练", "提升耐力与根性", (int)TrainingType.Stamina, "res://icon.svg");
-            AddTrainingItem("力量训练", "提升力量与耐力", (int)TrainingType.Power, "res://icon.svg");
-            AddTrainingItem("根性训练", "提升根性、速度与力量", (int)TrainingType.Guts, "res://icon.svg");
-            AddTrainingItem("智力训练", "提升智力、速度并恢复精力", (int)TrainingType.Intelligence, "res://icon.svg");
+            // 1. 动态加载所有注册的训练条目（包含内置默认五大训练）
+            if (BehaviorRegistry.Instance != null)
+            {
+                var allTrainings = BehaviorRegistry.Instance.GetAllTrainings();
+                var orderedTrainings = allTrainings.OrderBy(t => t.Id switch {
+                    "Speed" => 1,
+                    "Stamina" => 2,
+                    "Power" => 3,
+                    "Guts" => 4,
+                    "Intelligence" => 5,
+                    _ => 100
+                }).ToList();
 
-            // 2. 加载来自 BehaviorRegistry 的动态项
+                foreach (var training in orderedTrainings)
+                {
+                    AddTrainingItem(training.Name, training.Description, training.Id, "res://icon.svg");
+                }
+            }
+
+            // 2. 加载来自 BehaviorRegistry 的动态菜单项
             if (BehaviorRegistry.Instance != null && GameManager.Instance?.CurrentState != null)
             {
                 var options = BehaviorRegistry.Instance.GetValidOptions("Training", GameManager.Instance.CurrentState);
@@ -56,11 +70,16 @@ namespace EraDream.Game.UI
             }
         }
 
-        private void AddTrainingItem(string title, string desc, int type, string iconPath)
+        private void AddTrainingItem(string title, string desc, string trainingId, string iconPath)
         {
             var btn = CreateBaseButton(title, desc, iconPath);
             btn.Pressed += () => {
-                EmitSignal(SignalName.TrainingSelected, type);
+                EmitSignal(SignalName.CustomTrainingSelected, trainingId);
+                // 向后兼容旧版本的整数信号
+                if (Enum.TryParse<TrainingType>(trainingId, true, out var tType))
+                {
+                    EmitSignal(SignalName.TrainingSelected, (int)tType);
+                }
                 EmitSignal(SignalName.CloseRequested);
             };
             _listContainer.AddChild(btn);
