@@ -29,6 +29,9 @@ namespace EraDream.Core
         // 事件：当安全区偏移改变时触发
         public event Action<float> OnSafeAreaChanged;
 
+        // 事件：可用视口尺寸变化时触发，横竖屏切换与桌面窗口缩放都会通知。
+        public event Action<Vector2> ScreenSizeChanged;
+
         public override void _EnterTree()
         {
             if (Instance == null)
@@ -61,6 +64,7 @@ namespace EraDream.Core
         private void OnScreenSizeChanged()
         {
             CurrentScreenSize = GetViewport().GetVisibleRect().Size;
+            ScreenSizeChanged?.Invoke(CurrentScreenSize);
             
             // 判断横竖屏
             ScreenOrientation newOrientation = CurrentScreenSize.X > CurrentScreenSize.Y 

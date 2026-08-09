@@ -307,6 +307,7 @@ public partial class SimulationMainScreen : Control
         if (BehaviorRegistry.Instance != null && GameManager.Instance?.CurrentState != null)
         {
             BehaviorRegistry.Instance.ExecuteOptionAction(menuId, optionId, GameManager.Instance.CurrentState);
+            GameManager.Instance.MarkSaveDirty("动态行为选项");
             UpdateUI();
             TriggerBark();
         }
@@ -319,12 +320,14 @@ public partial class SimulationMainScreen : Control
             var result = GameManager.Instance.Training.ExecuteTraining(GameManager.Instance.CurrentState, trainingId);
             if (result == TrainingResult.Success)
             {
+                GameManager.Instance.MarkSaveDirty("自定义训练");
                 GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练成功！属性获得了提升。");
                 UpdateUI();
                 TriggerBark();
             }
             else if (result == TrainingResult.Failed)
             {
+                GameManager.Instance.MarkSaveDirty("自定义训练失败结果");
                 GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练失败！马娘的心情变差了。");
                 UpdateUI();
             }
@@ -347,12 +350,14 @@ public partial class SimulationMainScreen : Control
             var result = GameManager.Instance.Training.ExecuteTraining(GameManager.Instance.CurrentState, type);
             if (result == TrainingResult.Success)
             {
+                GameManager.Instance.MarkSaveDirty("训练");
                 GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练成功！属性获得了提升。");
                 UpdateUI();
                 TriggerBark();
             }
             else if (result == TrainingResult.Failed)
             {
+                GameManager.Instance.MarkSaveDirty("训练失败结果");
                 GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("训练失败！马娘的心情变差了。");
                 UpdateUI();
             }
@@ -373,6 +378,7 @@ public partial class SimulationMainScreen : Control
         {
             if (GameManager.Instance.Work.ExecuteWork(GameManager.Instance.CurrentState))
             {
+                GameManager.Instance.MarkSaveDirty("打工");
                 GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("打工成功，获得了金钱！");
                 UpdateUI();
             }
@@ -410,6 +416,7 @@ public partial class SimulationMainScreen : Control
     {
         if (GameManager.Instance.Outing.ExecuteOuting(GameManager.Instance.CurrentState))
         {
+            GameManager.Instance.MarkSaveDirty("外出");
             UpdateUI();
             TriggerBark();
         }
@@ -440,6 +447,7 @@ public partial class SimulationMainScreen : Control
         {
             // 简单逻辑：买完直接用
             GameManager.Instance.Shop.UseItem(state, itemId);
+            GameManager.Instance.MarkSaveDirty("商店购买与使用物品");
             GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast($"购买并使用了物品 {itemId}");
             UpdateUI();
             TriggerBark();
@@ -468,6 +476,7 @@ public partial class SimulationMainScreen : Control
         if (GameManager.Instance != null && !GameManager.Instance.CurrentState.IsGameOver)
         {
             GameManager.Instance.Rest.ExecuteRest(GameManager.Instance.CurrentState);
+            GameManager.Instance.MarkSaveDirty("休息");
             GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("进行了休息，体力已恢复。");
             UpdateUI();
         }
@@ -709,6 +718,7 @@ public partial class SimulationMainScreen : Control
                             break;
                     }
                     UpdateUI();
+                    GameManager.Instance.MarkSaveDirty("调试数值修改");
                     break;
 
                 case "scout":
@@ -737,6 +747,7 @@ public partial class SimulationMainScreen : Control
                         string targetId = parts[2];
                         state.CurrentScoutPool.Clear();
                         state.CurrentScoutPool.Add(targetId);
+                        GameManager.Instance.MarkSaveDirty("调试签约池修改");
                         notifier?.ShowToast($"[调试] 已将签约池重置并指定为: {targetId}");
                     }
                     else

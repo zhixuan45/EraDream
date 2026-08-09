@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Linq;
+using EraDream.Core;
 using EraDream.StoryEditor.Nodes;
 using FileAccess = Godot.FileAccess;
 
@@ -23,16 +24,12 @@ namespace EraDream.StoryEditor
             SyncConnectionsAndPositions(graph, nodes);
 
             var projectData = new StoryProjectData { Nodes = nodes };
-            string json = JsonSerializer.Serialize(projectData, new JsonSerializerOptions { WriteIndented = true });
-            
-            using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
-            if (file == null)
+            if (!FileIOManager.SaveJson(path, projectData))
             {
                 GD.PushError($"[StoryNodeManager] Failed to open file for writing: {path}");
                 ErrorNotifier.Instance?.ShowErrorDialog("保存失败", $"无法打开文件进行写入: {path}");
                 return false;
             }
-            file.StoreString(json);
             return true;
         }
 

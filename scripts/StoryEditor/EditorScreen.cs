@@ -19,6 +19,9 @@ public partial class EditorScreen : Control
 	// 侧边栏布局组件
 	private VBoxContainer _sideScrollVBox;
 	private Button _btnReturn;
+	private const float AutoSaveDelaySeconds = 2.0f;
+	private Timer _autoSaveTimer;
+	private bool _projectDirty;
 
 	private void SetupLayout()
 	{
@@ -65,6 +68,7 @@ public partial class EditorScreen : Control
 		// 同步更新路径：加上 SafeAreaContainer 层级
 		_graphEdit = GetNode<GraphEdit>("SafeAreaContainer/VBoxContainer/HSplitContainer/GraphEdit");
 		_graphEdit.AddThemeColorOverride("activity_color", new Color(1, 0.2f, 0.2f)); 
+		SetupAutoSaveTimer();
 		
 		SetupLoadingOverlay();
 		SetupSidePanelStructure();
@@ -103,6 +107,12 @@ public partial class EditorScreen : Control
 		});
 		AddCategoryButton(assetCategory, "添加贴纸节点", () => {
 			if (EnsureProjectOpen()) SpawnNodeWithUndo(new StickerNodeData());
+		});
+		AddCategoryButton(assetCategory, "添加场景过场", () => {
+			if (EnsureProjectOpen()) SpawnNodeWithUndo(new TransitionNodeData());
+		});
+		AddCategoryButton(assetCategory, "添加音效节点", () => {
+			if (EnsureProjectOpen()) SpawnNodeWithUndo(new SoundEffectNodeData());
 		});
 
 		// 4. 流程工具分类
@@ -149,6 +159,7 @@ public partial class EditorScreen : Control
 				() => DisconnectNodesUndoable(f, fp, t, tp)
 			);
 			_cmdHistory.CommitBatch();
+			MarkProjectDirty();
 		};
 		_graphEdit.DisconnectionRequest += (f, fp, t, tp) => {
 			if (!EnsureProjectOpen()) return;
@@ -156,6 +167,7 @@ public partial class EditorScreen : Control
 				() => DisconnectNodesUndoable(f, fp, t, tp),
 				() => ConnectNodesUndoable(f, fp, t, tp)
 			);
+			MarkProjectDirty();
 		};
 		_graphEdit.DeleteNodesRequest += (nodes) => {
 			if (!EnsureProjectOpen()) return;
@@ -169,6 +181,7 @@ public partial class EditorScreen : Control
 				}
 			}
 			_cmdHistory.CommitBatch();
+			MarkProjectDirty();
 		};
 	}
 
@@ -189,10 +202,16 @@ public partial class EditorScreen : Control
 
 		_btnReturn = new Button { Text = "返回主菜单", CustomMinimumSize = new Vector2(0, 40) };
 		_btnReturn.Pressed += () => {
+			FlushProjectAutoSave();
 			LoadingScreen.TargetScene = "res://scenes/MainMenuScreen.tscn";
 			GetTree().ChangeSceneToFile("res://scenes/LoadingScreen.tscn");
 		};
 		rootVBox.AddChild(_btnReturn);
+	}
+
+	public override void _ExitTree()
+	{
+		FlushProjectAutoSave();
 	}
 
 	private void SetupMenus()
@@ -207,6 +226,7 @@ public partial class EditorScreen : Control
 		importMenu.AddItem("导入背景图", 10);
 		importMenu.AddItem("导入音频", 11);
 		importMenu.AddItem("导入立绘", 12);
+		importMenu.AddItem("导入字体", 13);
 		fileMenu.AddSeparator();
 		fileMenu.AddChild(importMenu);
 		fileMenu.AddSubmenuNodeItem("导入资源", importMenu);
@@ -259,22 +279,24 @@ public partial class EditorScreen : Control
 
 	private void OnFileMenuIdPressed(long id)
 	{
+		// 切换项目或手动保存前，先落盘仍在防抖窗口内的编辑。
+		FlushProjectAutoSave();
 		switch (id)
 		{
 			case 0: FileIOManager.OpenFolderDialog("选择新项目文件夹", (path) => { ProjectManager.CreateNewProject(path); LoadAndRender(ProjectManager.StoryFile); }); break;
 			case 1: FileIOManager.OpenLoadDialog("选择项目文件", "*.uma", (path) => { if (ProjectManager.OpenProject(path)) { CharacterManager.LoadCharacters(ProjectManager.CharacterFile); StickerManager.LoadStickers(ProjectManager.StickerFile); LoadAndRender(ProjectManager.StoryFile); } }); break;
-			case 2: if (EnsureProjectOpen()) { StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile); CharacterManager.SaveCharacters(ProjectManager.CharacterFile); StickerManager.SaveStickers(ProjectManager.StickerFile); ProjectManager.SaveMetadata(); GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("项目保存成功！"); } break;
+			case 2: if (EnsureProjectOpen()) SaveProjectNow(true); break;
 		}
 	}
 
-	private void OnEditMenuIdPressed(long id) { switch (id) { case 0: _cmdHistory.Undo(); break; case 1: _cmdHistory.Redo(); break; } }
+	private void OnEditMenuIdPressed(long id) { switch (id) { case 0: _cmdHistory.Undo(); MarkProjectDirty(); break; case 1: _cmdHistory.Redo(); MarkProjectDirty(); break; } }
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
 		if (@event is InputEventKey keyEvent && keyEvent.Pressed)
 		{
-			if (keyEvent.CtrlPressed && keyEvent.Keycode == Key.Z && !keyEvent.ShiftPressed) { _cmdHistory.Undo(); GetViewport().SetInputAsHandled(); }
-			else if (keyEvent.CtrlPressed && (keyEvent.Keycode == Key.Y || (keyEvent.Keycode == Key.Z && keyEvent.ShiftPressed))) { _cmdHistory.Redo(); GetViewport().SetInputAsHandled(); }
+			if (keyEvent.CtrlPressed && keyEvent.Keycode == Key.Z && !keyEvent.ShiftPressed) { _cmdHistory.Undo(); MarkProjectDirty(); GetViewport().SetInputAsHandled(); }
+			else if (keyEvent.CtrlPressed && (keyEvent.Keycode == Key.Y || (keyEvent.Keycode == Key.Z && keyEvent.ShiftPressed))) { _cmdHistory.Redo(); MarkProjectDirty(); GetViewport().SetInputAsHandled(); }
 			else if (keyEvent.CtrlPressed && keyEvent.Keycode == Key.F) { OpenSearchDialog(); GetViewport().SetInputAsHandled(); }
 		}
 	}
@@ -287,6 +309,7 @@ public partial class EditorScreen : Control
 			case 10: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Background); break;
 			case 11: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Audio); break;
 			case 12: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Sprite); break;
+			case 13: ResourceManagerUI.OpenImportDialog(ResourceManagerUI.ResourceType.Font); break;
 		}
 	}
 
@@ -352,6 +375,8 @@ public partial class EditorScreen : Control
 		_graphEdit.AddChild(visualNode);
 		visualNode.PositionOffset = pos;
 		BindNodeCallbacks(data, pos);
+		BindProjectDirtySignals(visualNode);
+		MarkProjectDirty();
 	}
 
 	/// <summary>
@@ -385,6 +410,7 @@ public partial class EditorScreen : Control
 			v.PositionOffset = new Vector2(node.PosX, node.PosY);
 			// 加载的节点也必须绑定删除和可视化编辑回调
 			BindNodeCallbacks(node, v.PositionOffset);
+			BindProjectDirtySignals(v);
 		}
 		RebuildConnections();
 	}
@@ -433,7 +459,52 @@ public partial class EditorScreen : Control
 		container.AddChild(btn);
 	}
 
-	private void DeleteNode(string nodeName) { if (_graphEdit.HasNode(nodeName)) { var node = _graphEdit.GetNode<GraphNode>(nodeName); _nodeDataMap.Remove(nodeName); node.QueueFree(); } }
+	private void DeleteNode(string nodeName) { if (_graphEdit.HasNode(nodeName)) { var node = _graphEdit.GetNode<GraphNode>(nodeName); _nodeDataMap.Remove(nodeName); node.QueueFree(); MarkProjectDirty(); } }
+
+	private void SetupAutoSaveTimer()
+	{
+		_autoSaveTimer = new Timer { Name = "ProjectAutoSaveTimer", WaitTime = AutoSaveDelaySeconds, OneShot = true };
+		AddChild(_autoSaveTimer);
+		_autoSaveTimer.Timeout += () => SaveProjectNow(false);
+	}
+
+	// 监听节点及其控件输入，字段改动后等待两秒再合并保存。
+	private void BindProjectDirtySignals(Node node)
+	{
+		if (node is Control control) control.GuiInput += _ => MarkProjectDirty();
+		foreach (Node child in node.GetChildren()) BindProjectDirtySignals(child);
+	}
+
+	private void MarkProjectDirty()
+	{
+		if (!ProjectManager.IsProjectOpened) return;
+		_projectDirty = true;
+		_autoSaveTimer?.Start();
+	}
+
+	private bool FlushProjectAutoSave()
+	{
+		if (!_projectDirty) return true;
+		_autoSaveTimer?.Stop();
+		return SaveProjectNow(false);
+	}
+
+	private bool SaveProjectNow(bool showSuccessToast)
+	{
+		if (!EnsureProjectOpen()) return false;
+		bool storySaved = StoryNodeManager.SaveProject(_graphEdit, _nodeDataMap.Values.ToList(), ProjectManager.StoryFile);
+		bool charactersSaved = CharacterManager.SaveCharacters(ProjectManager.CharacterFile);
+		bool stickersSaved = StickerManager.SaveStickers(ProjectManager.StickerFile);
+		if (storySaved && charactersSaved && stickersSaved)
+		{
+			ProjectManager.SaveMetadata();
+			_projectDirty = false;
+			if (showSuccessToast) GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("项目保存成功！");
+			return true;
+		}
+		GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("项目自动保存失败，请检查文件权限。");
+		return false;
+	}
 	private void ShowCreateProjectDialog() { }
 	private void ShowOpenProjectDialog() { }
 
@@ -472,6 +543,20 @@ public partial class EditorScreen : Control
 		vbox.AddChild(new Label { Text = "描述:" });
 		vbox.AddChild(descEdit);
 
+		// 节点未单独配置时，播放器会使用这些项目默认值。
+		var fontSelector = new OptionButton();
+		FontLibrary.PopulateOptionButton(fontSelector, ProjectManager.Metadata.DefaultFontFile);
+		vbox.AddChild(new Label { Text = "默认字体:" });
+		vbox.AddChild(fontSelector);
+		var speedInput = new SpinBox { MinValue = 1, MaxValue = 120, Step = 1, Value = ProjectManager.Metadata.DefaultTypewriterSpeed };
+		vbox.AddChild(new Label { Text = "默认打字速度（字/秒）:" });
+		vbox.AddChild(speedInput);
+		var delayInput = new SpinBox { MinValue = 0, MaxValue = 30, Step = 0.1, Value = ProjectManager.Metadata.DefaultAutoAdvanceDelay };
+		vbox.AddChild(new Label { Text = "默认自动推进延迟（秒，0 为手动）:" });
+		vbox.AddChild(delayInput);
+		var autoPlayCheck = new CheckBox { Text = "启用自动播放", ButtonPressed = ProjectManager.Metadata.AutoPlayEnabled };
+		vbox.AddChild(autoPlayCheck);
+
 		dialog.AddChild(vbox);
 		AddChild(dialog);
 
@@ -481,11 +566,20 @@ public partial class EditorScreen : Control
 			ProjectManager.Metadata.Version = versionEdit.Text;
 			ProjectManager.Metadata.Author = authorEdit.Text;
 			ProjectManager.Metadata.Description = descEdit.Text;
+			ProjectManager.Metadata.DefaultFontFile = fontSelector.Selected > 0 ? fontSelector.GetItemText(fontSelector.Selected) : "";
+			ProjectManager.Metadata.DefaultTypewriterSpeed = (float)speedInput.Value;
+			ProjectManager.Metadata.DefaultAutoAdvanceDelay = (float)delayInput.Value;
+			ProjectManager.Metadata.AutoPlayEnabled = autoPlayCheck.ButtonPressed;
 			ProjectManager.SaveMetadata();
 			GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("项目信息已保存！");
 		};
 
 		dialog.CallDeferred("popup_centered");
+	}
+
+	public void NotifyVisualEditCommitted()
+	{
+		MarkProjectDirty();
 	}
 
 	/// <summary>

@@ -16,6 +16,8 @@ namespace EraDream.StoryEditor.Nodes
 	[JsonDerivedType(typeof(SpriteNodeData), typeDiscriminator: "sprite")]
 	[JsonDerivedType(typeof(StickerNodeData), typeDiscriminator: "sticker")]
 	[JsonDerivedType(typeof(ValueNodeData), typeDiscriminator: "value")]
+	[JsonDerivedType(typeof(TransitionNodeData), typeDiscriminator: "transition")]
+	[JsonDerivedType(typeof(SoundEffectNodeData), typeDiscriminator: "sound_effect")]
 	public abstract class BaseNodeData
 	{
 		public string Id { get; set; } = Guid.NewGuid().ToString();

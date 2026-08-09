@@ -11,6 +11,11 @@ public class ProjectMetadata
     public string Version { get; set; } = "1.0.0";
     public string Author { get; set; } = "Unknown";
     public string Description { get; set; } = "";
+    // Project-level defaults are overridden by explicit node settings.
+    public string DefaultFontFile { get; set; } = "";
+    public float DefaultTypewriterSpeed { get; set; } = 20f;
+    public float DefaultAutoAdvanceDelay { get; set; } = 0f;
+    public bool AutoPlayEnabled { get; set; } = true;
     public string LastModified { get; set; } = System.DateTime.Now.ToString();
 }
 
@@ -26,6 +31,7 @@ public static class ProjectManager
     public static string AudioDir => CurrentProjectRoot.PathJoin("audio");
     public static string BackgroundDir => CurrentProjectRoot.PathJoin("backgrounds");
     public static string SpriteDir => CurrentProjectRoot.PathJoin("sprites");
+    public static string FontDir => CurrentProjectRoot.PathJoin("fonts");
     public static string StickerFile => CurrentProjectRoot.PathJoin("stickers.json");
 
     public static bool IsProjectOpened => !string.IsNullOrEmpty(CurrentProjectRoot) && DirAccess.DirExistsAbsolute(CurrentProjectRoot);
@@ -57,6 +63,7 @@ public static class ProjectManager
         EnsureDir("audio");
         EnsureDir("backgrounds");
         EnsureDir("sprites");
+        EnsureDir("fonts");
         
         Metadata = new ProjectMetadata { Title = CurrentProjectRoot.GetFile() };
         SaveMetadata();
@@ -229,5 +236,48 @@ public static class ProjectManager
         {
             file.StoreString(content);
         }
+    }
+}
+
+/// <summary>项目字体资源列表，仅保存项目内文件名以避免写入设备绝对路径。</summary>
+public static class FontLibrary
+{
+    public static List<string> GetFontFileList()
+    {
+        var files = new List<string>();
+        if (!ProjectManager.IsProjectOpened)
+            return files;
+
+        string path = ProjectManager.FontDir;
+        if (!DirAccess.DirExistsAbsolute(path))
+        {
+            ProjectManager.EnsureDir("fonts");
+            return files;
+        }
+
+        using var dir = DirAccess.Open(path);
+        if (dir == null)
+            return files;
+
+        foreach (string file in dir.GetFiles())
+        {
+            string extension = file.GetExtension().ToLowerInvariant();
+            if (extension == "ttf" || extension == "otf")
+                files.Add(file);
+        }
+        return files;
+    }
+
+    public static void PopulateOptionButton(OptionButton button, string currentSelection)
+    {
+        button.Clear();
+        button.AddItem("使用项目默认字体");
+        foreach (string file in GetFontFileList())
+        {
+            button.AddItem(file);
+            if (file == currentSelection)
+                button.Selected = button.GetItemCount() - 1;
+        }
+        button.Disabled = false;
     }
 }

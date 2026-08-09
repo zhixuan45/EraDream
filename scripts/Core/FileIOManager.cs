@@ -131,6 +131,15 @@ namespace EraDream.Core
                 tempFile.StoreString(json);
                 tempFile.Close();
 
+                // 替换正式文件前校验临时内容，避免异常写入覆盖旧项目数据。
+                using var verificationFile = FileAccess.Open(tempPath, FileAccess.ModeFlags.Read);
+                if (verificationFile == null || verificationFile.GetAsText() != json)
+                {
+                    GD.PrintErr($"[FileIOManager] SaveJson: 临时文件校验失败 '{tempPath}'");
+                    return false;
+                }
+                verificationFile.Close();
+
                 // 原子重命名替换目标文件
                 var renameErr = DirAccess.RenameAbsolute(
                     ProjectSettings.GlobalizePath(tempPath),
@@ -198,6 +207,15 @@ namespace EraDream.Core
                 }
                 tempFile.StoreBuffer(bytes);
                 tempFile.Close();
+
+                // 替换正式存档前尝试解压读取，确保压缩文件有效。
+                using var verificationFile = FileAccess.OpenCompressed(tempPath, FileAccess.ModeFlags.Read, FileAccess.CompressionMode.Zstd);
+                if (verificationFile == null || verificationFile.GetAsText() != json)
+                {
+                    GD.PrintErr($"[FileIOManager] SaveBinary: 临时文件校验失败 '{tempPath}'");
+                    return false;
+                }
+                verificationFile.Close();
 
                 // 原子重命名替换目标文件
                 var renameErr = DirAccess.RenameAbsolute(

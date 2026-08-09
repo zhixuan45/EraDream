@@ -33,14 +33,9 @@ public static class StickerManager
         }
     }
 
-    public static void SaveStickers(string path)
+    public static bool SaveStickers(string path)
     {
-        string json = JsonSerializer.Serialize(Stickers, new JsonSerializerOptions { WriteIndented = true });
-        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
-        if (file != null)
-        {
-            file.StoreString(json);
-        }
+        return EraDream.Core.FileIOManager.SaveJson(path, Stickers);
     }
 
     public static void AddSticker(string name)

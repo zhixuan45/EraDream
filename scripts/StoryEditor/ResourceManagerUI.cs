@@ -5,7 +5,10 @@ using EraDream.Core;
 
 public static class ResourceManagerUI
 {
-    public enum ResourceType { Background, Audio, Sprite }
+    public enum ResourceType { Background, Audio, Sprite, Font }
+
+    /// <summary>资源导入成功后通知已打开的节点刷新下拉列表。</summary>
+    public static event Action<ResourceType> ResourcesChanged;
 
     public static void OpenImportDialog(ResourceType type)
     {
@@ -36,14 +39,19 @@ public static class ResourceManagerUI
                 filter = "*.png,*.webp";
                 targetSubDir = "sprites";
                 break;
+            case ResourceType.Font:
+                title = "导入字体文件";
+                filter = "*.ttf,*.otf";
+                targetSubDir = "fonts";
+                break;
         }
 
         FileIOManager.OpenLoadDialog(title, filter, (sourcePath) => {
-            ImportProcess(sourcePath, targetSubDir);
+            ImportProcess(sourcePath, type, targetSubDir);
         });
     }
 
-    private static void ImportProcess(string sourcePath, string targetSubDir)
+    private static void ImportProcess(string sourcePath, ResourceType type, string targetSubDir)
     {
         // 确保路径规范
         string absoluteSource = ProjectSettings.GlobalizePath(sourcePath);
@@ -52,6 +60,7 @@ public static class ResourceManagerUI
         if (!string.IsNullOrEmpty(fileName))
         {
             GD.Print($"Successfully imported: {fileName} to {targetSubDir}");
+            ResourcesChanged?.Invoke(type);
         }
         else
         {

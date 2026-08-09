@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Linq;
 using FileAccess = Godot.FileAccess;
 using EraDream.Core.Models;
+using EraDream.Core;
 
 /// <summary>
 /// 角色管理器，负责管理注册角色（来自资源包）和客串角色（来自剧本目录）。
@@ -207,12 +208,10 @@ public static class CharacterManager
     }
 
     public static void LoadCharacters(string path) => LoadGuestActors(path);
-    public static void SaveCharacters(string path)
+    public static bool SaveCharacters(string path)
     {
         // 简单实现：将 GuestActors 序列化回文件
-        string json = JsonSerializer.Serialize(GuestActors.Values.ToList(), new JsonSerializerOptions { WriteIndented = true });
-        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
-        file?.StoreString(json);
+        return FileIOManager.SaveJson(path, GuestActors.Values.ToList());
     }
 
     /// <summary>

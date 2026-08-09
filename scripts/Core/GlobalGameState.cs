@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using EraDream.Game;
 
 namespace EraDream.Core
 {
@@ -23,11 +24,27 @@ namespace EraDream.Core
         {
             _variables[id] = value;
             GD.Print($"Variable Updated: {id} = {value}");
+            // 剧情变量变更与普通养成状态共用游戏自动存档防抖器。
+            GameManager.Instance?.MarkSaveDirty("剧情全局变量变更");
         }
 
         public float GetVariable(string id)
         {
             return _variables.ContainsKey(id) ? _variables[id] : 0f;
+        }
+
+        // 存档系统使用副本，避免外部代码直接持有内部可变字典。
+        public Dictionary<string, float> ExportVariables()
+        {
+            return new Dictionary<string, float>(_variables);
+        }
+
+        // 读档时一次性回灌剧情变量，不逐条触发新的自动存档。
+        public void ImportVariables(Dictionary<string, float> variables)
+        {
+            _variables = variables != null
+                ? new Dictionary<string, float>(variables)
+                : new Dictionary<string, float>();
         }
 
         public void Reset()

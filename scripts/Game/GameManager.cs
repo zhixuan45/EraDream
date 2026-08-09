@@ -18,6 +18,10 @@ public partial class GameManager : Node
     public GameState CurrentState { get; private set; }
 
     public const string AutoSavePath = "user://autosave.sav";
+    private const string AutoSaveGlobalsPath = "user://autosave.globals.json";
+    private const float AutoSaveDelaySeconds = 2.0f;
+    private Timer _autoSaveTimer;
+    private bool _saveDirty;
     
     // 子模块引用
     public TrainingModule Training { get; private set; }
@@ -94,13 +98,20 @@ public partial class GameManager : Node
             Events.StoryTriggered += OnStoryTriggered;
         }
 
-        StartNewGame(new System.Collections.Generic.List<string>());
+        SetupAutoSaveTimer();
+
+        // 优先恢复自动存档，只有不存在或读取失败时才创建新游戏。
+        if (!FileAccess.FileExists(AutoSavePath) || !LoadGame(AutoSavePath))
+        {
+            StartNewGame(new System.Collections.Generic.List<string>());
+        }
     }
 
     public override void _ExitTree()
     {
         if (Instance == this)
         {
+            FlushAutoSave();
             if (Events != null)
             {
                 Events.StoryTriggered -= OnStoryTriggered;
@@ -115,7 +126,7 @@ public partial class GameManager : Node
         StoryPlayerEngine.StartNodeId = startNodeId;
         StoryPlayerEngine.ReturnScenePath = "res://scenes/SimulationMainScreen.tscn";
         
-        GetTree().ChangeSceneToFile("res://scenes/StoryPlayerEngine.tscn");
+        GetTree().ChangeSceneToFile("res://scenes/StoryPlayerScreen.tscn");
     }
 
     /// <summary>
@@ -124,6 +135,7 @@ public partial class GameManager : Node
     public void StartNewGame(List<string> scenarioPaths, List<string> characterPaths = null, List<string> modPaths = null)
     {
         CurrentState = new GameState();
+        GlobalGameState.Instance?.Reset();
         if (scenarioPaths == null || scenarioPaths.Count == 0)
         {
             // 至少传入默认测试剧本路径
@@ -148,6 +160,7 @@ public partial class GameManager : Node
         OnGameStarted?.Invoke();
         BehaviorRegistry?.TriggerHook("OnScenarioStart", CurrentState);
         OnTurnStart?.Invoke(CurrentState.CurrentTurn);
+        MarkSaveDirty("新游戏初始化");
     }
 
     /// <summary>
@@ -194,6 +207,7 @@ public partial class GameManager : Node
 
         CurrentState.Player.AddMoney(-cost);
         RefreshScoutPool();
+        MarkSaveDirty("刷新签约池");
         return true;
     }
 
@@ -249,14 +263,23 @@ public partial class GameManager : Node
 
         BehaviorRegistry?.TriggerHook($"OnContract_{id}", CurrentState);
         BehaviorRegistry?.TriggerHook("OnContract", CurrentState);
-        AutoSave();
+        MarkSaveDirty("签约角色");
         return true;
     }
 
-    public void SaveGame(string path)
+    public bool SaveGame(string path)
     {
-        if (CurrentState == null) return;
-        FileIOManager.SaveBinary(path, CurrentState);
+        if (CurrentState == null) return false;
+        if (!FileIOManager.SaveBinary(path, CurrentState))
+        {
+            GD.PrintErr($"[GameManager] Game save failed: {path}");
+            return false;
+        }
+        if (path == AutoSavePath && !FileIOManager.SaveJson(AutoSaveGlobalsPath, GlobalGameState.Instance?.ExportVariables() ?? new Dictionary<string, float>()))
+        {
+            GD.PrintErr($"[GameManager] Global variable save failed: {AutoSaveGlobalsPath}");
+            return false;
+        }
         GD.Print($"[GameManager] Game binary saved to: {path}");
         
         // 记录最近存档路径
@@ -264,26 +287,68 @@ public partial class GameManager : Node
         {
             SettingsManager.Instance.LastSavePath = path;
         }
+        return true;
     }
 
-    public void LoadGame(string path)
+    public bool LoadGame(string path)
     {
         var loadedState = FileIOManager.LoadBinary<GameState>(path);
         if (loadedState != null)
         {
             CurrentState = loadedState;
             Events.LoadEventPool(CurrentState.ScenarioPaths);
+            if (path == AutoSavePath)
+            {
+                GlobalGameState.Instance?.ImportVariables(FileIOManager.LoadJson<Dictionary<string, float>>(AutoSaveGlobalsPath));
+            }
             GD.Print($"[GameManager] Game binary loaded from: {path}");
+            return true;
         }
         else
         {
             GD.PrintErr($"[GameManager] Binary load failed, file might not exist or corrupted: {path}");
+            return false;
         }
     }
 
-    public void AutoSave()
+    public bool AutoSave()
     {
-        SaveGame(AutoSavePath);
+        bool saved = SaveGame(AutoSavePath);
+        if (saved) _saveDirty = false;
+        return saved;
+    }
+
+    /// <summary>
+    /// 标记可持久化状态变更，连续操作会合并为一次自动存档。
+    /// </summary>
+    public void MarkSaveDirty(string reason = "状态变更")
+    {
+        if (CurrentState == null) return;
+        _saveDirty = true;
+        GD.Print($"[GameManager] Autosave queued: {reason}");
+        _autoSaveTimer?.Start();
+    }
+
+    /// <summary>
+    /// 在切场景、退出和结局等关键节点立即写入自动存档。
+    /// </summary>
+    public bool FlushAutoSave()
+    {
+        if (!_saveDirty) return true;
+        _autoSaveTimer?.Stop();
+        return AutoSave();
+    }
+
+    private void SetupAutoSaveTimer()
+    {
+        _autoSaveTimer = new Timer
+        {
+            Name = "AutoSaveTimer",
+            WaitTime = AutoSaveDelaySeconds,
+            OneShot = true
+        };
+        AddChild(_autoSaveTimer);
+        _autoSaveTimer.Timeout += () => FlushAutoSave();
     }
 
     private bool _hasTriggeredTurnStartThisTurn = false;
@@ -342,12 +407,15 @@ public partial class GameManager : Node
 
         if (CurrentState.IsGameOver)
         {
+            MarkSaveDirty("最终回合结算");
+            FlushAutoSave();
             TriggerEnding();
             return;
         }
 
         // 自动存档
-        AutoSave();
+        MarkSaveDirty("推进回合");
+        FlushAutoSave();
 
         // 检查回合开始剧情，若触发则直接返回（防 use-after-free）
         if (CheckTurnStartStory())
