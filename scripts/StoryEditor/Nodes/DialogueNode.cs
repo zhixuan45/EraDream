@@ -43,7 +43,14 @@ namespace EraDream.StoryEditor.Nodes
                 _characterSelector.AddItem(Tr("KEY_CHAR_NARRATOR"));
             node.AddChild(_characterSelector);
 
-            _contentInput = new TextEdit { PlaceholderText = Tr("KEY_PLACEHOLDER_DIALOGUE"), CustomMinimumSize = new Vector2(220, 60), Text = Content };
+            _contentInput = new TextEdit
+            {
+                PlaceholderText = Tr("KEY_PLACEHOLDER_DIALOGUE"),
+                CustomMinimumSize = new Vector2(220, 60),
+                Text = Content,
+                // 对话文本按节点宽度自动折行，中文长句也不会溢出节点边界。
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            };
             node.AddChild(_contentInput);
 
             _detailPanel = new VBoxContainer { Visible = IsExpanded };

@@ -51,14 +51,20 @@ public partial class EditorScreen : Control
 			SettingsManager.Instance.OnSafeAreaPaddingChanged += (p) => {
 				safeArea.AddThemeConstantOverride("margin_left", (int)p);
 				safeArea.AddThemeConstantOverride("margin_right", (int)p);
-				safeArea.AddThemeConstantOverride("margin_top", (int)p);
+				// 桌面无边框模式下，为自绘标题栏预留顶部操作空间。
+				safeArea.AddThemeConstantOverride("margin_top", (int)p + (int)DesktopWindowChrome.ContentTopInset);
 				safeArea.AddThemeConstantOverride("margin_bottom", (int)p);
 			};
 			int pad = (int)SettingsManager.Instance.SafeAreaPadding;
 			safeArea.AddThemeConstantOverride("margin_left", pad);
 			safeArea.AddThemeConstantOverride("margin_right", pad);
-			safeArea.AddThemeConstantOverride("margin_top", pad);
+			safeArea.AddThemeConstantOverride("margin_top", pad + (int)DesktopWindowChrome.ContentTopInset);
 			safeArea.AddThemeConstantOverride("margin_bottom", pad);
+		}
+		else
+		{
+			// 设置服务尚未就绪时仍保持菜单栏不被标题栏覆盖。
+			safeArea.AddThemeConstantOverride("margin_top", (int)DesktopWindowChrome.ContentTopInset);
 		}
 	}
 

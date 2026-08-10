@@ -145,10 +145,17 @@ public partial class StoryPlayerEngine
     private CharacterSprite GetEditableSprite(Vector2 designPosition)
     {
         foreach (var sprite in _activeSprites.Values)
-            if (sprite.GetRect().HasPoint(designPosition - sprite.Position)) return sprite;
+            if (IsPointInsideSprite(sprite, designPosition)) return sprite;
         foreach (var sprite in _activeStickerSprites.Values)
-            if (sprite.GetRect().HasPoint(designPosition - sprite.Position)) return sprite;
+            if (IsPointInsideSprite(sprite, designPosition)) return sprite;
         return null;
+    }
+
+    private static bool IsPointInsideSprite(CharacterSprite sprite, Vector2 designPosition)
+    {
+        // 设计坐标在父级画布中；逆变换后才能同时正确处理位置、缩放和枢轴点。
+        Vector2 localPosition = sprite.GetTransform().AffineInverse() * designPosition;
+        return new Rect2(Vector2.Zero, sprite.Size).HasPoint(localPosition);
     }
 
     private void ApplyBackgroundDrag(Vector2 delta)

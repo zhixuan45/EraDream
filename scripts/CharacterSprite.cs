@@ -12,6 +12,8 @@ public partial class CharacterSprite : Control
 
     public override void _Ready()
     {
+        // 可视化编辑统一由 StoryPlayerEngine 的 _Input 处理，立绘不拦截输入事件。
+        MouseFilter = MouseFilterEnum.Ignore;
         _textureRect = new TextureRect { ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, MouseFilter = MouseFilterEnum.Ignore };
         _textureRect.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_textureRect);

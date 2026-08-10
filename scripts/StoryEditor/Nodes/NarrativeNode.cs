@@ -31,7 +31,14 @@ namespace EraDream.StoryEditor.Nodes
             var node = new GraphNode { Title = Tr("KEY_NODE_NARRATIVE"), Name = Id };
             SetupBaseNodeUI(node);
             node.SetSlot(0, true, 0, Colors.White, true, 0, Colors.White);
-            _contentInput = new TextEdit { PlaceholderText = Tr("KEY_PLACEHOLDER_NARRATIVE"), CustomMinimumSize = new Vector2(220, 100), Text = Content };
+            _contentInput = new TextEdit
+            {
+                PlaceholderText = Tr("KEY_PLACEHOLDER_NARRATIVE"),
+                CustomMinimumSize = new Vector2(220, 100),
+                Text = Content,
+                // 叙述文本按节点宽度自动折行，避免长句横向溢出被裁剪。
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            };
             node.AddChild(_contentInput);
 
             _detailPanel = new VBoxContainer { Visible = IsExpanded };
