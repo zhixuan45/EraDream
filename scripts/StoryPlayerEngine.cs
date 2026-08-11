@@ -16,6 +16,7 @@ public partial class StoryPlayerEngine : Control
     private const string ChoiceContainerPath = "UI_Layer/SafeAreaAdapter/Control_Root/ChoiceContainer";
     private const string DialogueBoxPath = "UI_Layer/SafeAreaAdapter/Control_Root/DialogueBox";
     private const string InteractButtonPath = "UI_Layer/InteractButton";
+    private const string AutoPlayButtonPath = "UI_Layer/AutoPlayButton";
     private const string BackgroundPath = "Background";
     private const string OverlayPath = "ColorRectOverlay";
 
@@ -24,6 +25,7 @@ public partial class StoryPlayerEngine : Control
     private VBoxContainer _choiceContainer;
     private Control _dialogueBox;
     private Button _interactButton;
+    private Button _autoPlayButton;
     private TextureRect _backgroundRect;
     private Control _overlay;
     private AudioStreamPlayer _bgmPlayer;
@@ -37,6 +39,8 @@ public partial class StoryPlayerEngine : Control
     private string _nextNonVisualNodeId = "";
     private string _currentBgmPath = "";
     private bool _isTextAnimating;
+    private bool _isAutoPlayEnabled;
+    private bool _autoPlayUserOverride;
     private Tween _textTween;
 
     public static string CurrentStoryPath = "";
@@ -55,6 +59,7 @@ public partial class StoryPlayerEngine : Control
         _choiceContainer = GetNodeOrNull<VBoxContainer>(ChoiceContainerPath);
         _dialogueBox = GetNodeOrNull<Control>(DialogueBoxPath);
         _interactButton = GetNodeOrNull<Button>(InteractButtonPath);
+        _autoPlayButton = GetNodeOrNull<Button>(AutoPlayButtonPath);
         _backgroundRect = GetNodeOrNull<TextureRect>(BackgroundPath);
         _overlay = GetNodeOrNull<Control>(OverlayPath);
 
@@ -64,6 +69,11 @@ public partial class StoryPlayerEngine : Control
 
         if (_interactButton != null)
             _interactButton.Pressed += OnInteraction;
+        if (_autoPlayButton != null)
+        {
+            _autoPlayButton.Pressed += ToggleAutoPlay;
+            UpdateAutoPlayButton();
+        }
 
         if (PreviewNodes != null && PreviewNodes.Count > 0)
         {
@@ -92,6 +102,8 @@ public partial class StoryPlayerEngine : Control
     {
         if (_interactButton != null)
             _interactButton.Pressed -= OnInteraction;
+        if (_autoPlayButton != null)
+            _autoPlayButton.Pressed -= ToggleAutoPlay;
         _textTween?.Kill();
         CancelAutoAdvance();
         StopPresentationTweens();
@@ -333,6 +345,8 @@ public partial class StoryPlayerEngine : Control
 
     private void ShowChoiceButtons(ChoiceNodeData choice)
     {
+        // 选项需要玩家明确选择，进入时终止自动播放。
+        SetAutoPlayEnabled(false);
         _dialogueBox?.Hide();
         _choiceContainer?.Show();
         if (_interactButton != null) _interactButton.Hide();
@@ -370,6 +384,28 @@ public partial class StoryPlayerEngine : Control
         CancelAutoAdvance();
         if (_currentNode is DialogueNodeData) GoToNextNode(_nextNonVisualNodeId);
         else if (_currentNode is NarrativeNodeData) GoToNextNode(_currentNode.NextNodeId);
+    }
+
+    private void ToggleAutoPlay()
+    {
+        SetAutoPlayEnabled(!_isAutoPlayEnabled);
+    }
+
+    private void SetAutoPlayEnabled(bool enabled)
+    {
+        // 用户操作优先于项目旧配置，确保“自动：关”不会被旧配置重新打开。
+        _autoPlayUserOverride = true;
+        _isAutoPlayEnabled = enabled;
+        UpdateAutoPlayButton();
+        CancelAutoAdvance();
+        if (_isAutoPlayEnabled && !_isTextAnimating)
+            ScheduleAutoAdvance(_currentNode);
+    }
+
+    private void UpdateAutoPlayButton()
+    {
+        if (_autoPlayButton == null) return;
+        _autoPlayButton.Text = _isAutoPlayEnabled ? "自动：开" : "自动：关";
     }
 
     private void GoToNextNode(string nodeId)

@@ -6,8 +6,8 @@ using EraDream.Core;
 
 public partial class StoryPlayerEngine
 {
-    // 所有剧情视觉对象都在该逻辑画布内运行，外部窗口只负责等比显示。
-    // 所有剧情演出都使用固定逻辑画布，窗口仅负责等比显示。`r`n    private static readonly Vector2 DesignSize = new(1280, 720);
+    private const float GlobalAutoPlayDelaySeconds = 3f;
+    // 所有剧情演出都使用固定逻辑画布，窗口仅负责等比显示。
     private static readonly Vector2 DesignSize = new(1280, 720);
     private Control _designCanvas;
     private TextureRect _backgroundTransitionRect;
@@ -173,9 +173,20 @@ public partial class StoryPlayerEngine
 
     private void ScheduleAutoAdvance(object nodeData)
     {
-        if (!ProjectManager.Metadata.AutoPlayEnabled) return;
-        float configuredDelay = GetFloatProperty(nodeData, "AutoAdvanceDelay", 0f);
-        float delay = configuredDelay > 0f ? configuredDelay : GetFloatProperty(nodeData, "HoldDuration", ProjectManager.Metadata.DefaultAutoAdvanceDelay);
+        if (_currentNode is not EraDream.StoryEditor.Nodes.DialogueNodeData
+            && _currentNode is not EraDream.StoryEditor.Nodes.NarrativeNodeData) return;
+        float delay;
+        if (_isAutoPlayEnabled)
+        {
+            // 全局自动模式始终以固定节奏模拟一次左键推进。
+            delay = GlobalAutoPlayDelaySeconds;
+        }
+        else
+        {
+            if (_autoPlayUserOverride || !ProjectManager.Metadata.AutoPlayEnabled) return;
+            float configuredDelay = GetFloatProperty(nodeData, "AutoAdvanceDelay", 0f);
+            delay = configuredDelay > 0f ? configuredDelay : GetFloatProperty(nodeData, "HoldDuration", ProjectManager.Metadata.DefaultAutoAdvanceDelay);
+        }
         if (delay <= 0f || _currentNode == null) return;
         string nodeId = _currentNode.Id;
         _autoAdvanceTween = CreateTween();

@@ -123,3 +123,12 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
+
+[node name="AutoPlayButton" type="Button" parent="UI_Layer"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 136.0
+offset_bottom = 68.0
+theme_override_font_sizes/font_size = 18
+text = "自动：关"
+tooltip_text = "开启后，在文本显示完成 3 秒后自动推进；遇到选项会停止。"

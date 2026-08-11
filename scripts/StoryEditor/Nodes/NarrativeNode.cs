@@ -37,7 +37,8 @@ namespace EraDream.StoryEditor.Nodes
                 CustomMinimumSize = new Vector2(220, 100),
                 Text = Content,
                 // 叙述文本按节点宽度自动折行，避免长句横向溢出被裁剪。
-                AutowrapMode = TextServer.AutowrapMode.WordSmart
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                ScrollFitContentHeight = true
             };
             node.AddChild(_contentInput);
 

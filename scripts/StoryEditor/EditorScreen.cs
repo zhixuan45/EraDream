@@ -22,6 +22,8 @@ public partial class EditorScreen : Control
 	private const float AutoSaveDelaySeconds = 2.0f;
 	private Timer _autoSaveTimer;
 	private bool _projectDirty;
+	private PopupMenu _nodeContextMenu;
+	private string _contextNodeId = "";
 
 	private void SetupLayout()
 	{
@@ -74,6 +76,7 @@ public partial class EditorScreen : Control
 		// 同步更新路径：加上 SafeAreaContainer 层级
 		_graphEdit = GetNode<GraphEdit>("SafeAreaContainer/VBoxContainer/HSplitContainer/GraphEdit");
 		_graphEdit.AddThemeColorOverride("activity_color", new Color(1, 0.2f, 0.2f)); 
+		SetupNodeContextMenu();
 		SetupAutoSaveTimer();
 		
 		SetupLoadingOverlay();
@@ -381,6 +384,7 @@ public partial class EditorScreen : Control
 		_graphEdit.AddChild(visualNode);
 		visualNode.PositionOffset = pos;
 		BindNodeCallbacks(data, pos);
+		BindNodeContextMenu(visualNode);
 		BindProjectDirtySignals(visualNode);
 		MarkProjectDirty();
 	}
@@ -416,6 +420,7 @@ public partial class EditorScreen : Control
 			v.PositionOffset = new Vector2(node.PosX, node.PosY);
 			// 加载的节点也必须绑定删除和可视化编辑回调
 			BindNodeCallbacks(node, v.PositionOffset);
+			BindNodeContextMenu(v);
 			BindProjectDirtySignals(v);
 		}
 		RebuildConnections();
@@ -447,6 +452,59 @@ public partial class EditorScreen : Control
 	{
 		StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
 		StoryPreviewUI.Preview(this, _nodeDataMap.Values.ToList(), startNodeId, isEditMode);
+	}
+
+	/// <summary>
+	/// 创建节点专用右键菜单，并复用同一个菜单实例。
+	/// </summary>
+	private void SetupNodeContextMenu()
+	{
+		_nodeContextMenu = new PopupMenu { Name = "NodeContextMenu" };
+		_nodeContextMenu.AddItem("从此处开始播放", 0);
+		_nodeContextMenu.IdPressed += OnNodeContextMenuIdPressed;
+		AddChild(_nodeContextMenu);
+	}
+
+	private void BindNodeContextMenu(GraphNode node)
+	{
+		BindContextMenuInput(node, node);
+		foreach (Node child in node.GetChildren())
+		{
+			BindNodeChildContextMenu(child, node);
+		}
+	}
+
+	private void BindNodeChildContextMenu(Node node, GraphNode owner)
+	{
+		if (node is Control control) BindContextMenuInput(control, owner);
+		foreach (Node child in node.GetChildren())
+		{
+			BindNodeChildContextMenu(child, owner);
+		}
+	}
+
+	private void BindContextMenuInput(Control control, GraphNode owner)
+	{
+		control.GuiInput += inputEvent =>
+		{
+			if (inputEvent is InputEventMouseButton mouseEvent && mouseEvent.Pressed &&
+				mouseEvent.ButtonIndex == MouseButton.Right)
+			{
+				_contextNodeId = owner.Name;
+				UIUtils.ShowContextMenu(_nodeContextMenu, owner);
+				control.AcceptEvent();
+			}
+		};
+	}
+
+	private void OnNodeContextMenuIdPressed(long id)
+	{
+		if (id != 0 || string.IsNullOrEmpty(_contextNodeId) || !_nodeDataMap.ContainsKey(_contextNodeId)) return;
+		if (!EnsureProjectOpen()) return;
+
+		// 同步尚未自动保存的内容，确保预览从当前编辑状态开始。
+		LaunchPreview(_contextNodeId, false);
+		_contextNodeId = "";
 	}
 
 	private void CreateCollapsibleCategory(string title, out VBoxContainer container)

@@ -15,7 +15,7 @@ namespace EraDream.StoryEditor.Nodes
 		private HSlider _darkSlider;
 		
 		// 缓存选项行输入框的列表，用于 O(1) 准确同步
-		private List<LineEdit> _optionInputs = new List<LineEdit>();
+		private List<TextEdit> _optionInputs = new List<TextEdit>();
 
 		public class ChoiceItem
 		{
@@ -73,10 +73,14 @@ namespace EraDream.StoryEditor.Nodes
 		private void AddOptionSlot(GraphNode node, int index, ChoiceItem item)
 		{
 			HBoxContainer box = new HBoxContainer();
-			LineEdit input = new LineEdit { 
-				Text = item.Text, 
+			// 选项文本允许输入较长内容，并在节点内部自动换行。
+			TextEdit input = new TextEdit {
+				Text = item.Text,
 				SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-				PlaceholderText = Tr("KEY_PLACEHOLDER_CHOICE")
+				CustomMinimumSize = new Vector2(0, 48),
+				PlaceholderText = Tr("KEY_PLACEHOLDER_CHOICE"),
+				AutowrapMode = TextServer.AutowrapMode.WordSmart,
+				ScrollFitContentHeight = true
 			};
 			box.AddChild(input);
 			_optionInputs.Add(input); // 缓存输入框引用
@@ -95,10 +99,29 @@ namespace EraDream.StoryEditor.Nodes
 			var capturedItem = item;
 			delBtn.Pressed += () => {
 				if (node.GetChildCount() > 4) { // 考虑 detailPanel 和 addBtn
+					// 删除行会让 GraphNode 的端口重新编号，先断开旧连线，避免目标跟随旧端口错位。
+					GraphEdit graph = node.GetParent() as GraphEdit;
+					if (graph != null)
+					{
+						var oldConnections = new List<Godot.Collections.Dictionary>();
+						foreach (Godot.Collections.Dictionary connection in graph.GetConnectionList())
+							if (connection["from_node"].AsString() == node.Name) oldConnections.Add(connection);
+						foreach (Godot.Collections.Dictionary connection in oldConnections)
+						{
+							graph.DisconnectNode(node.Name, connection["from_port"].AsInt32(), connection["to_node"].AsString(), connection["to_port"].AsInt32());
+						}
+					}
 					_optionInputs.Remove(input);
 					Options.Remove(capturedItem); // 移除对应的数据项，解决残留问题
 					node.RemoveChild(box);
 					box.QueueFree();
+					if (graph != null)
+					{
+						// 按删除后的选项顺序恢复目标，保证保存和预览使用同一分支映射。
+						for (int i = 0; i < Options.Count; i++)
+							if (!string.IsNullOrEmpty(Options[i].TargetNodeId))
+								graph.ConnectNode(node.Name, i, Options[i].TargetNodeId, 0);
+					}
 					ResetSize(node);
 				}
 			};
