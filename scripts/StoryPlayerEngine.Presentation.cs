@@ -20,9 +20,11 @@ public partial class StoryPlayerEngine
     private object _activeBackgroundData;
     private float _dialogueBaseTop;
     private float _dialogueBaseBottom;
+    private Vector2 _autoPlayBasePosition;
 
     private void InitializePresentationSurface()
     {
+        _autoPlayBasePosition = _autoPlayButton?.Position ?? Vector2.Zero;
         _designCanvas = new Control { Name = "DesignCanvas", MouseFilter = MouseFilterEnum.Ignore, Size = DesignSize };
         AddChild(_designCanvas);
         MoveChild(_designCanvas, 0);
@@ -42,6 +44,8 @@ public partial class StoryPlayerEngine
         _designCanvas.AddChild(_transitionOverlay);
         _designCanvas.MoveChild(_transitionOverlay, 4);
         Resized += RefreshCanvasTransform;
+        if (SettingsManager.Instance != null)
+            SettingsManager.Instance.OnSafeAreaPaddingChanged += OnPresentationSafeAreaChanged;
         RefreshCanvasTransform();
     }
 
@@ -84,17 +88,37 @@ public partial class StoryPlayerEngine
         float scale = Mathf.Min(Size.X / DesignSize.X, Size.Y / DesignSize.Y);
         _designCanvas.Scale = Vector2.One * scale;
         _designCanvas.Position = (Size - DesignSize * scale) / 2;
-        ApplyDesignSafeArea(scale);
+        ApplyPresentationSafeArea(scale);
     }
 
-    private void ApplyDesignSafeArea(float canvasScale)
+    private void OnPresentationSafeAreaChanged(float padding)
     {
-        if (_dialogueBox == null) return;
-        // Convert physical safe padding to logical canvas coordinates.
+        RefreshCanvasTransform();
+    }
+
+    private void ApplyPresentationSafeArea(float canvasScale)
+    {
         float physicalPadding = SettingsManager.Instance?.SafeAreaPadding ?? 0f;
+        physicalPadding = float.IsFinite(physicalPadding) ? Mathf.Clamp(physicalPadding, 0f, 100f) : 0f;
         float logicalPadding = physicalPadding / Mathf.Max(canvasScale, 0.001f);
-        _dialogueBox.OffsetTop = _dialogueBaseTop - logicalPadding;
-        _dialogueBox.OffsetBottom = _dialogueBaseBottom - logicalPadding;
+
+        // 对话框在设计画布内使用逻辑像素，顶部工具按钮使用根视口物理像素。
+        if (_dialogueBox != null)
+        {
+            _dialogueBox.OffsetTop = _dialogueBaseTop - logicalPadding;
+            _dialogueBox.OffsetBottom = _dialogueBaseBottom - logicalPadding;
+        }
+        if (_autoPlayButton != null)
+        {
+            // 自动播放按钮位于根视口，只按左上安全区移动，避免每次刷新继续累加偏移。
+            _autoPlayButton.Position = _autoPlayBasePosition + new Vector2(physicalPadding, physicalPadding);
+        }
+    }
+
+    private void UnsubscribePresentationSettings()
+    {
+        if (SettingsManager.Instance != null)
+            SettingsManager.Instance.OnSafeAreaPaddingChanged -= OnPresentationSafeAreaChanged;
     }
 
     private Vector2 ToDesignPosition(Vector2 rootPosition)

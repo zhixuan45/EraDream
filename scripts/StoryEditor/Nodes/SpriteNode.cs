@@ -17,6 +17,8 @@ namespace EraDream.StoryEditor.Nodes
 		public float OffsetY { get; set; } = 0;
 		public float Scale { get; set; } = 1.0f;
 		public bool FlipH { get; set; } = false;
+		public float FadeInDuration { get; set; } = 0.25f;
+		public float FadeOutDuration { get; set; } = 0.25f;
 
 		private OptionButton _charSelector;
 		private OptionButton _actionSelector;
@@ -24,6 +26,11 @@ namespace EraDream.StoryEditor.Nodes
 		private OptionButton _posSelector;
 		private CheckBox _silhouetteCheck;
 		private Button _btnVisualEdit;
+		private LineEdit _fadeInInput;
+		private LineEdit _fadeOutInput;
+		private HSlider _fadeInSlider;
+		private HSlider _fadeOutSlider;
+		private bool _syncingFade;
 
 		public override GraphNode CreateGraphNode(GraphEdit host)
 		{
@@ -35,11 +42,7 @@ namespace EraDream.StoryEditor.Nodes
 
 			// 角色选择
 			_charSelector = new OptionButton { CustomMinimumSize = new Vector2(180, 0) };
-			var allActors = CharacterManager.Characters;
-			foreach (var c in allActors) {
-				_charSelector.AddItem(c.DisplayName);
-				if (c.ActorId == CharacterId) _charSelector.Selected = _charSelector.GetItemCount() - 1;
-			}
+			UpdateCharacterSelector();
 			container.AddChild(new Label { Text = Tr("KEY_LABEL_CHAR_SELECT") });
 			container.AddChild(_charSelector);
 			
@@ -77,6 +80,13 @@ namespace EraDream.StoryEditor.Nodes
 			_silhouetteCheck = new CheckBox { Text = Tr("KEY_LABEL_SILHOUETTE"), ButtonPressed = IsSilhouette };
 			container.AddChild(_silhouetteCheck);
 
+			container.AddChild(new Label { Text = "淡入时长（秒）" });
+			(_fadeInSlider, _fadeInInput) = CreateFadeControl(FadeInDuration, value => FadeInDuration = value);
+			container.AddChild(CreateFadeRow(_fadeInSlider, _fadeInInput, true));
+			container.AddChild(new Label { Text = "淡出时长（秒）" });
+			(_fadeOutSlider, _fadeOutInput) = CreateFadeControl(FadeOutDuration, value => FadeOutDuration = value);
+			container.AddChild(CreateFadeRow(_fadeOutSlider, _fadeOutInput, false));
+
 			// 可视化编辑按钮
 			_btnVisualEdit = new Button { Text = "可视化编辑", CustomMinimumSize = new Vector2(0, 30) };
 			_btnVisualEdit.Pressed += () => OnVisualEditRequested?.Invoke(Id);
@@ -94,7 +104,7 @@ namespace EraDream.StoryEditor.Nodes
 			_btnVisualEdit.Disabled = ActionType == "Hide";
 
 			node.AddChild(container);
-			node.CustomMinimumSize = new Vector2(200, 280);
+			node.CustomMinimumSize = new Vector2(220, 390);
 			node.Size = Vector2.Zero;
 			return node;
 		}
@@ -115,6 +125,24 @@ namespace EraDream.StoryEditor.Nodes
 			}
 		}
 
+		private void UpdateCharacterSelector()
+		{
+			if (_charSelector == null) return;
+			_charSelector.Clear();
+			foreach (var actor in CharacterManager.Characters)
+			{
+				_charSelector.AddItem(actor.DisplayName);
+				if (actor.ActorId == CharacterId)
+					_charSelector.Selected = _charSelector.GetItemCount() - 1;
+			}
+		}
+
+		public override void RefreshEditorView()
+		{
+			UpdateCharacterSelector();
+			UpdateExpressionSelector();
+		}
+
 		public override void SyncFromView(GraphNode view)
 		{
 			PosX = view.PositionOffset.X;
@@ -130,6 +158,39 @@ namespace EraDream.StoryEditor.Nodes
 			if (_exprSelector != null) Expression = _exprSelector.Selected > 0 ? _exprSelector.GetItemText(_exprSelector.Selected) : "Neutral";
 			if (_posSelector != null) Position = _posSelector.Selected switch { 0 => "Left", 2 => "Right", _ => "Center" };
 			if (_silhouetteCheck != null) IsSilhouette = _silhouetteCheck.ButtonPressed;
+			if (_fadeInInput != null && float.TryParse(_fadeInInput.Text, out float fadeIn) && float.IsFinite(fadeIn)) FadeInDuration = fadeIn;
+			if (_fadeOutInput != null && float.TryParse(_fadeOutInput.Text, out float fadeOut) && float.IsFinite(fadeOut)) FadeOutDuration = fadeOut;
+		}
+
+		private (HSlider, LineEdit) CreateFadeControl(float value, System.Action<float> setter)
+		{
+			var slider = new HSlider { MinValue = 0, MaxValue = 3, Step = 0.05, Value = Mathf.Clamp(value, 0, 3) };
+			var input = new LineEdit { Text = value.ToString("0.##"), CustomMinimumSize = new Vector2(80, 0), PlaceholderText = "请输入数字" };
+			slider.ValueChanged += sliderValue =>
+			{
+				if (_syncingFade) return;
+				setter((float)sliderValue);
+				_syncingFade = true;
+				input.Text = ((float)sliderValue).ToString("0.##");
+				_syncingFade = false;
+			};
+			input.TextChanged += text =>
+			{
+				if (_syncingFade || !float.TryParse(text, out float parsed) || !float.IsFinite(parsed)) return;
+				setter(parsed);
+				_syncingFade = true;
+				slider.Value = Mathf.Clamp(parsed, (float)slider.MinValue, (float)slider.MaxValue);
+				_syncingFade = false;
+			};
+			return (slider, input);
+		}
+
+		private HBoxContainer CreateFadeRow(HSlider slider, LineEdit input, bool fadeIn)
+		{
+			var row = new HBoxContainer();
+			row.AddChild(slider);
+			row.AddChild(input);
+			return row;
 		}
 	}
 }

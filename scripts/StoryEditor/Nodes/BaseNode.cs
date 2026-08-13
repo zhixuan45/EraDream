@@ -36,6 +36,11 @@ namespace EraDream.StoryEditor.Nodes
 		public abstract void SyncFromView(GraphNode view);
 
 		/// <summary>
+		/// 外部编辑器数据变化后刷新节点控件；无关联数据的节点无需实现。
+		/// </summary>
+		public virtual void RefreshEditorView() { }
+
+		/// <summary>
 		/// 返回可供全局搜索匹配的文本，子类可覆盖
 		/// </summary>
 		public virtual string GetSearchableText() => GetType().Name + " " + Id;

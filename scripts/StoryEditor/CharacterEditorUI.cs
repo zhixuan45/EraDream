@@ -5,11 +5,24 @@ using EraDream.Core.Models;
 
 public partial class CharacterEditorUI : Node
 {
-    public static void Open(Node parent)
+    private Action<Action> _applyEditorDataChange;
+
+    public static void Open(Node parent, Action<Action> applyEditorDataChange = null)
     {
-        var editor = new CharacterEditorUI();
+        var editor = new CharacterEditorUI
+        {
+            _applyEditorDataChange = applyEditorDataChange
+        };
         parent.AddChild(editor);
         editor.CreateManagerWindow();
+    }
+
+    private void ApplyDataChange(Action change)
+    {
+        if (_applyEditorDataChange != null)
+            _applyEditorDataChange(change);
+        else
+            change();
     }
 
     private void CreateManagerWindow()
@@ -59,7 +72,8 @@ public partial class CharacterEditorUI : Node
         addBtn.Pressed += () => {
             if (!string.IsNullOrEmpty(nameInput.Text)) {
                 // 暂时不通过 CharacterManager.AddCharacter 增加，因为其 API 已变
-                CharacterManager.GuestActors[nameInput.Text] = new ActorConfigData { ActorId = nameInput.Text, DisplayName = "新角色" };
+                string actorId = nameInput.Text;
+                ApplyDataChange(() => CharacterManager.GuestActors[actorId] = new ActorConfigData { ActorId = actorId, DisplayName = "新角色" });
                 nameInput.Text = "";
                 refreshList();
             }
@@ -122,7 +136,7 @@ public partial class CharacterEditorUI : Node
 
         Button addExprBtn = new Button { Text = "+ 添加新表情", Flat = true };
         addExprBtn.Pressed += () => {
-            charData.Visuals.Expressions["新状态"] = "";
+            ApplyDataChange(() => charData.Visuals.Expressions["新状态"] = "");
             exprList.AddChild(CreateExpressionRow(charData, "新状态", ""));
         };
         detail.AddChild(addExprBtn);
@@ -130,7 +144,7 @@ public partial class CharacterEditorUI : Node
         // 删除角色
         Button delBtn = new Button { Text = "删除此角色", Modulate = new Color(1, 0.4f, 0.4f) };
         delBtn.Pressed += () => {
-            CharacterManager.GuestActors.Remove(charData.ActorId);
+            ApplyDataChange(() => CharacterManager.GuestActors.Remove(charData.ActorId));
             itemRoot.QueueFree();
         };
         detail.AddChild(delBtn);
@@ -145,11 +159,12 @@ public partial class CharacterEditorUI : Node
 
         // 实时同步
         nameEdit.TextChanged += (txt) => {
-            charData.DisplayName = txt;
+            ApplyDataChange(() => charData.DisplayName = txt);
             header.Text = (detail.Visible ? " v  " : " >  ") + $"[{charData.ActorId}] {txt}";
         };
         spriteSelect.ItemSelected += (idx) => {
-            charData.Visuals.DefaultSprite = spriteSelect.GetItemText((int)idx);
+            string selectedSprite = spriteSelect.GetItemText((int)idx);
+            ApplyDataChange(() => charData.Visuals.DefaultSprite = selectedSprite);
         };
 
         return itemRoot;
@@ -162,20 +177,28 @@ public partial class CharacterEditorUI : Node
         OptionButton valSelect = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         SpriteLibrary.PopulateOptionButton(valSelect, val);
         Button delBtn = new Button { Text = "×", Flat = true };
+        string currentKey = key;
         
         row.AddChild(keyEdit);
         row.AddChild(valSelect);
         row.AddChild(delBtn);
 
         keyEdit.TextChanged += (newKey) => {
-            charData.Visuals.Expressions.Remove(key);
-            charData.Visuals.Expressions[newKey] = valSelect.GetItemText(valSelect.Selected);
+            string previousKey = currentKey;
+            string selectedSprite = valSelect.GetItemText(valSelect.Selected);
+            ApplyDataChange(() => {
+                // TextChanged 会在每次输入时触发，必须删除上一次输入产生的键。
+                charData.Visuals.Expressions.Remove(previousKey);
+                charData.Visuals.Expressions[newKey] = selectedSprite;
+            });
+            currentKey = newKey;
         };
         valSelect.ItemSelected += (idx) => {
-            charData.Visuals.Expressions[keyEdit.Text] = valSelect.GetItemText((int)idx);
+            string selectedSprite = valSelect.GetItemText((int)idx);
+            ApplyDataChange(() => charData.Visuals.Expressions[currentKey] = selectedSprite);
         };
         delBtn.Pressed += () => {
-            charData.Visuals.Expressions.Remove(keyEdit.Text);
+            ApplyDataChange(() => charData.Visuals.Expressions.Remove(currentKey));
             row.QueueFree();
         };
 

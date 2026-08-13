@@ -5,88 +5,139 @@ namespace EraDream.Core
 {
     public enum ScreenOrientation
     {
-        Landscape, // 横屏 / 宽屏
-        Portrait   // 竖屏 / 窄屏
+        Landscape,
+        Portrait
     }
 
     /// <summary>
-    /// 全局响应式布局管理器 (Autoload)
-    /// 负责监听窗口尺寸变化并分发横竖屏切换事件
+    /// 全局响应式布局管理器，负责尺寸、方向和系统 DPI 状态。
     /// </summary>
     public partial class ResponsiveManager : Node
     {
-        // 全局单例访问点
         public static ResponsiveManager Instance { get; private set; }
 
         public ScreenOrientation CurrentOrientation { get; private set; }
         public Vector2 CurrentScreenSize { get; private set; }
         public float SafeAreaPadding { get; private set; }
 
-        // 事件：当屏幕方向改变时触发
-        // 参数：是否为横屏
-        public event Action<bool> OnOrientationChanged;
-        
-        // 事件：当安全区偏移改变时触发
-        public event Action<float> OnSafeAreaChanged;
+        // 系统缩放比例以 96 DPI 为基准，不能与 ContentScaleFactor 叠加使用。
+        public float SystemScale { get; private set; } = 1.0f;
 
-        // 事件：可用视口尺寸变化时触发，横竖屏切换与桌面窗口缩放都会通知。
+        public event Action<bool> OnOrientationChanged;
+        public event Action<float> OnSafeAreaChanged;
         public event Action<Vector2> ScreenSizeChanged;
+        public event Action<float> SystemScaleChanged;
+
+        private Window _rootWindow;
+        private int _currentScreen = -1;
+        private int _currentDpi;
+        private bool _hasScreenState;
+        private bool _hasSizeState;
+        private bool _isPrimaryInstance;
+        private double _dpiCheckElapsed;
+
+        private const double DpiCheckIntervalSeconds = 1.0;
 
         public override void _EnterTree()
         {
             if (Instance == null)
             {
                 Instance = this;
+                _isPrimaryInstance = true;
             }
             else
             {
                 QueueFree();
-                return;
             }
         }
 
         public override void _Ready()
         {
-            // 连接屏幕尺寸改变信号
-            GetTree().Root.SizeChanged += OnScreenSizeChanged;
-            
-            // 监听设置中的安全区改变（使用命名方法以便在 _ExitTree 取消订阅）
+            if (!_isPrimaryInstance)
+                return;
+
+            _rootWindow = GetTree().Root;
+            ProcessMode = ProcessModeEnum.Always;
+            _rootWindow.SizeChanged += OnRootWindowSizeChanged;
+
             if (SettingsManager.Instance != null)
             {
                 SettingsManager.Instance.OnSafeAreaPaddingChanged += OnSafeAreaPaddingChangedHandler;
                 SafeAreaPadding = SettingsManager.Instance.SafeAreaPadding;
             }
 
-            // 初始化计算一次
-            CallDeferred(nameof(OnScreenSizeChanged));
+            // 延迟到窗口和可见视口完成初始化后读取实际尺寸。
+            CallDeferred(nameof(OnRootWindowSizeChanged));
         }
 
-        private void OnScreenSizeChanged()
+        public override void _Process(double delta)
         {
-            CurrentScreenSize = GetViewport().GetVisibleRect().Size;
-            ScreenSizeChanged?.Invoke(CurrentScreenSize);
-            
-            // 判断横竖屏
-            ScreenOrientation newOrientation = CurrentScreenSize.X > CurrentScreenSize.Y 
-                ? ScreenOrientation.Landscape 
+            // Godot 没有跨平台统一的 DPI 变化信号，低频轮询即可覆盖跨屏移动。
+            _dpiCheckElapsed += delta;
+            if (_dpiCheckElapsed < DpiCheckIntervalSeconds)
+                return;
+
+            _dpiCheckElapsed = 0.0;
+            if (UpdateSystemScale())
+                UpdateResponsiveState(false);
+        }
+
+        private void OnRootWindowSizeChanged()
+        {
+            UpdateResponsiveState();
+        }
+
+        private void UpdateResponsiveState(bool updateSystemScale = true)
+        {
+            if (!IsInstanceValid(_rootWindow))
+                return;
+
+            Vector2 visibleSize = _rootWindow.GetVisibleRect().Size;
+            CurrentScreenSize = visibleSize;
+            ScreenSizeChanged?.Invoke(visibleSize);
+
+            ScreenOrientation newOrientation = visibleSize.X >= visibleSize.Y
+                ? ScreenOrientation.Landscape
                 : ScreenOrientation.Portrait;
 
-            // 如果方向发生改变（或者初始赋值），发送信号
-            if (newOrientation != CurrentOrientation || CurrentScreenSize == Vector2.Zero)
+            // 使用显式初始化标记，避免首次恰好为横屏时漏发事件。
+            if (!_hasSizeState || newOrientation != CurrentOrientation)
             {
                 CurrentOrientation = newOrientation;
-                bool isLandscape = (CurrentOrientation == ScreenOrientation.Landscape);
-                
-                GD.Print($"[ResponsiveManager] Orientation changed to: {CurrentOrientation} ({CurrentScreenSize.X}x{CurrentScreenSize.Y})");
-                OnOrientationChanged?.Invoke(isLandscape);
+                _hasSizeState = true;
+                OnOrientationChanged?.Invoke(newOrientation == ScreenOrientation.Landscape);
             }
-            else
-            {
-                // 即使方向不变，如果需要更精细的 breakpoint 监听可以在这里分发一个 Resize 事件
-            }
+
+            if (updateSystemScale)
+                UpdateSystemScale();
         }
 
-        // 安全区偏移改变的命名处理方法
+        private bool UpdateSystemScale()
+        {
+            if (!IsInstanceValid(_rootWindow))
+                return false;
+
+            int screen = _rootWindow.CurrentScreen;
+            int dpi = DisplayServer.ScreenGetDpi(screen);
+            float scale = dpi > 0 ? dpi / 96.0f : 1.0f;
+
+            if (!_hasScreenState || screen != _currentScreen || dpi != _currentDpi)
+            {
+                bool scaleChanged = !_hasScreenState || !Mathf.IsEqualApprox(SystemScale, scale);
+                _currentScreen = screen;
+                _currentDpi = dpi;
+                _hasScreenState = true;
+                SystemScale = scale;
+
+                if (scaleChanged)
+                    SystemScaleChanged?.Invoke(scale);
+
+                return true;
+            }
+
+            return false;
+        }
+
         private void OnSafeAreaPaddingChangedHandler(float padding)
         {
             SafeAreaPadding = padding;
@@ -95,15 +146,17 @@ namespace EraDream.Core
 
         public override void _ExitTree()
         {
-            if (Instance == this)
-            {
-                Instance = null;
-                if (GetTree() != null && GetTree().Root != null)
-                    GetTree().Root.SizeChanged -= OnScreenSizeChanged;
-                // 取消订阅安全区事件，防止 Autoload 持有悬挂引用
-                if (SettingsManager.Instance != null)
-                    SettingsManager.Instance.OnSafeAreaPaddingChanged -= OnSafeAreaPaddingChangedHandler;
-            }
+            if (Instance != this)
+                return;
+
+            if (IsInstanceValid(_rootWindow))
+                _rootWindow.SizeChanged -= OnRootWindowSizeChanged;
+
+            if (SettingsManager.Instance != null)
+                SettingsManager.Instance.OnSafeAreaPaddingChanged -= OnSafeAreaPaddingChangedHandler;
+
+            Instance = null;
+            _rootWindow = null;
         }
     }
 }

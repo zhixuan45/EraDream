@@ -47,27 +47,28 @@ public partial class EditorScreen : Control
 		mainVBox.AddChild(oldHSplit);
 		oldHSplit.SizeFlagsVertical = SizeFlags.ExpandFill;
 
-		// 监听安全区变化并应用到 MarginContainer
+		// 监听安全区变化并统一应用到编辑器内容容器，避免菜单栏和工作区各自重复补偿。
 		if (SettingsManager.Instance != null)
 		{
-			SettingsManager.Instance.OnSafeAreaPaddingChanged += (p) => {
-				safeArea.AddThemeConstantOverride("margin_left", (int)p);
-				safeArea.AddThemeConstantOverride("margin_right", (int)p);
-				// 桌面无边框模式下，为自绘标题栏预留顶部操作空间。
-				safeArea.AddThemeConstantOverride("margin_top", (int)p + (int)DesktopWindowChrome.ContentTopInset);
-				safeArea.AddThemeConstantOverride("margin_bottom", (int)p);
-			};
-			int pad = (int)SettingsManager.Instance.SafeAreaPadding;
-			safeArea.AddThemeConstantOverride("margin_left", pad);
-			safeArea.AddThemeConstantOverride("margin_right", pad);
-			safeArea.AddThemeConstantOverride("margin_top", pad + (int)DesktopWindowChrome.ContentTopInset);
-			safeArea.AddThemeConstantOverride("margin_bottom", pad);
+			SettingsManager.Instance.OnSafeAreaPaddingChanged += p => ApplyEditorInsets(safeArea, p);
+			ApplyEditorInsets(safeArea, SettingsManager.Instance.SafeAreaPadding);
 		}
 		else
 		{
-			// 设置服务尚未就绪时仍保持菜单栏不被标题栏覆盖。
-			safeArea.AddThemeConstantOverride("margin_top", (int)DesktopWindowChrome.ContentTopInset);
+			ApplyEditorInsets(safeArea, 0f);
 		}
+	}
+
+	private static void ApplyEditorInsets(MarginContainer safeArea, float padding)
+	{
+		// 顶部只由这一处合并安全区和窗口 chrome 占用，防止自定义顶栏被重复计算。
+		if (float.IsNaN(padding) || float.IsInfinity(padding)) padding = 0f;
+		int safePadding = Mathf.Clamp((int)padding, 0, 100);
+		int topInset = Mathf.Max(0, Mathf.RoundToInt(DesktopWindowChrome.ContentTopInset));
+		safeArea.AddThemeConstantOverride("margin_left", safePadding);
+		safeArea.AddThemeConstantOverride("margin_right", safePadding);
+		safeArea.AddThemeConstantOverride("margin_top", safePadding + topInset);
+		safeArea.AddThemeConstantOverride("margin_bottom", safePadding);
 	}
 
 	public override void _Ready()
@@ -340,7 +341,7 @@ public partial class EditorScreen : Control
 		{
 			// 新建角色和角色列表管理都跳转到同一个界面
 			case 0:
-			case 3: CharacterEditorUI.Open(this); break;
+			case 3: CharacterEditorUI.Open(this, ApplyEditorDataChange); break;
 			case 1: // 导出角色配置
 				FileIOManager.OpenSaveDialog("导出角色配置", "characters.json", "*.json", (path) => {
 					CharacterManager.SaveCharacters(path);
@@ -348,7 +349,7 @@ public partial class EditorScreen : Control
 				}); break;
 			case 2: // 导入角色配置
 				FileIOManager.OpenLoadDialog("导入角色配置", "*.json", (path) => {
-					CharacterManager.LoadCharacters(path);
+					ApplyEditorDataChange(() => CharacterManager.LoadCharacters(path));
 					GetNodeOrNull<ErrorNotifier>("/root/ErrorNotifier")?.ShowToast("角色配置导入成功！");
 				}); break;
 		}
@@ -409,9 +410,15 @@ public partial class EditorScreen : Control
 
 	private void LoadAndRender(string path)
 	{
+		if (!StoryNodeManager.TryLoadProject(path, out var nodes, out string loadError))
+		{
+			ErrorNotifier.Instance?.ShowErrorDialog("加载失败", loadError);
+			return;
+		}
+
+		// 只有新文件确认有效后才替换当前画布，避免加载失败造成未保存内容丢失。
 		foreach (Node child in _graphEdit.GetChildren()) if (child is GraphNode) child.QueueFree();
 		_nodeDataMap.Clear();
-		var nodes = StoryNodeManager.LoadProject(path);
 		foreach (var node in nodes)
 		{
 			_nodeDataMap[node.Id] = node;
@@ -644,6 +651,29 @@ public partial class EditorScreen : Control
 	public void NotifyVisualEditCommitted()
 	{
 		MarkProjectDirty();
+	}
+
+	/// <summary>
+	/// 包装角色、贴纸等外部窗口的数据修改，并统一刷新所有剧情节点。
+	/// </summary>
+	public void ApplyEditorDataChange(Action dataChange)
+	{
+		if (dataChange == null) return;
+
+		// 刷新控件前先保存节点里尚未落入数据对象的当前选择。
+		StoryNodeManager.SyncConnectionsAndPositions(_graphEdit, _nodeDataMap.Values.ToList());
+		dataChange();
+		RefreshAllNodeViews();
+		MarkProjectDirty();
+	}
+
+	/// <summary>通知所有剧情节点重新读取其依赖的编辑器数据。</summary>
+	public void RefreshAllNodeViews()
+	{
+		foreach (BaseNodeData nodeData in _nodeDataMap.Values)
+		{
+			nodeData.RefreshEditorView();
+		}
 	}
 
 	/// <summary>

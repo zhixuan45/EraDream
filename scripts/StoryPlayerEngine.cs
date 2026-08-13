@@ -33,6 +33,7 @@ public partial class StoryPlayerEngine : Control
 
     private readonly Dictionary<string, CharacterSprite> _activeSprites = new();
     private readonly Dictionary<int, CharacterSprite> _activeStickerSprites = new();
+    private readonly HashSet<string> _processingNodeIds = new(StringComparer.Ordinal);
     private List<BaseNodeData> _storyNodes = new();
     private readonly Dictionary<string, BaseNodeData> _nodeMap = new();
     private BaseNodeData _currentNode;
@@ -41,6 +42,7 @@ public partial class StoryPlayerEngine : Control
     private bool _isTextAnimating;
     private bool _isAutoPlayEnabled;
     private bool _autoPlayUserOverride;
+    private bool _hasTerminated;
     private Tween _textTween;
 
     public static string CurrentStoryPath = "";
@@ -75,24 +77,37 @@ public partial class StoryPlayerEngine : Control
             UpdateAutoPlayButton();
         }
 
-        if (PreviewNodes != null && PreviewNodes.Count > 0)
+        if (PreviewNodes != null)
         {
             IsPreviewMode = true;
             _storyNodes = PreviewNodes;
+            var validationErrors = StoryNodeManager.ValidateNodes(_storyNodes);
+            if (validationErrors.Count > 0)
+            {
+                PreviewNodes = null;
+                FailStory("无法预览剧情", string.Join("\n", validationErrors));
+                return;
+            }
+
             BuildNodeMap();
-            _currentNode = !string.IsNullOrEmpty(StartNodeId) && _nodeMap.TryGetValue(StartNodeId, out var start)
-                ? start : _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
+            if (!string.IsNullOrWhiteSpace(StartNodeId) && !_nodeMap.TryGetValue(StartNodeId, out _currentNode))
+            {
+                PreviewNodes = null;
+                FailStory("无法预览剧情", $"指定的起始节点不存在: {StartNodeId}");
+                return;
+            }
+
+            _currentNode ??= _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
             PreviewNodes = null;
             ProcessCurrentNode();
-            if (EnableVisualEditing)
+            if (!_hasTerminated && EnableVisualEditing)
                 EnableVisualEditMode();
             return;
         }
 
         if (string.IsNullOrEmpty(CurrentStoryPath))
         {
-            ErrorNotifier.Instance?.ShowErrorDialog("加载失败", "剧情路径为空。");
-            GetTree().ChangeSceneToFile(ReturnScenePath);
+            FailStory("加载失败", "剧情路径为空。");
             return;
         }
         LoadStory(CurrentStoryPath);
@@ -107,6 +122,14 @@ public partial class StoryPlayerEngine : Control
         _textTween?.Kill();
         CancelAutoAdvance();
         StopPresentationTweens();
+        UnsubscribePresentationSettings();
+        if (IsPreviewMode)
+        {
+            // 预览使用静态参数跨场景传递，关闭后必须清理，避免污染普通播放入口。
+            StartNodeId = null;
+            EnableVisualEditing = false;
+            PreviewNodes = null;
+        }
     }
 
     private void ConfigureExistingNodes()
@@ -146,21 +169,50 @@ public partial class StoryPlayerEngine : Control
 
     private void LoadStory(string path)
     {
-        _storyNodes = StoryNodeManager.LoadProject(path);
+        // 普通播放入口是一次性参数；无论加载成功与否都不能污染下一次播放。
+        string requestedStartNodeId = StartNodeId;
+        StartNodeId = null;
+
+        if (!StoryNodeManager.TryLoadProject(path, out _storyNodes, out string loadError))
+        {
+            FailStory("无法加载剧情", loadError);
+            return;
+        }
+
         BuildNodeMap();
         if (_storyNodes.Count == 0)
         {
-            ErrorNotifier.Instance?.ShowErrorDialog("无法加载剧情", "剧情文件为空或格式错误。");
-            GetTree().ChangeSceneToFile(ReturnScenePath);
+            FailStory("无法加载剧情", "剧情中没有可播放的节点。");
             return;
         }
-        _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
+
+        if (!string.IsNullOrWhiteSpace(requestedStartNodeId))
+        {
+            if (!_nodeMap.TryGetValue(requestedStartNodeId, out _currentNode))
+            {
+                FailStory("无法开始剧情", $"指定的起始节点不存在: {requestedStartNodeId}");
+                return;
+            }
+        }
+        else
+        {
+            _currentNode = _storyNodes.FirstOrDefault(n => n is StartNodeData) ?? _storyNodes[0];
+        }
+
         ProcessCurrentNode();
     }
 
     private void ProcessCurrentNode()
     {
+        if (_hasTerminated) return;
         if (_currentNode == null) { FinishStory(); return; }
+        string processingNodeId = _currentNode.Id;
+        if (!string.IsNullOrWhiteSpace(processingNodeId) && !_processingNodeIds.Add(processingNodeId))
+        {
+            FailStory("剧情循环错误", $"同步节点链形成循环: {processingNodeId}");
+            return;
+        }
+
         CancelAutoAdvance();
         ClearChoiceButtons();
         _choiceContainer?.Hide();
@@ -195,7 +247,8 @@ public partial class StoryPlayerEngine : Control
                     UpdateDialogueAndCharacter(node);
                     PlayVoice(node.VoiceFile);
                     PlaySfx(node.SoundEffectFile, node.SoundEffectVolume, false, null);
-                    _nextNonVisualNodeId = PreExecuteVisualNodes(node.NextNodeId);
+                    if (!TryPreExecuteVisualNodes(node.NextNodeId, out _nextNonVisualNodeId))
+                        return;
                     break;
                 case NarrativeNodeData node:
                     ApplyVisualEffects(node.BlurValue, node.Darkness);
@@ -214,7 +267,15 @@ public partial class StoryPlayerEngine : Control
                     break;
             }
         }
-        catch (Exception ex) { GD.PushError($"[StoryPlayerEngine] 节点执行失败: {ex}"); }
+        catch (Exception ex)
+        {
+            FailStory("剧情节点执行失败", ex.Message);
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(processingNodeId))
+                _processingNodeIds.Remove(processingNodeId);
+        }
     }
 
     private void AdvanceOrPause(string nextNodeId, bool pauseForEdit)
@@ -261,7 +322,14 @@ public partial class StoryPlayerEngine : Control
         if (data == null || string.IsNullOrEmpty(data.CharacterId)) return;
         if (data.ActionType == "Hide")
         {
-            if (_activeSprites.Remove(data.CharacterId, out var oldSprite)) oldSprite.QueueFree();
+            if (_activeSprites.Remove(data.CharacterId, out var oldSprite))
+            {
+                // 隐藏立绘时先完成淡出，再释放节点，避免瞬间消失。
+                float duration = Mathf.Max(data.FadeOutDuration, 0f);
+                var tween = CreateTween();
+                tween.TweenProperty(oldSprite, "modulate:a", 0f, duration);
+                tween.Finished += () => oldSprite.QueueFree();
+            }
             return;
         }
         if (!_activeSprites.TryGetValue(data.CharacterId, out var sprite))
@@ -273,6 +341,10 @@ public partial class StoryPlayerEngine : Control
         sprite.SourceData = data;
         sprite.UpdateCharacter(data.CharacterId, data.Expression, data.IsSilhouette);
         UpdateSpritePosition(sprite, data.Position);
+        sprite.Modulate = new Color(1, 1, 1, 0);
+        var fadeTween = CreateTween();
+        // Show/Change 都使用淡入；时长只在播放时约束为非负值。
+        fadeTween.TweenProperty(sprite, "modulate:a", 1f, Mathf.Max(data.FadeInDuration, 0f));
     }
 
     private void HandleStickerNode(StickerNodeData data)
@@ -373,6 +445,7 @@ public partial class StoryPlayerEngine : Control
 
     private void OnInteraction()
     {
+        if (_hasTerminated) return;
         if (_isTextAnimating)
         {
             _textTween?.Kill();
@@ -410,15 +483,36 @@ public partial class StoryPlayerEngine : Control
 
     private void GoToNextNode(string nodeId)
     {
-        _currentNode = !string.IsNullOrEmpty(nodeId) && _nodeMap.TryGetValue(nodeId, out var node) ? node : null;
+        if (_hasTerminated) return;
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            FinishStory();
+            return;
+        }
+
+        if (!_nodeMap.TryGetValue(nodeId, out var node))
+        {
+            FailStory("剧情连接已断开", $"找不到目标节点: {nodeId}");
+            return;
+        }
+
+        _currentNode = node;
         ProcessCurrentNode();
     }
 
-    private string PreExecuteVisualNodes(string nextId)
+    private bool TryPreExecuteVisualNodes(string nextId, out string nextNonVisualNodeId)
     {
         string id = nextId;
+        nextNonVisualNodeId = "";
+        var visited = new HashSet<string>(StringComparer.Ordinal);
         while (!string.IsNullOrEmpty(id) && _nodeMap.TryGetValue(id, out var node))
         {
+            if (!visited.Add(id))
+            {
+                FailStory("剧情循环错误", $"视觉节点链形成循环: {id}");
+                return false;
+            }
+
             switch (node)
             {
                 case SpriteNodeData value: HandleSpriteNode(value); id = value.NextNodeId; continue;
@@ -429,13 +523,58 @@ public partial class StoryPlayerEngine : Control
             if (TryExecuteExtensionNode(node, out string nextNodeId)) { id = nextNodeId; continue; }
             break;
         }
-        return id;
+
+        if (!string.IsNullOrWhiteSpace(id) && !_nodeMap.ContainsKey(id))
+        {
+            FailStory("剧情连接已断开", $"找不到视觉链目标节点: {id}");
+            return false;
+        }
+
+        nextNonVisualNodeId = id;
+        return true;
+    }
+
+    private void FailStory(string title, string message)
+    {
+        if (!TryBeginTermination()) return;
+        GD.PushError($"[StoryPlayerEngine] {title}: {message}");
+        ErrorNotifier.Instance?.ShowErrorDialog(title, message);
+        if (IsPreviewMode)
+        {
+            EmitSignal(SignalName.StoryFinished);
+            return;
+        }
+
+        GetTree().ChangeSceneToFile(ReturnScenePath);
     }
 
     private void FinishStory(string type = "Title")
     {
+        if (!TryBeginTermination()) return;
         if (IsPreviewMode) { EmitSignal(SignalName.StoryFinished); return; }
         GetTree().ChangeSceneToFile(ReturnScenePath);
+    }
+
+    private bool TryBeginTermination()
+    {
+        if (_hasTerminated) return false;
+
+        // 先封闭所有异步与交互入口，避免错误后继续执行或重复切换场景。
+        _hasTerminated = true;
+        _textTween?.Kill();
+        _isTextAnimating = false;
+        CancelAutoAdvance();
+        if (_interactButton != null)
+            _interactButton.Disabled = true;
+
+        StartNodeId = null;
+        if (IsPreviewMode)
+        {
+            PreviewNodes = null;
+            EnableVisualEditing = false;
+        }
+
+        return true;
     }
 
     private string GetCharacterName(string actorId) => CharacterManager.GetActor(actorId)?.DisplayName ?? "...";

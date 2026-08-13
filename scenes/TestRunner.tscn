@@ -1,10 +1,11 @@
-[gd_scene load_steps=4 format=3 uid="uid://testrunner123"]
+[gd_scene load_steps=7 format=3 uid="uid://testrunner123"]
 
 [ext_resource type="Script" path="res://scripts/Tests/SimulationTest.cs" id="1_test"]
 [ext_resource type="Script" path="res://scripts/Tests/SimulationTurnTest.cs" id="2_turn_test"]
 [ext_resource type="Script" path="res://scripts/Tests/InventoryTest.cs" id="3_inv_test"]
 [ext_resource type="Script" path="res://scripts/Tests/CommandHistoryTest.cs" id="4_cmd_test"]
 [ext_resource type="Script" path="res://scripts/Tests/JsonMergerTest.cs" id="5_json_test"]
+[ext_resource type="Script" path="res://scripts/Tests/StoryLoaderTest.cs" id="6_story_loader_test"]
 
 [node name="TestRunner" type="Node"]
 
@@ -22,3 +23,6 @@ script = ExtResource("4_cmd_test")
 
 [node name="JsonMergerTest" type="Node" parent="."]
 script = ExtResource("5_json_test")
+
+[node name="StoryLoaderTest" type="Node" parent="."]
+script = ExtResource("6_story_loader_test")

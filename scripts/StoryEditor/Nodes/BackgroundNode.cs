@@ -16,6 +16,8 @@ namespace EraDream.StoryEditor.Nodes
         private OptionButton _transitionSelector;
         private HSlider _durationSlider;
         private Label _durationLabel;
+        private LineEdit _durationInput;
+        private bool _syncingDuration;
 
         public override GraphNode CreateGraphNode(GraphEdit host)
         {
@@ -37,12 +39,22 @@ namespace EraDream.StoryEditor.Nodes
             _transitionSelector.Selected = TransitionType == "Cut" ? 1 : TransitionType == "Slide" ? 2 : 0;
             container.AddChild(_transitionSelector);
 
-            _durationLabel = new Label();
+            _durationLabel = new Label { Text = "过场时长（秒）" };
             container.AddChild(_durationLabel);
             _durationSlider = new HSlider { MinValue = 0.05, MaxValue = 3.0, Step = 0.05, Value = TransitionDuration };
-            _durationSlider.ValueChanged += value => UpdateDurationLabel((float)value);
-            UpdateDurationLabel(TransitionDuration);
-            container.AddChild(_durationSlider);
+            _durationInput = new LineEdit
+            {
+                Text = TransitionDuration.ToString("0.##"),
+                CustomMinimumSize = new Vector2(90, 0),
+                PlaceholderText = "请输入数字"
+            };
+            // 滑块拖动时立即回写输入框；超出滑块范围的手动输入仍保留在数据中。
+            _durationSlider.ValueChanged += value => SetDurationFromSlider((float)value);
+            _durationInput.TextChanged += value => SetDurationFromInput(value);
+            var durationRow = new HBoxContainer();
+            durationRow.AddChild(_durationSlider);
+            durationRow.AddChild(_durationInput);
+            container.AddChild(durationRow);
 
             var visualEditButton = new Button { Text = "可视化编辑背景" };
             visualEditButton.Pressed += () => OnVisualEditRequested?.Invoke(Id);
@@ -57,10 +69,22 @@ namespace EraDream.StoryEditor.Nodes
             return node;
         }
 
-        private void UpdateDurationLabel(float duration)
+        private void SetDurationFromSlider(float value)
         {
-            if (_durationLabel != null)
-                _durationLabel.Text = $"过场时长：{duration:0.00} 秒";
+            if (_syncingDuration) return;
+            TransitionDuration = value;
+            _syncingDuration = true;
+            _durationInput.Text = TransitionDuration.ToString("0.##");
+            _syncingDuration = false;
+        }
+
+        private void SetDurationFromInput(string text)
+        {
+            if (_syncingDuration || !float.TryParse(text, out float value) || !float.IsFinite(value)) return;
+            TransitionDuration = value;
+            _syncingDuration = true;
+            _durationSlider.Value = Mathf.Clamp(value, (float)_durationSlider.MinValue, (float)_durationSlider.MaxValue);
+            _syncingDuration = false;
         }
 
         private void OnResourcesChanged(ResourceManagerUI.ResourceType type)
@@ -85,8 +109,7 @@ namespace EraDream.StoryEditor.Nodes
 
             if (_transitionSelector != null)
                 TransitionType = _transitionSelector.Selected == 1 ? "Cut" : _transitionSelector.Selected == 2 ? "Slide" : "Fade";
-            if (_durationSlider != null)
-                TransitionDuration = (float)_durationSlider.Value;
+            // TransitionDuration 已由输入框或滑块事件实时维护，保留超出滑块范围的合法输入。
         }
     }
 }

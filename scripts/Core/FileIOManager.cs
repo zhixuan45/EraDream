@@ -39,12 +39,48 @@ namespace EraDream.Core
         /// </summary>
         public static void OpenLoadDialog(string title, string filter, Action<string> onFileSelected)
         {
+            OpenLoadDialog(title, filter, false, paths => {
+                if (paths.Length > 0)
+                    onFileSelected?.Invoke(paths[0]);
+            });
+        }
+
+        /// <summary>
+        /// 打开文件选择器，并按需返回多个文件路径。
+        /// </summary>
+        public static void OpenLoadDialog(string title, string filter, bool allowMultiple, Action<string[]> onFilesSelected)
+        {
+            if (allowMultiple)
+            {
+                var fileDialog = new Godot.FileDialog
+                {
+                    Title = title,
+                    Access = Godot.FileDialog.AccessEnum.Filesystem,
+                    FileMode = Godot.FileDialog.FileModeEnum.OpenFiles,
+                    UseNativeDialog = true
+                };
+                fileDialog.Filters = new[] { filter };
+
+                var root = ((SceneTree)Engine.GetMainLoop()).Root;
+                root.AddChild(fileDialog);
+                fileDialog.FilesSelected += paths =>
+                {
+                    onFilesSelected?.Invoke(paths.Select(ConvertContentUriToPath).ToArray());
+                    fileDialog.QueueFree();
+                };
+                fileDialog.Canceled += () => fileDialog.QueueFree();
+                fileDialog.CallDeferred("popup_centered");
+                return;
+            }
+
             string[] filters = { filter };
             Callable callback = Callable.From((bool status, string[] paths, int index) => {
                 if (status && paths.Length > 0)
                 {
-                    string realPath = ConvertContentUriToPath(paths[0]);
-                    onFileSelected?.Invoke(realPath);
+                    string[] realPaths = paths
+                        .Select(ConvertContentUriToPath)
+                        .ToArray();
+                    onFilesSelected?.Invoke(realPaths);
                 }
             });
 

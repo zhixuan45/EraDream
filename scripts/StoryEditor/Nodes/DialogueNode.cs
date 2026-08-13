@@ -25,6 +25,13 @@ namespace EraDream.StoryEditor.Nodes
         private HSlider _typingSlider;
         private HSlider _autoAdvanceSlider;
         private HSlider _soundVolumeSlider;
+        private bool _textLayoutRefreshQueued;
+        private float _lastNodeWidth = -1f;
+
+        private const float MinimumNodeWidth = 260f;
+        private const float CollapsedNodeHeight = 160f;
+        private const float ExpandedNodeHeight = 560f;
+        private const float MinimumContentHeight = 60f;
 
         public override GraphNode CreateGraphNode(GraphEdit host)
         {
@@ -48,9 +55,11 @@ namespace EraDream.StoryEditor.Nodes
                 PlaceholderText = Tr("KEY_PLACEHOLDER_DIALOGUE"),
                 CustomMinimumSize = new Vector2(220, 60),
                 Text = Content,
-                // 对话文本按节点宽度自动折行，中文长句也不会溢出节点边界。
+                // 按节点可用宽度折行，并让长中文或连续字符串也能在边界处换行。
+                WrapMode = TextEdit.LineWrappingMode.Boundary,
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                ScrollFitContentHeight = true
+                ScrollFitContentHeight = true,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
             };
             node.AddChild(_contentInput);
 
@@ -62,6 +71,7 @@ namespace EraDream.StoryEditor.Nodes
             node.AddChild(_detailPanel);
 
             UpdateNodeSize(node);
+            BindAdaptiveTextLayout(node);
             node.TreeExiting += UnsubscribeResourceChanges;
             ResourceManagerUI.ResourcesChanged += OnResourcesChanged;
             return node;
@@ -101,8 +111,58 @@ namespace EraDream.StoryEditor.Nodes
 
         private void UpdateNodeSize(GraphNode node)
         {
-            node.CustomMinimumSize = new Vector2(260, IsExpanded ? 560 : 160);
-            node.Size = Vector2.Zero;
+            float minimumHeight = IsExpanded ? ExpandedNodeHeight : CollapsedNodeHeight;
+            node.CustomMinimumSize = new Vector2(MinimumNodeWidth, minimumHeight);
+            node.Size = new Vector2(Mathf.Max(node.Size.X, MinimumNodeWidth), minimumHeight);
+            QueueTextLayoutRefresh(node);
+        }
+
+        private void BindAdaptiveTextLayout(GraphNode node)
+        {
+            _contentInput.TextChanged += () => QueueTextLayoutRefresh(node);
+            node.Resized += () =>
+            {
+                // 高度刷新也会触发 Resized，仅在宽度变化时重新计算换行。
+                if (Mathf.IsEqualApprox(_lastNodeWidth, node.Size.X)) return;
+                _lastNodeWidth = node.Size.X;
+                QueueTextLayoutRefresh(node);
+            };
+            node.ResizeRequest += requestedSize =>
+            {
+                Vector2 minimumSize = node.GetCombinedMinimumSize();
+                node.Size = new Vector2(
+                    Mathf.Max(requestedSize.X, minimumSize.X),
+                    Mathf.Max(requestedSize.Y, minimumSize.Y));
+                QueueTextLayoutRefresh(node);
+            };
+            QueueTextLayoutRefresh(node);
+        }
+
+        private void QueueTextLayoutRefresh(GraphNode node)
+        {
+            if (_textLayoutRefreshQueued || !GodotObject.IsInstanceValid(_contentInput)) return;
+            _textLayoutRefreshQueued = true;
+
+            // 等待容器应用新宽度后，再读取 TextEdit 生成的实际换行行数。
+            Callable.From(() => RefreshTextLayout(node)).CallDeferred();
+        }
+
+        private void RefreshTextLayout(GraphNode node)
+        {
+            _textLayoutRefreshQueued = false;
+            if (!GodotObject.IsInstanceValid(node) || !GodotObject.IsInstanceValid(_contentInput)) return;
+
+            int visualLineCount = 0;
+            for (int line = 0; line < _contentInput.GetLineCount(); line++)
+                visualLineCount += 1 + _contentInput.GetLineWrapCount(line);
+
+            // 预留上下内边距，节点本身仍以原有默认尺寸作为最小长宽。
+            float estimatedHeight = visualLineCount * _contentInput.GetLineHeight() + 16f;
+            _contentInput.CustomMinimumSize = new Vector2(220f, Mathf.Max(MinimumContentHeight, estimatedHeight));
+            _contentInput.UpdateMinimumSize();
+
+            Vector2 minimumSize = node.GetCombinedMinimumSize();
+            node.Size = new Vector2(Mathf.Max(node.Size.X, minimumSize.X), minimumSize.Y);
         }
 
         private void OnResourcesChanged(ResourceManagerUI.ResourceType type)

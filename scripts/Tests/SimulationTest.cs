@@ -20,6 +20,9 @@ public partial class SimulationTest : Node
             // 等待一帧确保 Autoload 已就绪
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
+            // 测试必须从全新状态开始，避免自动存档或同场景其他测试污染默认值断言。
+            GameManager.Instance.StartNewGame(new List<string>());
+
             VerifyInitialization();
             VerifyDefaultStats();
             VerifyAdvanceTurn();

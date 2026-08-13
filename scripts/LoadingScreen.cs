@@ -34,6 +34,9 @@ public partial class LoadingScreen : Control
     private List<BarrageRow> _rows = new List<BarrageRow>();
     private float _timer = 0f;
     private float _minLoadTime = 0.5f; // 给一个最小加载时间，防止画面一闪而过
+    private bool _loadFailed;
+    private bool _fallbackAttempted;
+    private const string FallbackScene = "res://scenes/MainMenuScreen.tscn";
 
     // 静态变量，用于控制加载后的跳转目标
     public static string TargetScene = "res://scenes/MainMenuScreen.tscn";
@@ -82,11 +85,17 @@ public partial class LoadingScreen : Control
         // 开启后台异步加载，避免主线程卡死
         if (ResourceLoader.Exists(TargetScene))
         {
-            ResourceLoader.LoadThreadedRequest(TargetScene);
+            Error requestError = ResourceLoader.LoadThreadedRequest(TargetScene);
+            if (requestError != Error.Ok)
+            {
+                GD.PrintErr($"[Error] LoadingScreen: 无法开始加载 {TargetScene}: {requestError}");
+                MarkLoadFailed();
+            }
         }
         else
         {
             GD.PrintErr($"[Error] LoadingScreen: TargetScene {TargetScene} does not exist!");
+            MarkLoadFailed();
         }
     }
 
@@ -255,6 +264,13 @@ public partial class LoadingScreen : Control
         }
 
         _timer += (float)delta;
+
+        if (_loadFailed)
+        {
+            if (_timer >= _minLoadTime)
+                ReturnToFallbackScene();
+            return;
+        }
         
         Godot.Collections.Array progressArray = new Godot.Collections.Array();
         ResourceLoader.ThreadLoadStatus status = ResourceLoader.LoadThreadedGetStatus(TargetScene, progressArray);
@@ -264,9 +280,24 @@ public partial class LoadingScreen : Control
             _loadingText.Text = "Loading... 100%";
             if (_timer >= _minLoadTime)
             {
-                SetProcess(false);
-                PackedScene nextScene = (PackedScene)ResourceLoader.LoadThreadedGet(TargetScene);
-                GetTree().ChangeSceneToPacked(nextScene);
+                Resource loadedResource = ResourceLoader.LoadThreadedGet(TargetScene);
+                if (loadedResource is not PackedScene nextScene)
+                {
+                    GD.PrintErr($"[Error] LoadingScreen: 目标资源不是场景: {TargetScene}");
+                    MarkLoadFailed();
+                    return;
+                }
+
+                Error changeError = GetTree().ChangeSceneToPacked(nextScene);
+                if (changeError == Error.Ok)
+                {
+                    SetProcess(false);
+                }
+                else
+                {
+                    GD.PrintErr($"[Error] LoadingScreen: 切换目标场景失败 {TargetScene}: {changeError}");
+                    MarkLoadFailed();
+                }
             }
         }
         else if (status == ResourceLoader.ThreadLoadStatus.InProgress)
@@ -278,12 +309,27 @@ public partial class LoadingScreen : Control
         }
         else
         {
-            _loadingText.Text = "Loading Failed!";
-            if (_timer >= _minLoadTime)
-            {
-                SetProcess(false);
-                GetTree().ChangeSceneToFile(TargetScene); // 回退方案
-            }
+            MarkLoadFailed();
         }
+    }
+
+    private void MarkLoadFailed()
+    {
+        _loadFailed = true;
+        if (_loadingText != null)
+            _loadingText.Text = "Loading Failed!";
+    }
+
+    private void ReturnToFallbackScene()
+    {
+        // 无论安全场景是否可用都只尝试一次，避免失败后每帧重复切场景。
+        if (_fallbackAttempted)
+            return;
+
+        _fallbackAttempted = true;
+        SetProcess(false);
+        TargetScene = FallbackScene;
+        if (GetTree().ChangeSceneToFile(FallbackScene) != Error.Ok)
+            GD.PushError($"[LoadingScreen] 无法返回安全场景: {FallbackScene}");
     }
 }

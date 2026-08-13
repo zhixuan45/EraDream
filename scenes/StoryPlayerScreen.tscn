@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://story_player_01"]
+[gd_scene load_steps=2 format=3 uid="uid://story_player_01"]
 
 [ext_resource type="Script" path="res://scripts/StoryPlayerEngine.cs" id="1_player"]
-[ext_resource type="Script" path="res://scripts/Core/SafeAreaAdapter.cs" id="2_safe"]
 
 [node name="StoryPlayerScreen" type="Control"]
 layout_mode = 3
@@ -39,7 +38,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("2_safe")
 
 [node name="Control_Root" type="Control" parent="UI_Layer/SafeAreaAdapter"]
 layout_mode = 2

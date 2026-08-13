@@ -15,10 +15,22 @@ namespace EraDream.Game.UI
         public event Action ContractSigned;
 
         private Control _scoutPanel;
-        private HBoxContainer _cardsContainer;
+        private Container _cardsContainer;
         private Button _btnRefresh;
         private Button _btnClose;
         private Label _lblMoney;
+        private readonly List<CardLayout> _cardLayouts = new();
+
+        private const float CompactWidth = 760.0f;
+        private const float CompactHeight = 480.0f;
+
+        private sealed class CardLayout
+        {
+            public PanelContainer Container { get; init; }
+            public VBoxContainer Content { get; init; }
+            public TextureRect Portrait { get; init; }
+            public Button ContractButton { get; init; }
+        }
 
         // 记录当前选中的马娘卡片 ID
         private string _selectedUmaId = "";
@@ -26,17 +38,33 @@ namespace EraDream.Game.UI
         public override void _Ready()
         {
             // 绑定并查找子节点
-            _scoutPanel = GetNode<Control>("Panel");
-            _cardsContainer = GetNode<HBoxContainer>("Panel/CardsContainer");
-            _btnRefresh = GetNode<Button>("Panel/BtnRefresh");
-            _btnClose = GetNode<Button>("Panel/BtnClose");
-            _lblMoney = GetNode<Label>("Panel/LblMoney");
+            // 使用唯一节点名，避免响应式容器调整层级后路径失效。
+            _scoutPanel = FindRequiredNode<Control>("Panel");
+            _cardsContainer = FindRequiredNode<Container>("CardsContainer");
+            _btnRefresh = FindRequiredNode<Button>("BtnRefresh");
+            _btnClose = FindRequiredNode<Button>("BtnClose");
+            _lblMoney = FindRequiredNode<Label>("LblMoney");
 
             // 绑定按钮事件
             _btnRefresh.Pressed += OnRefreshPressed;
-            _btnClose.Pressed += () => QueueFree();
+            _btnClose.Pressed += OnClosePressed;
+
+            if (ResponsiveManager.Instance != null)
+                ResponsiveManager.Instance.ScreenSizeChanged += OnScreenSizeChanged;
 
             RefreshUI();
+            ApplyResponsiveLayout(GetViewport().GetVisibleRect().Size);
+        }
+
+        public override void _ExitTree()
+        {
+            if (ResponsiveManager.Instance != null)
+                ResponsiveManager.Instance.ScreenSizeChanged -= OnScreenSizeChanged;
+
+            if (IsInstanceValid(_btnRefresh))
+                _btnRefresh.Pressed -= OnRefreshPressed;
+            if (IsInstanceValid(_btnClose))
+                _btnClose.Pressed -= OnClosePressed;
         }
 
         /// <summary>
@@ -52,6 +80,7 @@ namespace EraDream.Game.UI
             {
                 child.QueueFree();
             }
+            _cardLayouts.Clear();
 
             _lblMoney.Text = $"训练员资金: {state.Player.Money} 金币";
 
@@ -61,6 +90,8 @@ namespace EraDream.Game.UI
                 var card = CreateUmaCard(umaId);
                 _cardsContainer.AddChild(card);
             }
+
+            ApplyResponsiveLayout(GetViewport().GetVisibleRect().Size);
         }
 
         /// <summary>
@@ -125,7 +156,89 @@ namespace EraDream.Game.UI
             btnContract.Pressed += () => OnContractPressed(umaId);
             vbox.AddChild(btnContract);
 
+            _cardLayouts.Add(new CardLayout {
+                Container = container,
+                Content = vbox,
+                Portrait = textureRect,
+                ContractButton = btnContract
+            });
+
             return container;
+        }
+
+        private void OnScreenSizeChanged(Vector2 screenSize)
+        {
+            // 延迟到容器完成本帧布局后再应用尺寸，避免最大化或还原时使用旧值。
+            CallDeferred(nameof(ApplyResponsiveLayoutDeferred), screenSize);
+        }
+
+        private void ApplyResponsiveLayoutDeferred(Vector2 screenSize)
+        {
+            ApplyResponsiveLayout(screenSize);
+        }
+
+        private void ApplyResponsiveLayout(Vector2 screenSize)
+        {
+            if (!IsInstanceValid(_scoutPanel) || screenSize.X <= 0 || screenSize.Y <= 0)
+                return;
+
+            bool narrow = screenSize.X <= CompactWidth;
+            bool shortScreen = screenSize.Y <= CompactHeight;
+            // 与场景 SafeMargin 的四边 12px 保持一致，最小窗口不会溢出。
+            const float outerMargin = 12.0f;
+            Vector2 panelSize = new(
+                Mathf.Min(900.0f, Mathf.Max(0.0f, screenSize.X - outerMargin * 2.0f)),
+                Mathf.Min(560.0f, Mathf.Max(0.0f, screenSize.Y - outerMargin * 2.0f)));
+
+            // CenterContainer 依据最小尺寸居中：大窗口保持原尺度，小窗口随可用空间收缩。
+            _scoutPanel.CustomMinimumSize = panelSize;
+
+            float horizontalPadding = narrow ? 12.0f : 40.0f;
+            float cardGap = narrow ? 8.0f : 30.0f;
+            float availableWidth = Mathf.Max(140.0f, panelSize.X - horizontalPadding * 2.0f);
+            int cardCount = Mathf.Max(1, _cardLayouts.Count);
+            float cardWidth = Mathf.Clamp(
+                (availableWidth - cardGap * (cardCount - 1)) / cardCount,
+                narrow ? 140.0f : 180.0f,
+                240.0f);
+            float portraitHeight = shortScreen ? 76.0f : narrow ? 120.0f : 200.0f;
+            float cardHeight = shortScreen ? 172.0f : narrow ? 250.0f : 360.0f;
+            int contentGap = shortScreen ? 4 : narrow ? 8 : 15;
+
+            _cardsContainer.AddThemeConstantOverride("separation", (int)cardGap);
+            // 同步收紧滚动内容高度，给窄高窗口底部操作按钮留出空间。
+            _cardsContainer.CustomMinimumSize = new Vector2(0.0f, cardHeight);
+            foreach (CardLayout card in _cardLayouts)
+            {
+                if (!IsInstanceValid(card.Container))
+                    continue;
+
+                card.Container.CustomMinimumSize = new Vector2(cardWidth, cardHeight);
+                card.Content.AddThemeConstantOverride("separation", contentGap);
+                card.Portrait.CustomMinimumSize = new Vector2(0.0f, portraitHeight);
+                // 签约按钮始终保留完整点击高度，不参与窄屏压缩。
+                card.ContractButton.CustomMinimumSize = new Vector2(Mathf.Min(160.0f, cardWidth - 12.0f), 40.0f);
+            }
+
+        }
+
+        private T FindRequiredNode<T>(string nodeName) where T : Node
+        {
+            T node = FindOptionalNode<T>(nodeName);
+            if (node == null)
+                throw new InvalidOperationException($"ScoutingUI 缺少节点: {nodeName}");
+
+            return node;
+        }
+
+        private T FindOptionalNode<T>(string nodeName) where T : Node
+        {
+            return GetNodeOrNull<T>($"%{nodeName}") ?? FindChild(nodeName, true, false) as T;
+        }
+
+        private void OnClosePressed()
+        {
+            QueueFree();
         }
 
         private void OnRefreshPressed()
