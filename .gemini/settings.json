@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "repo-manager": {
-      "url": "http://localhost:5000/sse",
-      "type": "sse"
-    }
-  }
-}
