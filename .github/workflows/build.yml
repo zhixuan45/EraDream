@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Godot C# project
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Pin the .NET 8 SDK line to keep CI builds reproducible.
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: EraDream.csproj
+
+      - name: Restore dependencies
+        run: dotnet restore EraDream.csproj
+
+      - name: Build project
+        run: dotnet build EraDream.csproj --configuration Release --no-restore

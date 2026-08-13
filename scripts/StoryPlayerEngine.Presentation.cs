@@ -16,7 +16,9 @@ public partial class StoryPlayerEngine
     private Tween _transitionTween;
     private Tween _autoAdvanceTween;
     private readonly List<AudioStreamPlayer> _sfxPlayers = new();
-    private AudioStreamPlayer _voicePlayer;
+    private readonly Dictionary<string, List<AudioStreamPlayer>> _nodeAudioPlayers = new();
+    private readonly Dictionary<AudioStreamPlayer, Tween> _audioFadeTweens = new();
+    private readonly HashSet<string> _startedVoiceNodeIds = new(StringComparer.Ordinal);
     private object _activeBackgroundData;
     private float _dialogueBaseTop;
     private float _dialogueBaseBottom;
@@ -130,9 +132,7 @@ public partial class StoryPlayerEngine
     private void InitializePlaybackTools()
     {
         _bgmPlayer = new AudioStreamPlayer { Name = "BgmPlayer" };
-        _voicePlayer = new AudioStreamPlayer { Name = "VoicePlayer" };
         AddChild(_bgmPlayer);
-        AddChild(_voicePlayer);
     }
 
     private void UpdateBackground(string file, string transition, object backgroundData)
@@ -243,16 +243,31 @@ public partial class StoryPlayerEngine
         _contentLabel?.AddThemeFontOverride("normal_font", font);
     }
 
-    private void PlayVoice(string file)
+    private void PlayVoice(string file, string nodeId)
     {
-        if (string.IsNullOrWhiteSpace(file) || _voicePlayer == null) return;
+        if (string.IsNullOrWhiteSpace(file) || string.IsNullOrWhiteSpace(nodeId)) return;
+        // 同一文本节点只启动一次语音，场景音效不参与语音去重。
+        if (!_startedVoiceNodeIds.Add(nodeId)) return;
         var stream = ResourceProxy.LoadAudioFromProject(file);
-        if (stream == null) { GD.PushWarning($"[StoryPlayerEngine] 语音无法加载: {file}"); return; }
-        _voicePlayer.Stream = stream;
-        _voicePlayer.Play();
+        if (stream == null)
+        {
+            _startedVoiceNodeIds.Remove(nodeId);
+            GD.PushWarning($"[StoryPlayerEngine] 语音无法加载: {file}");
+            return;
+        }
+        var player = new AudioStreamPlayer { Stream = stream, VolumeDb = 0f };
+        AddChild(player);
+        _sfxPlayers.Add(player);
+        player.Finished += () =>
+        {
+            UntrackNodeAudio(nodeId, player);
+            ReleaseAudioPlayer(player, true);
+        };
+        player.Play();
+        TrackNodeAudio(nodeId, player);
     }
 
-    private void PlaySfx(string file, float volume, bool waitForCompletion, string nextNodeId)
+    private void PlaySfx(string file, float volume, bool waitForCompletion, string nextNodeId, string nodeId = "")
     {
         var stream = ResourceProxy.LoadAudioFromProject(file);
         if (stream == null)
@@ -264,9 +279,66 @@ public partial class StoryPlayerEngine
         var player = new AudioStreamPlayer { Stream = stream, VolumeDb = LinearToDb(Mathf.Clamp(volume, 0f, 1f)) };
         AddChild(player);
         _sfxPlayers.Add(player);
-        player.Finished += () => { _sfxPlayers.Remove(player); player.QueueFree(); if (waitForCompletion) GoToNextNode(nextNodeId); };
+        player.Finished += () =>
+        {
+            UntrackNodeAudio(nodeId, player);
+            ReleaseAudioPlayer(player, true);
+            if (waitForCompletion) GoToNextNode(nextNodeId);
+        };
         player.Play();
+        TrackNodeAudio(nodeId, player);
         if (!waitForCompletion && nextNodeId != null) GoToNextNode(nextNodeId);
+    }
+
+    private void TrackNodeAudio(string nodeId, AudioStreamPlayer player)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || player == null) return;
+        if (!_nodeAudioPlayers.TryGetValue(nodeId, out var players))
+            _nodeAudioPlayers[nodeId] = players = new List<AudioStreamPlayer>();
+        if (!players.Contains(player)) players.Add(player);
+    }
+
+    private void UntrackNodeAudio(string nodeId, AudioStreamPlayer player)
+    {
+        if (!_nodeAudioPlayers.TryGetValue(nodeId, out var players)) return;
+        players.Remove(player);
+        if (players.Count == 0) _nodeAudioPlayers.Remove(nodeId);
+    }
+
+    private void FinishNodeAudio(string nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId) || !_nodeAudioPlayers.TryGetValue(nodeId, out var players)) return;
+        _nodeAudioPlayers.Remove(nodeId);
+        foreach (var player in players.ToArray())
+        {
+            if (player == null || !GodotObject.IsInstanceValid(player)) continue;
+            StartAudioFade(player);
+        }
+    }
+
+    private void StartAudioFade(AudioStreamPlayer player)
+    {
+        if (player == null || !GodotObject.IsInstanceValid(player) || player.IsQueuedForDeletion()) return;
+        if (_audioFadeTweens.Remove(player, out var oldTween)) oldTween.Kill();
+        var fade = CreateTween();
+        _audioFadeTweens[player] = fade;
+        fade.TweenProperty(player, "volume_db", -80f, .25f);
+        fade.Finished += () =>
+        {
+            // 完成回调不能再次 Kill 当前 Tween，否则会与 Godot 原生回收流程交叉。
+            if (!_audioFadeTweens.Remove(player)) return;
+            if (!GodotObject.IsInstanceValid(player) || player.IsQueuedForDeletion()) return;
+            player.Stop();
+            ReleaseAudioPlayer(player, false);
+        };
+    }
+
+    private void ReleaseAudioPlayer(AudioStreamPlayer player, bool cancelFade)
+    {
+        if (player == null) return;
+        if (cancelFade && _audioFadeTweens.Remove(player, out var fade)) fade.Kill();
+        _sfxPlayers.Remove(player);
+        if (GodotObject.IsInstanceValid(player) && !player.IsQueuedForDeletion()) player.QueueFree();
     }
 
     private bool TryHandleExtensionNode(object node, bool pauseForEdit)
@@ -279,7 +351,7 @@ public partial class StoryPlayerEngine
         }
         if (typeName == "SoundEffectNodeData" || typeName == "SfxNodeData")
         {
-            PlaySfx(GetStringProperty(node, "AudioFile", GetStringProperty(node, "File", "")), GetFloatProperty(node, "Volume", 1f), GetBoolProperty(node, "WaitForCompletion", false), GetStringProperty(node, "NextNodeId", ""));
+            PlaySfx(GetStringProperty(node, "AudioFile", GetStringProperty(node, "File", "")), GetFloatProperty(node, "Volume", 1f), GetBoolProperty(node, "WaitForCompletion", false), GetStringProperty(node, "NextNodeId", ""), GetStringProperty(node, "Id", ""));
             return true;
         }
         return false;
@@ -298,7 +370,7 @@ public partial class StoryPlayerEngine
         {
             // 预执行阶段只允许非阻塞音效与文本并行。
             if (GetBoolProperty(node, "WaitForCompletion", false)) return false;
-            PlaySfx(GetStringProperty(node, "AudioFile", GetStringProperty(node, "File", "")), GetFloatProperty(node, "Volume", 1f), false, null);
+            PlaySfx(GetStringProperty(node, "AudioFile", GetStringProperty(node, "File", "")), GetFloatProperty(node, "Volume", 1f), false, null, GetStringProperty(node, "Id", ""));
             return true;
         }
         return false;
@@ -331,6 +403,11 @@ public partial class StoryPlayerEngine
     {
         _backgroundTween?.Kill();
         _transitionTween?.Kill();
+        foreach (var fade in _audioFadeTweens.Values) fade?.Kill();
+        _audioFadeTweens.Clear();
+        foreach (var player in _sfxPlayers.ToArray()) ReleaseAudioPlayer(player, false);
+        _nodeAudioPlayers.Clear();
+        _startedVoiceNodeIds.Clear();
     }
 
     private static float LinearToDb(float linear) => linear <= 0.001f ? -80f : Mathf.LinearToDb(linear);

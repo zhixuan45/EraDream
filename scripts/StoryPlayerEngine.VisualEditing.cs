@@ -91,6 +91,7 @@ public partial class StoryPlayerEngine
         else if (inputEvent is InputEventMouseMotion motion && _draggedSprite != null)
         {
             _draggedSprite.ApplyDrag(ToDesignPosition(motion.Position) + _dragOffset);
+            SyncSpriteRuntimeState(_draggedSprite);
             GetViewport().SetInputAsHandled();
         }
         else if (inputEvent is InputEventMouseMotion backgroundMotion && _draggingBackground)
@@ -129,12 +130,20 @@ public partial class StoryPlayerEngine
                     if (_lastPinchDistance > 0)
                     {
                         float delta = (distance - _lastPinchDistance) / 180f;
-                        if (_draggedSprite != null) _draggedSprite.AdjustScale(delta); else AdjustBackgroundScale(delta);
+                        if (_draggedSprite != null)
+                        {
+                            _draggedSprite.AdjustScale(delta);
+                            SyncSpriteRuntimeState(_draggedSprite);
+                        }
+                        else AdjustBackgroundScale(delta);
                     }
                     _lastPinchDistance = distance;
                 }
                 else if (_draggedSprite != null)
+                {
                     _draggedSprite.ApplyDrag(ToDesignPosition(drag.Position) + _dragOffset);
+                    SyncSpriteRuntimeState(_draggedSprite);
+                }
                 else
                     ApplyBackgroundDrag(drag.Relative / Mathf.Max(_designCanvas.Scale.X, .001f));
                 break;

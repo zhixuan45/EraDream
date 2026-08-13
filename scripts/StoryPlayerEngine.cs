@@ -32,6 +32,8 @@ public partial class StoryPlayerEngine : Control
     private Control _characterContainer;
 
     private readonly Dictionary<string, CharacterSprite> _activeSprites = new();
+    // 角色的 Transform 状态独立于当前差分节点，切换表情时不会回到默认位置。
+    private readonly Dictionary<string, SpriteRuntimeState> _spriteRuntimeStates = new();
     private readonly Dictionary<int, CharacterSprite> _activeStickerSprites = new();
     private readonly HashSet<string> _processingNodeIds = new(StringComparer.Ordinal);
     private List<BaseNodeData> _storyNodes = new();
@@ -44,6 +46,14 @@ public partial class StoryPlayerEngine : Control
     private bool _autoPlayUserOverride;
     private bool _hasTerminated;
     private Tween _textTween;
+    private string _textAudioNodeId = "";
+
+    private sealed class SpriteRuntimeState
+    {
+        public Vector2 Position;
+        public float Scale = 1f;
+        public bool FlipH;
+    }
 
     public static string CurrentStoryPath = "";
     public static List<BaseNodeData> PreviewNodes;
@@ -245,15 +255,15 @@ public partial class StoryPlayerEngine : Control
                     break;
                 case DialogueNodeData node:
                     UpdateDialogueAndCharacter(node);
-                    PlayVoice(node.VoiceFile);
-                    PlaySfx(node.SoundEffectFile, node.SoundEffectVolume, false, null);
+                    PlayVoice(node.VoiceFile, node.Id);
+                    PlaySfx(node.SoundEffectFile, node.SoundEffectVolume, false, null, node.Id);
                     if (!TryPreExecuteVisualNodes(node.NextNodeId, out _nextNonVisualNodeId))
                         return;
                     break;
                 case NarrativeNodeData node:
                     ApplyVisualEffects(node.BlurValue, node.Darkness);
                     UpdateDialogueUI("", node.Content, node);
-                    PlaySfx(node.SoundEffectFile, node.SoundEffectVolume, false, null);
+                    PlaySfx(node.SoundEffectFile, node.SoundEffectVolume, false, null, node.Id);
                     break;
                 case ChoiceNodeData node: ShowChoiceButtons(node); break;
                 case ValueNodeData node:
@@ -308,13 +318,23 @@ public partial class StoryPlayerEngine : Control
         _contentLabel.Text = text;
         _contentLabel.VisibleRatio = 0;
         _textTween?.Kill();
+        FinishNodeAudio(_textAudioNodeId);
+        _textAudioNodeId = nodeData is BaseNodeData baseNode ? baseNode.Id : "";
+        string textNodeId = _textAudioNodeId;
         _isTextAnimating = true;
         float nodeSpeed = GetFloatProperty(nodeData, "TypingCharsPerSecond", GetFloatProperty(nodeData, "TypewriterSpeed", 0f));
         float speed = nodeSpeed > 0f ? nodeSpeed : ProjectManager.Metadata.DefaultTypewriterSpeed;
         float duration = text.Length == 0 ? 0 : text.Length / Mathf.Max(speed, 1f);
         _textTween = CreateTween();
         _textTween.TweenProperty(_contentLabel, "visible_ratio", 1f, duration);
-        _textTween.Finished += () => { _isTextAnimating = false; ScheduleAutoAdvance(nodeData); };
+        _textTween.Finished += () =>
+        {
+            // 被替换的旧打字动画不得结束新节点的音频。
+            if (_textAudioNodeId != textNodeId || _currentNode?.Id != textNodeId) return;
+            _isTextAnimating = false;
+            FinishNodeAudio(textNodeId);
+            ScheduleAutoAdvance(nodeData);
+        };
     }
 
     private void HandleSpriteNode(SpriteNodeData data)
@@ -337,10 +357,19 @@ public partial class StoryPlayerEngine : Control
             sprite = new CharacterSprite();
             _characterContainer.AddChild(sprite);
             _activeSprites[data.CharacterId] = sprite;
+            sprite.SourceData = data;
+            sprite.UpdateCharacter(data.CharacterId, data.Expression, data.IsSilhouette);
+            UpdateSpritePosition(sprite, data.Position);
+            SaveSpriteRuntimeState(data.CharacterId, sprite);
         }
-        sprite.SourceData = data;
+        else
+        {
+            // 差分节点可以只负责换图；已有角色沿用用户在预览中调整后的 Transform。
+            sprite.SourceData = data;
+            ApplySpriteRuntimeState(data.CharacterId, sprite, data);
+        }
+        sprite.SourceData ??= data;
         sprite.UpdateCharacter(data.CharacterId, data.Expression, data.IsSilhouette);
-        UpdateSpritePosition(sprite, data.Position);
         sprite.Modulate = new Color(1, 1, 1, 0);
         var fadeTween = CreateTween();
         // Show/Change 都使用淡入；时长只在播放时约束为非负值。
@@ -376,6 +405,53 @@ public partial class StoryPlayerEngine : Control
         float x = position switch { "Left" => DesignSize.X * .25f - size.X / 2, "Right" => DesignSize.X * .75f - size.X / 2, _ => (DesignSize.X - size.X) / 2 };
         sprite.Position = new Vector2(x + sprite.SourceData.OffsetX, DesignSize.Y - size.Y + sprite.SourceData.OffsetY);
         sprite.ApplyTransform();
+    }
+
+    private void SaveSpriteRuntimeState(string characterId, CharacterSprite sprite)
+    {
+        if (string.IsNullOrWhiteSpace(characterId) || sprite == null) return;
+        _spriteRuntimeStates[characterId] = new SpriteRuntimeState
+        {
+            Position = sprite.Position,
+            Scale = sprite.SourceData?.Scale ?? 1f,
+            FlipH = sprite.SourceData?.FlipH ?? false
+        };
+    }
+
+    private void ApplySpriteRuntimeState(string characterId, CharacterSprite sprite, SpriteNodeData nodeData)
+    {
+        if (!_spriteRuntimeStates.TryGetValue(characterId, out var state))
+        {
+            UpdateSpritePosition(sprite, nodeData.Position);
+            SaveSpriteRuntimeState(characterId, sprite);
+            return;
+        }
+
+        Vector2 basePosition = GetSpriteBasePosition(nodeData.Position, sprite.Size);
+        nodeData.OffsetX = state.Position.X - basePosition.X;
+        nodeData.OffsetY = state.Position.Y - basePosition.Y;
+        nodeData.Scale = state.Scale;
+        nodeData.FlipH = state.FlipH;
+        sprite.Position = state.Position;
+        sprite.ApplyTransform();
+    }
+
+    // 使用新差分节点的基准位置换算偏移，避免切换差分时重复累积偏移量。
+    private static Vector2 GetSpriteBasePosition(string position, Vector2 size)
+    {
+        float x = position switch
+        {
+            "Left" => DesignSize.X * .25f - size.X / 2,
+            "Right" => DesignSize.X * .75f - size.X / 2,
+            _ => (DesignSize.X - size.X) / 2
+        };
+        return new Vector2(x, DesignSize.Y - size.Y);
+    }
+
+    private void SyncSpriteRuntimeState(CharacterSprite sprite)
+    {
+        if (sprite == null || string.IsNullOrWhiteSpace(sprite.CurrentCharacterId)) return;
+        SaveSpriteRuntimeState(sprite.CurrentCharacterId, sprite);
     }
 
     private void PlayBGM(string file, float volume = 1f)
@@ -451,6 +527,7 @@ public partial class StoryPlayerEngine : Control
             _textTween?.Kill();
             _contentLabel.VisibleRatio = 1;
             _isTextAnimating = false;
+            FinishNodeAudio(_textAudioNodeId);
             ScheduleAutoAdvance(_currentNode);
             return;
         }
@@ -563,6 +640,7 @@ public partial class StoryPlayerEngine : Control
         _hasTerminated = true;
         _textTween?.Kill();
         _isTextAnimating = false;
+        FinishNodeAudio(_textAudioNodeId);
         CancelAutoAdvance();
         if (_interactButton != null)
             _interactButton.Disabled = true;
